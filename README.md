@@ -1,20 +1,20 @@
 # Band Chat
 
-A Discord-style real-time chat application for bands, built with Next.js, Tailwind CSS, and PocketBase.
+A Discord-style real-time chat application for bands, built with Next.js and Tailwind CSS.
 
 ## Features
 
 - Discord-like three-column layout (server sidebar, channel list, message area)
-- Real-time messaging powered by PocketBase Realtime
+- Real-time messaging via Server-Sent Events (SSE)
 - Channel-based conversations
 - Dark theme matching Discord's aesthetic
+- **Zero-config backend** — data is stored in-memory with built-in Next.js API routes, so there's nothing extra to install or run
 
 ## Getting Started
 
 ### Prerequisites
 
 - Node.js 18+
-- [PocketBase](https://pocketbase.io) (single-file backend)
 
 ### 1. Install dependencies
 
@@ -22,41 +22,7 @@ A Discord-style real-time chat application for bands, built with Next.js, Tailwi
 npm install
 ```
 
-### 2. Set up PocketBase
-
-Download PocketBase from [pocketbase.io](https://pocketbase.io/docs/) and start it:
-
-```bash
-./pocketbase serve
-```
-
-Open the Admin UI at `http://127.0.0.1:8090/_/` and create two collections:
-
-**channels**
-| Field      | Type   | Notes            |
-|------------|--------|------------------|
-| name       | text   | e.g. "setlists"  |
-
-**messages**
-| Field      | Type     | Notes                       |
-|------------|----------|-----------------------------|
-| content    | text     |                             |
-| profile_id | text     |                             |
-| channel_id | relation | Single relation → channels  |
-
-> **Tip:** PocketBase has built-in realtime support. Make sure to configure API rules on each collection to allow the desired access (e.g. allow list/view/create for all users).
-
-### 3. Configure environment variables
-
-Copy the example file and fill in your PocketBase URL:
-
-```bash
-cp .env.local.example .env.local
-```
-
-Edit `.env.local` with your PocketBase URL (default is `http://127.0.0.1:8090`).
-
-### 4. Run the development server
+### 2. Run the development server
 
 ```bash
 npm run dev
@@ -64,18 +30,24 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000) to see the app.
 
+That's it! The app comes with three default channels (`general`, `setlists`, `practice`) and is ready to use immediately. Messages are stored in memory, so they reset when the server restarts.
+
 ## Project Structure
 
 ```
 src/
   app/
-    layout.tsx      # Root layout with dark theme
-    page.tsx        # Main chat page with three-column layout
-    globals.css     # Global styles (Discord dark palette)
+    api/
+      channels/route.ts   # GET channels
+      messages/route.ts    # GET/POST messages
+      messages/stream/route.ts  # SSE real-time stream
+    layout.tsx             # Root layout with dark theme
+    page.tsx               # Main chat page with three-column layout
+    globals.css            # Global styles (Discord dark palette)
   components/
-    ChannelList.tsx # Channel sidebar component
-    MessageArea.tsx # Message display and input with realtime
+    ChannelList.tsx        # Channel sidebar component
+    MessageArea.tsx        # Message display and input with real-time
   lib/
-    pocketbase.ts   # PocketBase client instance
-    types.ts        # TypeScript interfaces for collections
+    store.ts               # In-memory data store
+    types.ts               # TypeScript interfaces
 ```

@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { pb } from "@/lib/pocketbase";
 import { Channel } from "@/lib/types";
 import ChannelList from "@/components/ChannelList";
 import MessageArea from "@/components/MessageArea";
@@ -13,9 +12,8 @@ export default function ChatPage() {
   useEffect(() => {
     const fetchChannels = async () => {
       try {
-        const data = await pb.collection("channels").getFullList<Channel>({
-          sort: "created",
-        });
+        const res = await fetch("/api/channels");
+        const data: Channel[] = await res.json();
         if (data.length > 0) {
           setChannels(data);
           setActiveChannelId(data[0].id);
