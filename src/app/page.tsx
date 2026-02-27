@@ -12,10 +12,14 @@ export default function ChatPage() {
 
   useEffect(() => {
     const fetchChannels = async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("channels")
         .select("*")
         .order("created_at", { ascending: true });
+      if (error) {
+        console.error("Failed to fetch channels:", error.message);
+        return;
+      }
       if (data && data.length > 0) {
         setChannels(data as Channel[]);
         setActiveChannelId(data[0].id);

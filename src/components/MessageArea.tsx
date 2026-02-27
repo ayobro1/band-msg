@@ -22,11 +22,15 @@ export default function MessageArea({
 
     // Fetch existing messages for the channel
     const fetchMessages = async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("messages")
         .select("*")
         .eq("channel_id", channelId)
         .order("inserted_at", { ascending: true });
+      if (error) {
+        console.error("Failed to fetch messages:", error.message);
+        return;
+      }
       if (data) setMessages(data as Message[]);
     };
 
@@ -60,13 +64,20 @@ export default function MessageArea({
 
   const handleSend = async (e: FormEvent) => {
     e.preventDefault();
-    if (!newMessage.trim() || !channelId) return;
+    const content = newMessage.trim();
+    if (!content || !channelId) return;
 
-    await supabase.from("messages").insert({
-      content: newMessage.trim(),
+    // TODO: Replace "anonymous" with actual user ID from auth
+    const { error } = await supabase.from("messages").insert({
+      content,
       channel_id: channelId,
       profile_id: "anonymous",
     });
+
+    if (error) {
+      console.error("Failed to send message:", error.message);
+      return;
+    }
 
     setNewMessage("");
   };

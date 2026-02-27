@@ -6,5 +6,10 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
 export const supabase: SupabaseClient = supabaseUrl
   ? createClient(supabaseUrl, supabaseAnonKey)
   : (new Proxy({} as SupabaseClient, {
-      get: () => () => ({ data: null, error: new Error("Supabase not configured") }),
+      get: () => () => ({
+        data: null,
+        error: new Error(
+          "Supabase client not configured. Please set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY environment variables."
+        ),
+      }),
     }) as SupabaseClient);
