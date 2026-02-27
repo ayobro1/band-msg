@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState, FormEvent } from "react";
-import { pb } from "@/lib/pocketbase";
 import { Message } from "@/lib/types";
 
 interface MessageAreaProps {
@@ -23,10 +22,8 @@ export default function MessageArea({
     // Fetch existing messages for the channel
     const fetchMessages = async () => {
       try {
-        const data = await pb.collection("messages").getFullList<Message>({
-          filter: `channel_id = "${channelId}"`,
-          sort: "created",
-        });
+        const res = await fetch(`/api/messages?channelId=${channelId}`);
+        const data: Message[] = await res.json();
         setMessages(data);
       } catch (error) {
         console.error("Failed to fetch messages:", error);
@@ -35,18 +32,17 @@ export default function MessageArea({
 
     fetchMessages();
 
-    // Subscribe to new messages in realtime
-    let unsubscribe: (() => void) | undefined;
-    pb.collection("messages").subscribe<Message>("*", (e) => {
-      if (e.action === "create" && e.record.channel_id === channelId) {
-        setMessages((prev) => [...prev, e.record]);
+    // Subscribe to new messages via SSE
+    const eventSource = new EventSource("/api/messages/stream");
+    eventSource.onmessage = (event) => {
+      const msg: Message = JSON.parse(event.data);
+      if (msg.channel_id === channelId) {
+        setMessages((prev) => [...prev, msg]);
       }
-    }).then((unsub) => {
-      unsubscribe = unsub;
-    });
+    };
 
     return () => {
-      unsubscribe?.();
+      eventSource.close();
     };
   }, [channelId]);
 
@@ -59,12 +55,15 @@ export default function MessageArea({
     const content = newMessage.trim();
     if (!content || !channelId) return;
 
-    // TODO: Replace "anonymous" with actual user ID from auth
     try {
-      await pb.collection("messages").create({
-        content,
-        channel_id: channelId,
-        profile_id: "anonymous",
+      await fetch("/api/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          content,
+          channel_id: channelId,
+          profile_id: "anonymous",
+        }),
       });
     } catch (error) {
       console.error("Failed to send message:", error);
