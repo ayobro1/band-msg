@@ -36,14 +36,17 @@ export default function MessageArea({
     fetchMessages();
 
     // Subscribe to new messages in realtime
+    let unsubscribe: (() => void) | undefined;
     pb.collection("messages").subscribe<Message>("*", (e) => {
       if (e.action === "create" && e.record.channel_id === channelId) {
         setMessages((prev) => [...prev, e.record]);
       }
+    }).then((unsub) => {
+      unsubscribe = unsub;
     });
 
     return () => {
-      pb.collection("messages").unsubscribe("*");
+      unsubscribe?.();
     };
   }, [channelId]);
 
