@@ -4,6 +4,8 @@ import { useEffect, useRef, useState, useCallback, FormEvent } from "react";
 import { Message, StreamEvent, TypingEvent } from "@/lib/types";
 import { getAvatarColor, formatTimestamp } from "@/lib/utils";
 
+const MESSAGE_GROUP_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
+
 interface MessageAreaProps {
   channelId: string | null;
   channelName: string;
@@ -112,7 +114,9 @@ export default function MessageArea({
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ channel_id: channelId, profile_id: username }),
-    }).catch(() => {});
+    }).catch((err) => {
+      console.error("Failed to send typing indicator:", err);
+    });
   }, [channelId, username]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -155,7 +159,7 @@ export default function MessageArea({
     if (prev.profile_id !== msg.profile_id) return false;
     const timeDiff =
       new Date(msg.created).getTime() - new Date(prev.created).getTime();
-    return timeDiff < 5 * 60 * 1000; // 5 minutes
+    return timeDiff < MESSAGE_GROUP_THRESHOLD_MS;
   };
 
   const typingUsersList = Array.from(typingUsers.keys());

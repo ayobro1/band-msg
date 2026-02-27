@@ -9,6 +9,7 @@ import UsernameModal from "@/components/UsernameModal";
 import CreateChannelModal from "@/components/CreateChannelModal";
 
 const USERNAME_KEY = "band-chat-username";
+const HEARTBEAT_INTERVAL_MS = 120000; // 2 minutes
 
 let storageListeners: Array<() => void> = [];
 
@@ -64,7 +65,7 @@ export default function ChatPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ profile_id: username }),
       }).catch(() => {});
-    }, 120000);
+    }, HEARTBEAT_INTERVAL_MS);
     return () => clearInterval(interval);
   }, [username]);
 
@@ -121,7 +122,7 @@ export default function ChatPage() {
     <div className="flex h-screen overflow-hidden text-gray-300">
       {/* Server icon sidebar */}
       <div className="flex w-[72px] flex-col items-center gap-2 bg-[#1e1f22] py-3">
-        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#5865f2] text-lg font-bold text-white transition-all hover:rounded-xl cursor-pointer"
+        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#5865f2] text-lg font-bold text-white transition-all hover:rounded-xl"
           title="Band Chat"
         >
           <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

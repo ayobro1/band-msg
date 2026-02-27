@@ -32,8 +32,10 @@ export async function POST(request: NextRequest) {
   }
 
   const user = profile_id ?? "anonymous";
-  trackUser(user);
   const msg = addMessage(content, channel_id, user);
+  if (profile_id) {
+    trackUser(user);
+  }
   return NextResponse.json(msg, { status: 201 });
 }
 
