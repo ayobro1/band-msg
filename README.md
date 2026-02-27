@@ -1,11 +1,11 @@
 # Band Chat
 
-A Discord-style real-time chat application for bands, built with Next.js, Tailwind CSS, and Supabase.
+A Discord-style real-time chat application for bands, built with Next.js, Tailwind CSS, and PocketBase.
 
 ## Features
 
 - Discord-like three-column layout (server sidebar, channel list, message area)
-- Real-time messaging powered by Supabase Realtime
+- Real-time messaging powered by PocketBase Realtime
 - Channel-based conversations
 - Dark theme matching Discord's aesthetic
 
@@ -14,7 +14,7 @@ A Discord-style real-time chat application for bands, built with Next.js, Tailwi
 ### Prerequisites
 
 - Node.js 18+
-- A [Supabase](https://supabase.com) account (free tier works)
+- [PocketBase](https://pocketbase.io) (single-file backend)
 
 ### 1. Install dependencies
 
@@ -22,37 +22,39 @@ A Discord-style real-time chat application for bands, built with Next.js, Tailwi
 npm install
 ```
 
-### 2. Set up Supabase
+### 2. Set up PocketBase
 
-Create a new Supabase project, then create two tables:
+Download PocketBase from [pocketbase.io](https://pocketbase.io/docs/) and start it:
+
+```bash
+./pocketbase serve
+```
+
+Open the Admin UI at `http://127.0.0.1:8090/_/` and create two collections:
 
 **channels**
-| Column     | Type        | Notes          |
-|------------|-------------|----------------|
-| id         | uuid        | Primary key    |
-| name       | text        | e.g. "setlists"|
-| created_at | timestamptz | Default now()  |
+| Field      | Type   | Notes            |
+|------------|--------|------------------|
+| name       | text   | e.g. "setlists"  |
 
 **messages**
-| Column      | Type        | Notes                          |
-|-------------|-------------|--------------------------------|
-| id          | uuid        | Primary key                    |
-| content     | text        |                                |
-| profile_id  | text        |                                |
-| channel_id  | uuid        | Foreign key → channels.id      |
-| inserted_at | timestamptz | Default now()                  |
+| Field      | Type     | Notes                       |
+|------------|----------|-----------------------------|
+| content    | text     |                             |
+| profile_id | text     |                             |
+| channel_id | relation | Single relation → channels  |
 
-> **Tip:** Enable **Realtime** on the `messages` table in Supabase so that messages appear instantly for all users.
+> **Tip:** PocketBase has built-in realtime support. Make sure to configure API rules on each collection to allow the desired access (e.g. allow list/view/create for all users).
 
 ### 3. Configure environment variables
 
-Copy the example file and fill in your Supabase credentials:
+Copy the example file and fill in your PocketBase URL:
 
 ```bash
 cp .env.local.example .env.local
 ```
 
-Edit `.env.local` with your Supabase project URL and anon key (found in your Supabase dashboard under Settings → API).
+Edit `.env.local` with your PocketBase URL (default is `http://127.0.0.1:8090`).
 
 ### 4. Run the development server
 
@@ -74,6 +76,6 @@ src/
     ChannelList.tsx # Channel sidebar component
     MessageArea.tsx # Message display and input with realtime
   lib/
-    supabase.ts     # Supabase client instance
-    types.ts        # TypeScript interfaces for database tables
+    pocketbase.ts   # PocketBase client instance
+    types.ts        # TypeScript interfaces for collections
 ```
