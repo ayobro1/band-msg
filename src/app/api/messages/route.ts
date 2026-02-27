@@ -1,4 +1,4 @@
-import { channels, messages, addMessage } from "@/lib/store";
+import { channels, messages, addMessage, broadcastTyping, trackUser } from "@/lib/store";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(request: NextRequest) {
@@ -31,6 +31,25 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const msg = addMessage(content, channel_id, profile_id ?? "anonymous");
+  const user = profile_id ?? "anonymous";
+  const msg = addMessage(content, channel_id, user);
+  if (profile_id) {
+    trackUser(user);
+  }
   return NextResponse.json(msg, { status: 201 });
+}
+
+export async function PATCH(request: NextRequest) {
+  const body = await request.json();
+  const { channel_id, profile_id } = body;
+
+  if (!channel_id || !profile_id) {
+    return NextResponse.json(
+      { error: "channel_id and profile_id are required" },
+      { status: 400 }
+    );
+  }
+
+  broadcastTyping(channel_id, profile_id);
+  return NextResponse.json({ ok: true });
 }

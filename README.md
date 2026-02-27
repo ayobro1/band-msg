@@ -4,11 +4,18 @@ A Discord-style real-time chat application for bands, built with Next.js and Tai
 
 ## Features
 
-- Discord-like three-column layout (server sidebar, channel list, message area)
-- Real-time messaging via Server-Sent Events (SSE)
-- Channel-based conversations
-- Dark theme matching Discord's aesthetic
-- **Zero-config backend** — data is stored in-memory with built-in Next.js API routes, so there's nothing extra to install or run
+- **Discord-like layout** — Three-column design with server sidebar, channel list, message area, and online members panel
+- **Username system** — Welcome modal with display name persistence via localStorage, color-coded avatars per user
+- **Real-time messaging** — Instant message delivery via Server-Sent Events (SSE)
+- **Channel management** — Create custom channels with names and descriptions via an in-app modal
+- **Message grouping** — Consecutive messages from the same user are compacted, just like Discord
+- **Typing indicators** — See when other users are typing with animated dots
+- **Online members list** — Collapsible right sidebar showing active users with presence indicators
+- **Smart timestamps** — "Today at 3:45 PM" / "Yesterday at 10:00 AM" formatting
+- **Channel descriptions** — Topics shown in the channel header
+- **Loading & empty states** — Spinners, welcome messages, and helpful prompts
+- **Polished UI** — Custom scrollbars, smooth animations, hover effects, and a dark theme matching Discord's aesthetic
+- **Zero-config backend** — Data is stored in-memory with built-in Next.js API routes, so there's nothing extra to install or run
 
 ## Getting Started
 
@@ -30,7 +37,7 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000) to see the app.
 
-That's it! The app comes with three default channels (`general`, `setlists`, `practice`) and is ready to use immediately. Messages are stored in memory, so they reset when the server restarts.
+Enter a display name to get started. The app comes with three default channels (`general`, `setlists`, `practice`) and you can create more. Messages are stored in memory, so they reset when the server restarts.
 
 ## Project Structure
 
@@ -38,16 +45,21 @@ That's it! The app comes with three default channels (`general`, `setlists`, `pr
 src/
   app/
     api/
-      channels/route.ts   # GET channels
-      messages/route.ts    # GET/POST messages
-      messages/stream/route.ts  # SSE real-time stream
-    layout.tsx             # Root layout with dark theme
-    page.tsx               # Main chat page with three-column layout
-    globals.css            # Global styles (Discord dark palette)
+      channels/route.ts          # GET/POST channels
+      messages/route.ts           # GET/POST messages, PATCH typing
+      messages/stream/route.ts    # SSE real-time stream
+      users/route.ts              # GET/POST active users
+    layout.tsx                    # Root layout with dark theme
+    page.tsx                      # Main chat page with layout and state
+    globals.css                   # Global styles, scrollbars, animations
   components/
-    ChannelList.tsx        # Channel sidebar component
-    MessageArea.tsx        # Message display and input with real-time
+    ChannelList.tsx               # Channel sidebar with create button
+    CreateChannelModal.tsx        # Modal for creating new channels
+    MemberList.tsx                # Online members sidebar
+    MessageArea.tsx               # Message display, input, typing indicators
+    UsernameModal.tsx             # Welcome modal for setting display name
   lib/
-    store.ts               # In-memory data store
-    types.ts               # TypeScript interfaces
+    store.ts                      # In-memory data store with pub/sub
+    types.ts                      # TypeScript interfaces
+    utils.ts                      # Avatar colors, timestamp formatting
 ```
