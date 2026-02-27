@@ -8,8 +8,8 @@ export async function GET() {
 
   const stream = new ReadableStream({
     start(controller) {
-      const unsubscribe = subscribe((msg) => {
-        const data = `data: ${JSON.stringify(msg)}\n\n`;
+      const unsubscribe = subscribe((event) => {
+        const data = `data: ${JSON.stringify(event)}\n\n`;
         controller.enqueue(encoder.encode(data));
       });
 
