@@ -4,6 +4,7 @@ export const dynamic = "force-dynamic";
 
 export async function GET() {
   const encoder = new TextEncoder();
+  let cleanup: (() => void) | undefined;
 
   const stream = new ReadableStream({
     start(controller) {
@@ -12,7 +13,6 @@ export async function GET() {
         controller.enqueue(encoder.encode(data));
       });
 
-      // Clean up when the client disconnects
       const interval = setInterval(() => {
         try {
           controller.enqueue(encoder.encode(": keepalive\n\n"));
@@ -21,6 +21,14 @@ export async function GET() {
           unsubscribe();
         }
       }, 15000);
+
+      cleanup = () => {
+        clearInterval(interval);
+        unsubscribe();
+      };
+    },
+    cancel() {
+      cleanup?.();
     },
   });
 

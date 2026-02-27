@@ -1,4 +1,4 @@
-import { messages, addMessage } from "@/lib/store";
+import { channels, messages, addMessage } from "@/lib/store";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(request: NextRequest) {
@@ -21,6 +21,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       { error: "content and channel_id are required" },
       { status: 400 }
+    );
+  }
+
+  if (!channels.some((c) => c.id === channel_id)) {
+    return NextResponse.json(
+      { error: "channel not found" },
+      { status: 404 }
     );
   }
 
