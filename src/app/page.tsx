@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { pb } from "@/lib/pocketbase";
 import { Channel } from "@/lib/types";
 import ChannelList from "@/components/ChannelList";
 import MessageArea from "@/components/MessageArea";
@@ -12,17 +12,16 @@ export default function ChatPage() {
 
   useEffect(() => {
     const fetchChannels = async () => {
-      const { data, error } = await supabase
-        .from("channels")
-        .select("*")
-        .order("created_at", { ascending: true });
-      if (error) {
-        console.error("Failed to fetch channels:", error.message);
-        return;
-      }
-      if (data && data.length > 0) {
-        setChannels(data as Channel[]);
-        setActiveChannelId(data[0].id);
+      try {
+        const data = await pb.collection("channels").getFullList<Channel>({
+          sort: "created",
+        });
+        if (data.length > 0) {
+          setChannels(data);
+          setActiveChannelId(data[0].id);
+        }
+      } catch (error) {
+        console.error("Failed to fetch channels:", error);
       }
     };
 

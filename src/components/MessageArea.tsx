@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, FormEvent } from "react";
-import { supabase } from "@/lib/supabase";
+import { pb } from "@/lib/pocketbase";
 import { Message } from "@/lib/types";
 
 interface MessageAreaProps {
@@ -22,39 +22,28 @@ export default function MessageArea({
 
     // Fetch existing messages for the channel
     const fetchMessages = async () => {
-      const { data, error } = await supabase
-        .from("messages")
-        .select("*")
-        .eq("channel_id", channelId)
-        .order("inserted_at", { ascending: true });
-      if (error) {
-        console.error("Failed to fetch messages:", error.message);
-        return;
+      try {
+        const data = await pb.collection("messages").getFullList<Message>({
+          filter: `channel_id = "${channelId}"`,
+          sort: "created",
+        });
+        setMessages(data);
+      } catch (error) {
+        console.error("Failed to fetch messages:", error);
       }
-      if (data) setMessages(data as Message[]);
     };
 
     fetchMessages();
 
     // Subscribe to new messages in realtime
-    const channel = supabase
-      .channel(`messages:${channelId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "messages",
-          filter: `channel_id=eq.${channelId}`,
-        },
-        (payload) => {
-          setMessages((prev) => [...prev, payload.new as Message]);
-        }
-      )
-      .subscribe();
+    pb.collection("messages").subscribe<Message>("*", (e) => {
+      if (e.action === "create" && e.record.channel_id === channelId) {
+        setMessages((prev) => [...prev, e.record]);
+      }
+    });
 
     return () => {
-      supabase.removeChannel(channel);
+      pb.collection("messages").unsubscribe("*");
     };
   }, [channelId]);
 
@@ -68,14 +57,14 @@ export default function MessageArea({
     if (!content || !channelId) return;
 
     // TODO: Replace "anonymous" with actual user ID from auth
-    const { error } = await supabase.from("messages").insert({
-      content,
-      channel_id: channelId,
-      profile_id: "anonymous",
-    });
-
-    if (error) {
-      console.error("Failed to send message:", error.message);
+    try {
+      await pb.collection("messages").create({
+        content,
+        channel_id: channelId,
+        profile_id: "anonymous",
+      });
+    } catch (error) {
+      console.error("Failed to send message:", error);
       return;
     }
 
@@ -111,7 +100,7 @@ export default function MessageArea({
                   {msg.profile_id}
                 </span>
                 <span className="text-xs text-gray-500">
-                  {new Date(msg.inserted_at).toLocaleTimeString()}
+                  {new Date(msg.created).toLocaleTimeString()}
                 </span>
               </div>
               <p className="text-sm text-gray-300">{msg.content}</p>

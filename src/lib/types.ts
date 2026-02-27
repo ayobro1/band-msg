@@ -1,7 +1,7 @@
 export interface Channel {
   id: string;
   name: string;
-  created_at: string;
+  created: string;
 }
 
 export interface Message {
@@ -9,5 +9,5 @@ export interface Message {
   content: string;
   profile_id: string;
   channel_id: string;
-  inserted_at: string;
+  created: string;
 }
