@@ -278,7 +278,7 @@ export default function MessageArea({
   }
 
   return (
-    <div className="flex flex-1 flex-col bg-[#313338]">
+    <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-[#313338]">
       {/* Channel header */}
       <div className="flex h-12 shrink-0 items-center border-b border-[#1e1f22] px-2 shadow-sm md:px-4">
         {mobile && onBack && (
@@ -319,7 +319,7 @@ export default function MessageArea({
       </div>
 
       {/* Messages */}
-      <div className="scroll-area flex-1">
+      <div className="scroll-area min-h-0 flex-1">
         {isLoading ? (
           <div className="flex items-center justify-center py-8">
             <div className="h-6 w-6 animate-spin rounded-full border-2 border-gray-600 border-t-[#5865f2]" />
