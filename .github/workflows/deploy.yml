@@ -1,5 +1,4 @@
 name: Auto Deploy
-
 on:
   push:
     branches: [ main ]
@@ -7,44 +6,17 @@ on:
 jobs:
   deploy:
     runs-on: self-hosted
+    env:
+      PM2_HOME: /home/deploy/.pm2
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-
-      - name: Deploy App
+      - name: Build and Start
         run: |
-          set -euo pipefail
-
-          APP_DIR="$HOME/band-msg"
-          REPO_URL="https://github.com/ayobro1/band-msg.git"
-
-          if [ -d "$APP_DIR/.git" ]; then
-            cd "$APP_DIR"
-            git fetch origin main
-            git reset --hard origin/main
-          elif [ -d "$APP_DIR" ]; then
-            rm -rf "$APP_DIR"
-            git clone "$REPO_URL" "$APP_DIR"
-            cd "$APP_DIR"
-          else
-            git clone "$REPO_URL" "$APP_DIR"
-            cd "$APP_DIR"
-          fi
-
-          node -v
-          npm -v
-          npm ci --include=optional
+          npm install
           npm run build
-
-          if pm2 describe band-msg >/dev/null 2>&1; then
-            pm2 restart band-msg --update-env
-          else
-            pm2 start npm --name "band-msg" -- start
-          fi
-
+          # Delete the old one and start fresh in the deploy user's list
+          pm2 delete band-msg || true
+          pm2 start npm --name "band-msg" -- start
           pm2 save
