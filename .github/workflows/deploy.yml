@@ -1,86 +1,25 @@
-name: Remote Deploy
+name: Auto Deploy
 
 on:
   push:
     branches: [ main ]
-  pull_request:
-    branches: [ main ]
-  workflow_dispatch:
-    inputs:
-      deploy_ref:
-        description: "Git ref to deploy (branch, tag, or commit SHA)"
-        required: true
-        default: "main"
-      rollback_ref:
-        description: "Optional rollback ref (overrides deploy_ref when provided)"
-        required: false
-        default: ""
-
-permissions:
-  contents: read
-
-concurrency:
-  group: deploy-main
-  cancel-in-progress: false
 
 jobs:
-  quality:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && (inputs.rollback_ref != '' && inputs.rollback_ref || inputs.deploy_ref) || github.sha }}
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci --include=optional
-
-      - name: Lint
-        run: npm run lint
-
-      - name: Build
-        run: npm run build
-
   deploy:
-    needs: quality
-    if: |
-      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
-      github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
+    runs-on: self-hosted
     steps:
-      - name: Resolve deployment target
-        id: target
-        run: |
-          target_ref="main"
-          if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
-            target_ref="${{ inputs.deploy_ref }}"
-            if [ -n "${{ inputs.rollback_ref }}" ]; then
-              target_ref="${{ inputs.rollback_ref }}"
-            fi
-          fi
-          echo "target_ref=$target_ref" >> "$GITHUB_OUTPUT"
+      - name: Checkout Code
+        uses: actions/checkout@v4
 
-      - name: Deploying to Ubuntu Server
-        uses: appleboy/ssh-action@v1.0.3
-        env:
-          TARGET_REF: ${{ steps.target.outputs.target_ref }}
-        with:
-          host: ${{ secrets.SERVER_IP }}
-          username: root
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          envs: TARGET_REF
-          script: |
-            cd ~/band-msg
-            git fetch --all --prune
-            git checkout "$TARGET_REF"
-            git reset --hard "$TARGET_REF"
-            npm ci --include=optional
-            npm run build
-            pm2 restart band-msg || pm2 start npm --name "band-msg" -- start
+      - name: Deploy App
+        run: |
+          # If the folder doesn't exist, clone it. If it does, just enter it.
+          if [ ! -d "~/band-msg" ]; then
+            git clone https://github.com/ayobro1/band-msg.git ~/band-msg
+          fi
+          cd ~/band-msg
+          git pull origin main
+          npm install
+          npm run build
+          # This restarts the app. If it's not running, it starts it.
+          pm2 restart band-msg || pm2 start npm --name "band-msg" -- start
