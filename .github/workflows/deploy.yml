@@ -69,10 +69,7 @@ jobs:
           APP_DIR="/home/deploy/band-msg"
           REPO_URL="https://github.com/ayobro1/band-msg.git"
           DEPLOY_REF="${DEPLOY_REF:-main}"
-          DEPLOY_REF_ESCAPED="$(printf '%q' "$DEPLOY_REF")"
-          CLOUDFLARE_TUNNEL_TOKEN_ESCAPED="$(printf '%q' "${CLOUDFLARE_TUNNEL_TOKEN:-}")"
-
-          su - deploy -s /bin/bash -c "DEPLOY_REF=$DEPLOY_REF_ESCAPED CLOUDFLARE_TUNNEL_TOKEN=$CLOUDFLARE_TUNNEL_TOKEN_ESCAPED bash -s" <<'DEPLOY_SCRIPT'
+          bash -s <<'DEPLOY_SCRIPT'
           set -euo pipefail
 
           APP_DIR="/home/deploy/band-msg"
@@ -222,5 +219,5 @@ jobs:
           done
 
           echo "Smoke check failed after $ATTEMPTS attempts."
-          su - deploy -s /bin/bash -c 'pm2 status' || true
+          pm2 status || true
           exit 1
