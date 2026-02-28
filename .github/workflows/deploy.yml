@@ -15,10 +15,11 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
 
       - name: Deploy App
         run: |
+          set -euo pipefail
+
           APP_DIR="$HOME/band-msg"
           REPO_URL="https://github.com/ayobro1/band-msg.git"
 
@@ -39,5 +40,11 @@ jobs:
           npm -v
           npm ci --include=optional
           npm run build
-          # This restarts the app. If it's not running, it starts it.
-          pm2 restart band-msg || pm2 start npm --name "band-msg" -- start
+
+          if pm2 describe band-msg >/dev/null 2>&1; then
+            pm2 restart band-msg --update-env
+          else
+            pm2 start npm --name "band-msg" -- start
+          fi
+
+          pm2 save
