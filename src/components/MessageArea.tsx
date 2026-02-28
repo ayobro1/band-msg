@@ -27,6 +27,7 @@ export default function MessageArea({
   const [newMessage, setNewMessage] = useState("");
   const [typingUsers, setTypingUsers] = useState<Map<string, number>>(new Map());
   const [isLoading, setIsLoading] = useState(false);
+  const [sendError, setSendError] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastTypingSentRef = useRef(0);
@@ -130,6 +131,9 @@ export default function MessageArea({
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setNewMessage(e.target.value);
+    if (sendError) {
+      setSendError("");
+    }
     if (e.target.value.trim()) {
       sendTypingIndicator();
     }
@@ -147,7 +151,7 @@ export default function MessageArea({
     }
 
     try {
-      await fetch("/api/messages", {
+      const res = await fetch("/api/messages", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -155,9 +159,20 @@ export default function MessageArea({
           channel_id: channelId,
         }),
       });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({} as { error?: string }));
+        const errorMessage =
+          data.error ??
+          (res.status === 401 || res.status === 403
+            ? "Session expired or unauthorized. Please sign in again."
+            : "Failed to send message.");
+        throw new Error(errorMessage);
+      }
     } catch (error) {
       console.error("Failed to send message:", error);
       setNewMessage(content);
+      setSendError(error instanceof Error ? error.message : "Failed to send message.");
     }
   };
 
@@ -307,6 +322,9 @@ export default function MessageArea({
 
       {/* Message input */}
       <form onSubmit={handleSend} className="px-4 pb-6">
+        {sendError && (
+          <p className="mb-2 text-xs text-red-400">{sendError}</p>
+        )}
         <div className="flex items-center rounded-lg bg-[#383a40]">
           <input
             type="text"

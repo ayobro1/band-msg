@@ -56,6 +56,8 @@ Register an account to get started, then sign in. Non-admin accounts require adm
 - Username: set `ADMIN_USERNAME` in your environment.
 - Password hash: set `ADMIN_PASSWORD_HASH_SHA256` in your environment.
 - Database location: set `DATABASE_PATH` (default: `./data/band-chat.db`).
+- Cookie security: set `AUTH_COOKIE_SECURE` to `auto` (default), `true`, or `false`.
+- For local network HTTP testing (e.g., `http://10.x.x.x:3000`), set `AUTH_COOKIE_SECURE=false`.
 - To generate a SHA-256 password hash:
 
 ```bash
