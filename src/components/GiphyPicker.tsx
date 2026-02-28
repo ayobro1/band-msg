@@ -106,6 +106,7 @@ export default function GiphyPicker({ onSelect, onClose }: GiphyPickerProps) {
             className="overflow-hidden rounded transition-transform hover:scale-105"
             title={gif.title}
           >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={gif.images.fixed_height_small.url}
               alt={gif.title}

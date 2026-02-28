@@ -347,6 +347,7 @@ export default function MessageArea({
               const reactionRow = (msgReactions.length > 0 || true) && (
                 <div className="mt-1 flex flex-wrap items-center gap-1">
                   {msgReactions.map((r) => (
+                    // eslint-disable-next-line @next/next/no-img-element
                     <img key={r.id} src={r.gif_url} alt="reaction" className="h-8 rounded" loading="lazy" />
                   ))}
                   <button
@@ -367,6 +368,7 @@ export default function MessageArea({
                       className="max-h-80 max-w-full rounded-lg"
                     />
                   ) : (
+                    // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={attachment.attachment_url}
                       alt="attachment"

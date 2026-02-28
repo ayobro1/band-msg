@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, FormEvent, useEffect } from "react";
+import { useState, FormEvent, useEffect, useRef } from "react";
 
 interface CreateChannelModalProps {
   onSubmit: (name: string, description: string, visibility: "public" | "private", allowedUsers: string[]) => void;
@@ -35,16 +35,20 @@ export default function CreateChannelModal({
   }, [onClose]);
 
   // Fetch approved users when visibility set to private
+  const fetchedRef = useRef(false);
   useEffect(() => {
     if (visibility !== "private") return;
-    if (allUsers.length > 0) return;
+    if (fetchedRef.current) return;
+    fetchedRef.current = true;
+    let cancelled = false;
     setLoadingUsers(true);
     fetch("/api/users/approved")
       .then((r) => (r.ok ? r.json() : []))
-      .then((data) => setAllUsers(data))
-      .catch(() => setAllUsers([]))
-      .finally(() => setLoadingUsers(false));
-  }, [visibility, allUsers.length]);
+      .then((data) => { if (!cancelled) setAllUsers(data); })
+      .catch(() => { if (!cancelled) setAllUsers([]); })
+      .finally(() => { if (!cancelled) setLoadingUsers(false); });
+    return () => { cancelled = true; };
+  }, [visibility]);
 
   const toggleUser = (username: string) => {
     setSelectedUsers((prev) => {
