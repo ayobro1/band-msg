@@ -39,6 +39,11 @@ Open [http://localhost:3000](http://localhost:3000) to see the app.
 
 Enter a display name to get started. The app comes with three default channels (`general`, `setlists`, `practice`) and you can create more. Messages are stored in memory, so they reset when the server restarts.
 
+## CI/CD
+
+- On every pull request to `main`, GitHub Actions runs lint and production build checks.
+- On push to `main`, the same quality checks run first, then deployment proceeds over SSH if they pass.
+
 ## Project Structure
 
 ```
