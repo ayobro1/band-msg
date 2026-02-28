@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { AuthUser, Channel } from "@/lib/types";
 import ChannelList from "@/components/ChannelList";
 import MessageArea from "@/components/MessageArea";
@@ -107,16 +107,65 @@ export default function ChatPage() {
   const handleSelectChannel = useCallback(
     (id: string) => {
       setActiveChannelId(id);
-      if (isMobile) {
-        setMobileView("chat");
-      }
     },
-    [isMobile]
+    []
   );
 
+  // ── Mobile slide animation state ──
+  const chatPanelRef = useRef<HTMLDivElement>(null);
+  const isAnimatingRef = useRef(false);
+  const isSwiping = useRef(false);
+  const [slideIn, setSlideIn] = useState(false);
+
   const handleBackToChannels = useCallback(() => {
-    setMobileView("channels");
+    if (isAnimatingRef.current) return;
+    isAnimatingRef.current = true;
+    if (chatPanelRef.current) {
+      chatPanelRef.current.style.transition = "transform 0.3s cubic-bezier(0.2, 0, 0, 1)";
+      chatPanelRef.current.style.transform = "translateX(100%)";
+    }
+    setTimeout(() => {
+      setMobileView("channels");
+      setSlideIn(false);
+      isAnimatingRef.current = false;
+    }, 300);
   }, []);
+
+  const handleSwipeProgress = useCallback((offset: number) => {
+    if (!chatPanelRef.current) return;
+    if (offset === 0) {
+      isSwiping.current = false;
+      chatPanelRef.current.style.transition = "transform 0.25s cubic-bezier(0.2, 0, 0, 1)";
+      chatPanelRef.current.style.transform = "translateX(0)";
+    } else {
+      isSwiping.current = true;
+      chatPanelRef.current.style.transition = "none";
+      chatPanelRef.current.style.transform = `translateX(${offset}px)`;
+    }
+  }, []);
+
+  const handleSelectChannelMobile = useCallback(
+    (id: string) => {
+      setActiveChannelId(id);
+      setSlideIn(true);
+      setMobileView("chat");
+    },
+    []
+  );
+
+  // Trigger slide-in animation after chat panel mounts
+  useEffect(() => {
+    if (!slideIn || mobileView !== "chat") return;
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (chatPanelRef.current) {
+          chatPanelRef.current.style.transition = "transform 0.3s cubic-bezier(0.2, 0, 0, 1)";
+          chatPanelRef.current.style.transform = "translateX(0)";
+        }
+        setSlideIn(false);
+      });
+    });
+  }, [slideIn, mobileView]);
 
   const handleCreateChannel = useCallback(
     async (name: string, description: string, visibility: "public" | "private" = "public", allowedUsers: string[] = []) => {
@@ -135,7 +184,7 @@ export default function ChatPage() {
           setActiveChannelId(channel.id);
           setShowCreateChannel(false);
           if (isMobile) {
-            setMobileView("chat");
+            handleSelectChannelMobile(channel.id);
           }
         }
       } catch (error) {
@@ -170,67 +219,73 @@ export default function ChatPage() {
   /* ───────── MOBILE LAYOUT ───────── */
   if (isMobile) {
     return (
-      <div className="flex h-dvh flex-col overflow-hidden text-gray-300">
-        <PushNotificationManager />
-        {mobileView === "channels" ? (
-          /* Full-screen channel list */
-          <div className="flex h-full flex-col bg-[#2b2d31]">
-            {/* Mobile header */}
-            <div className="flex h-14 shrink-0 items-center justify-between border-b border-[#1e1f22] px-4">
-              <div className="flex items-center gap-2">
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#5865f2] text-white">
-                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
-                  </svg>
-                </div>
-                <span className="text-lg font-semibold text-white">Band Chat</span>
+      <div className="relative h-dvh overflow-hidden text-gray-300">
+        {/* Base layer: Channel list (always rendered) */}
+        <div className="absolute inset-0 flex flex-col bg-[#2b2d31]">
+          {/* Mobile header */}
+          <div className="flex h-14 shrink-0 items-center justify-between border-b border-[#1e1f22] px-4">
+            <div className="flex items-center gap-2">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#5865f2] text-white">
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+                </svg>
               </div>
-              <div className="flex items-center gap-1">
-                {authUser.role === "admin" && (
-                  <button
-                    onClick={() => setShowApprovals(true)}
-                    className="flex h-9 w-9 items-center justify-center rounded-lg text-[#23a55a]"
-                    title="Approve Accounts"
-                  >
-                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </button>
-                )}
+              <span className="text-lg font-semibold text-white">Band Chat</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <PushNotificationManager channels={channels} />
+              {authUser.role === "admin" && (
                 <button
-                  onClick={handleLogout}
-                  className="flex h-9 w-9 items-center justify-center rounded-lg text-gray-400"
-                  title="Sign Out"
+                  onClick={() => setShowApprovals(true)}
+                  className="flex h-9 w-9 items-center justify-center rounded-lg text-[#23a55a]"
+                  title="Approve Accounts"
                 >
                   <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1m0-10V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2h6a2 2 0 002-2v-1" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 </button>
-              </div>
+              )}
+              <button
+                onClick={handleLogout}
+                className="flex h-9 w-9 items-center justify-center rounded-lg text-gray-400"
+                title="Sign Out"
+              >
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1m0-10V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2h6a2 2 0 002-2v-1" />
+                </svg>
+              </button>
             </div>
+          </div>
 
-            {/* Channel list */}
-            <ChannelList
-              channels={channels}
-              activeChannelId={activeChannelId}
-              onSelectChannel={handleSelectChannel}
-              onCreateChannel={() => setShowCreateChannel(true)}
-              canCreateChannel={authUser.role === "admin"}
+          <ChannelList
+            channels={channels}
+            activeChannelId={activeChannelId}
+            onSelectChannel={handleSelectChannelMobile}
+            onCreateChannel={() => setShowCreateChannel(true)}
+            canCreateChannel={authUser.role === "admin"}
+            mobile
+          />
+        </div>
+
+        {/* Overlay layer: Chat panel (slides in from right) */}
+        {mobileView === "chat" && (
+          <div
+            ref={chatPanelRef}
+            className="absolute inset-0 z-10"
+            style={{ transform: "translateX(100%)" }}
+          >
+            <MessageArea
+              channelId={activeChannelId}
+              channelName={activeChannel?.name ?? ""}
+              channelDescription={activeChannel?.description ?? ""}
+              username={authUser.username}
+              showMembers={false}
+              onToggleMembers={() => {}}
               mobile
+              onBack={handleBackToChannels}
+              onSwipeProgress={handleSwipeProgress}
             />
           </div>
-        ) : (
-          /* Full-screen chat */
-          <MessageArea
-            channelId={activeChannelId}
-            channelName={activeChannel?.name ?? ""}
-            channelDescription={activeChannel?.description ?? ""}
-            username={authUser.username}
-            showMembers={false}
-            onToggleMembers={() => {}}
-            mobile
-            onBack={handleBackToChannels}
-          />
         )}
 
         {showCreateChannel && (
@@ -249,7 +304,6 @@ export default function ChatPage() {
   /* ───────── DESKTOP LAYOUT ───────── */
   return (
     <div className="flex h-dvh overflow-hidden text-gray-300">
-      <PushNotificationManager />
       {/* Server icon sidebar */}
       <div className="flex w-[72px] flex-col items-center gap-2 bg-[#1e1f22] py-3">
         <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#5865f2] text-lg font-bold text-white transition-all hover:rounded-xl"
@@ -261,6 +315,7 @@ export default function ChatPage() {
         </div>
         <div className="mx-auto h-0.5 w-8 rounded bg-[#35373c]" />
         <div className="mt-auto flex flex-col gap-2 pb-2">
+          <PushNotificationManager channels={channels} />
           {authUser.role === "admin" && (
             <button
               onClick={() => setShowApprovals(true)}

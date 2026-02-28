@@ -16,6 +16,9 @@ export interface Message {
   attachment_url?: string;
   attachment_mime?: string;
   attachment_expires?: string;
+  reply_to_id?: string;
+  reply_to_content?: string;
+  reply_to_user?: string;
 }
 
 export interface TypingEvent {
@@ -29,6 +32,7 @@ export interface Reaction {
   username: string;
   gif_url: string;
   gif_id: string;
+  emoji?: string;
   created: string;
 }
 
@@ -62,4 +66,9 @@ export interface PushSubscriptionData {
     p256dh: string;
     auth: string;
   };
+}
+
+export interface NotificationPrefs {
+  enabled: boolean;
+  muted_channels: string[];
 }

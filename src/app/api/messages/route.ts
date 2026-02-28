@@ -5,6 +5,7 @@ import {
   canAccessChannel,
   getMessagesByChannel,
   trackUser,
+  getChannelName,
 } from "@/lib/store";
 import { sendPushNotifications } from "@/lib/push";
 import { requireApprovedUser } from "@/lib/auth";
@@ -38,7 +39,7 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json();
-  const { content, channel_id } = body;
+  const { content, channel_id, reply_to_id } = body;
 
   if (!content || !channel_id) {
     return NextResponse.json(
@@ -58,11 +59,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "access denied" }, { status: 403 });
   }
 
-  const msg = addMessage(content, channel_id, user.username);
+  const msg = addMessage(content, channel_id, user.username, undefined, reply_to_id);
   trackUser(user.username);
 
   // Send push notifications in background (non-blocking)
-  sendPushNotifications(user.username, channel_id, content).catch(() => {});
+  const chName = getChannelName(channel_id) ?? channel_id;
+  sendPushNotifications(user.username, chName, content, channel_id).catch(() => {});
 
   return NextResponse.json(msg, { status: 201 });
 }

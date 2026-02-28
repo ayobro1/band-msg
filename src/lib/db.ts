@@ -122,6 +122,29 @@ try {
   // Column already exists
 }
 
+// Migrate: add emoji column to reactions table
+try {
+  db.exec("ALTER TABLE reactions ADD COLUMN emoji TEXT DEFAULT ''");
+} catch {
+  // Column already exists
+}
+
+// Migrate: add reply_to_id column to messages table
+try {
+  db.exec("ALTER TABLE messages ADD COLUMN reply_to_id TEXT DEFAULT NULL");
+} catch {
+  // Column already exists
+}
+
+// Notification preferences table
+db.exec(`
+CREATE TABLE IF NOT EXISTS notification_prefs (
+  username TEXT PRIMARY KEY,
+  enabled INTEGER NOT NULL DEFAULT 1,
+  muted_channels TEXT NOT NULL DEFAULT ''
+);
+`);
+
 const insertChannel = db.prepare(
   "INSERT OR IGNORE INTO channels (id, name, description, visibility, created) VALUES (?, ?, ?, 'public', ?)"
 );

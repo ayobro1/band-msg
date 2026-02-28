@@ -1,4 +1,4 @@
-const CACHE_NAME = "band-chat-v3";
+const CACHE_NAME = "band-chat-v6";
 const OFFLINE_URL = "/offline";
 const STATIC_ASSETS = [
   "/",

@@ -1,4 +1,5 @@
 import { getDb } from "./db";
+import { shouldNotifyUser } from "./store";
 
 /**
  * Send push notifications to all subscribed users except the sender.
@@ -7,7 +8,8 @@ import { getDb } from "./db";
 export async function sendPushNotifications(
   senderUsername: string,
   channelName: string,
-  messageContent: string
+  messageContent: string,
+  channelId?: string
 ): Promise<void> {
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -24,9 +26,15 @@ export async function sendPushNotifications(
     webpush.setVapidDetails(vapidSubject, vapidPublicKey, vapidPrivateKey);
 
     const db = getDb();
-    const subscriptions = db
+    const allSubscriptions = db
       .prepare("SELECT endpoint, username, p256dh, auth FROM push_subscriptions WHERE username != ?")
       .all(senderUsername) as { endpoint: string; username: string; p256dh: string; auth: string }[];
+
+    // Filter by notification preferences
+    const subscriptions = allSubscriptions.filter((sub) => {
+      if (!channelId) return true;
+      return shouldNotifyUser(sub.username, channelId);
+    });
 
     const body = messageContent
       ? `${senderUsername}: ${messageContent.slice(0, 200)}`

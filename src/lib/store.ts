@@ -340,6 +340,13 @@ export function channelExists(channelId: string): boolean {
   return Boolean(row);
 }
 
+export function getChannelName(channelId: string): string | null {
+  const row = db
+    .prepare("SELECT name FROM channels WHERE id = ?")
+    .get(channelId) as { name: string } | undefined;
+  return row?.name ?? null;
+}
+
 export function addChannel(
   name: string,
   description = "",
@@ -394,10 +401,12 @@ export function getChannelMembers(channelId: string): string[] {
 export function getMessagesByChannel(channelId: string): Message[] {
   return db
     .prepare(
-      `SELECT m.id, m.content, m.profile_id, m.channel_id, m.created,
-              a.id AS att_id, a.mime_type AS att_mime, a.expires_at AS att_expires
+      `SELECT m.id, m.content, m.profile_id, m.channel_id, m.created, m.reply_to_id,
+              a.id AS att_id, a.mime_type AS att_mime, a.expires_at AS att_expires,
+              rm.content AS reply_content, rm.profile_id AS reply_user
        FROM messages m
        LEFT JOIN attachments a ON a.message_id = m.id
+       LEFT JOIN messages rm ON rm.id = m.reply_to_id
        WHERE m.channel_id = ?
        ORDER BY m.created ASC`
     )
@@ -416,6 +425,11 @@ export function getMessagesByChannel(channelId: string): Message[] {
         msg.attachment_mime = r.att_mime as string;
         msg.attachment_expires = r.att_expires as string;
       }
+      if (r.reply_to_id) {
+        msg.reply_to_id = r.reply_to_id as string;
+        msg.reply_to_content = (r.reply_content as string) ?? "";
+        msg.reply_to_user = (r.reply_user as string) ?? "";
+      }
       return msg;
     });
 }
@@ -424,7 +438,8 @@ export function addMessage(
   content: string,
   channelId: string,
   profileId: string,
-  attachmentId?: string
+  attachmentId?: string,
+  replyToId?: string
 ): Message {
   const msg: Message = {
     id: `msg_${crypto.randomUUID()}`,
@@ -435,9 +450,19 @@ export function addMessage(
   };
 
   db.prepare(
-    `INSERT INTO messages (id, content, profile_id, channel_id, attachment_id, created)
-     VALUES (?, ?, ?, ?, ?, ?)`
-  ).run(msg.id, msg.content, msg.profile_id, msg.channel_id, attachmentId ?? null, msg.created);
+    `INSERT INTO messages (id, content, profile_id, channel_id, attachment_id, reply_to_id, created)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`
+  ).run(msg.id, msg.content, msg.profile_id, msg.channel_id, attachmentId ?? null, replyToId ?? null, msg.created);
+
+  // Enrich with reply data
+  if (replyToId) {
+    const replyMsg = db.prepare("SELECT content, profile_id FROM messages WHERE id = ?").get(replyToId) as { content: string; profile_id: string } | undefined;
+    if (replyMsg) {
+      msg.reply_to_id = replyToId;
+      msg.reply_to_content = replyMsg.content;
+      msg.reply_to_user = replyMsg.profile_id;
+    }
+  }
 
   // Attach URL if there's an attachment
   if (attachmentId) {
@@ -558,21 +583,45 @@ export function addReaction(
   messageId: string,
   username: string,
   gifUrl: string,
-  gifId: string
+  gifId: string,
+  emoji?: string
 ): Reaction {
+  // For emoji-only reactions, prevent duplicates (same user + same emoji on same message)
+  if (emoji && !gifUrl) {
+    const existing = db.prepare(
+      "SELECT id FROM reactions WHERE message_id = ? AND username = ? AND emoji = ?"
+    ).get(messageId, username, emoji) as { id: string } | undefined;
+    if (existing) {
+      // Toggle off — remove the reaction
+      db.prepare("DELETE FROM reactions WHERE id = ?").run(existing.id);
+      const removed: Reaction = {
+        id: existing.id,
+        message_id: messageId,
+        username,
+        gif_url: "",
+        gif_id: "",
+        emoji,
+        created: "",
+      };
+      notifySubscribers({ type: "reaction", payload: { ...removed, _removed: true } as unknown as Reaction });
+      return removed;
+    }
+  }
+
   const reaction: Reaction = {
     id: `r_${crypto.randomUUID()}`,
     message_id: messageId,
     username,
     gif_url: gifUrl,
     gif_id: gifId,
+    emoji: emoji ?? "",
     created: new Date().toISOString(),
   };
 
   db.prepare(
-    `INSERT INTO reactions (id, message_id, username, gif_url, gif_id, created)
-     VALUES (?, ?, ?, ?, ?, ?)`
-  ).run(reaction.id, reaction.message_id, reaction.username, reaction.gif_url, reaction.gif_id, reaction.created);
+    `INSERT INTO reactions (id, message_id, username, gif_url, gif_id, emoji, created)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`
+  ).run(reaction.id, reaction.message_id, reaction.username, reaction.gif_url, reaction.gif_id, reaction.emoji, reaction.created);
 
   notifySubscribers({ type: "reaction", payload: reaction });
   return reaction;
@@ -585,7 +634,7 @@ export function getReactionsForMessages(messageIds: string[]): Map<string, React
   const placeholders = messageIds.map(() => "?").join(",");
   const rows = db
     .prepare(
-      `SELECT id, message_id, username, gif_url, gif_id, created
+      `SELECT id, message_id, username, gif_url, gif_id, emoji, created
        FROM reactions WHERE message_id IN (${placeholders})
        ORDER BY created ASC`
     )
@@ -638,4 +687,40 @@ export function getApprovedUsers(): { username: string; role: string }[] {
   return db
     .prepare("SELECT username, role FROM users WHERE status = 'approved' ORDER BY username ASC")
     .all() as { username: string; role: string }[];
+}
+
+// ───── Notification Preferences ─────
+
+export function getNotificationPrefs(username: string): { enabled: boolean; muted_channels: string[] } {
+  const row = db
+    .prepare("SELECT enabled, muted_channels FROM notification_prefs WHERE username = ?")
+    .get(username) as { enabled: number; muted_channels: string } | undefined;
+
+  if (!row) return { enabled: true, muted_channels: [] };
+
+  return {
+    enabled: Boolean(row.enabled),
+    muted_channels: row.muted_channels ? row.muted_channels.split(",").filter(Boolean) : [],
+  };
+}
+
+export function setNotificationPrefs(
+  username: string,
+  enabled: boolean,
+  mutedChannels: string[]
+): void {
+  db.prepare(
+    `INSERT INTO notification_prefs (username, enabled, muted_channels)
+     VALUES (?, ?, ?)
+     ON CONFLICT(username) DO UPDATE SET
+       enabled = excluded.enabled,
+       muted_channels = excluded.muted_channels`
+  ).run(username, enabled ? 1 : 0, mutedChannels.join(","));
+}
+
+export function shouldNotifyUser(username: string, channelId: string): boolean {
+  const prefs = getNotificationPrefs(username);
+  if (!prefs.enabled) return false;
+  if (prefs.muted_channels.includes(channelId)) return false;
+  return true;
 }

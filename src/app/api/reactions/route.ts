@@ -7,16 +7,24 @@ export async function POST(request: NextRequest) {
   if (user instanceof NextResponse) return user;
 
   const body = await request.json();
-  const { message_id, gif_url, gif_id } = body;
+  const { message_id, gif_url, gif_id, emoji } = body;
 
-  if (!message_id || !gif_url || !gif_id) {
+  if (!message_id) {
     return NextResponse.json(
-      { error: "message_id, gif_url, and gif_id are required" },
+      { error: "message_id is required" },
       { status: 400 }
     );
   }
 
-  const reaction = addReaction(message_id, user.username, gif_url, gif_id);
+  // Either emoji or gif must be provided
+  if (!emoji && (!gif_url || !gif_id)) {
+    return NextResponse.json(
+      { error: "emoji or gif_url+gif_id is required" },
+      { status: 400 }
+    );
+  }
+
+  const reaction = addReaction(message_id, user.username, gif_url ?? "", gif_id ?? "", emoji);
   return NextResponse.json(reaction, { status: 201 });
 }
 
