@@ -1,7 +1,19 @@
-import { channels, messages, addMessage, broadcastTyping, trackUser } from "@/lib/store";
+import {
+  addMessage,
+  broadcastTyping,
+  channelExists,
+  getMessagesByChannel,
+  trackUser,
+} from "@/lib/store";
+import { requireApprovedUser } from "@/lib/auth";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(request: NextRequest) {
+  const user = requireApprovedUser(request);
+  if (user instanceof NextResponse) {
+    return user;
+  }
+
   const channelId = request.nextUrl.searchParams.get("channelId");
   if (!channelId) {
     return NextResponse.json(
@@ -9,13 +21,17 @@ export async function GET(request: NextRequest) {
       { status: 400 }
     );
   }
-  const filtered = messages.filter((m) => m.channel_id === channelId);
-  return NextResponse.json(filtered);
+  return NextResponse.json(getMessagesByChannel(channelId));
 }
 
 export async function POST(request: NextRequest) {
+  const user = requireApprovedUser(request);
+  if (user instanceof NextResponse) {
+    return user;
+  }
+
   const body = await request.json();
-  const { content, channel_id, profile_id } = body;
+  const { content, channel_id } = body;
 
   if (!content || !channel_id) {
     return NextResponse.json(
@@ -24,32 +40,34 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  if (!channels.some((c) => c.id === channel_id)) {
+  if (!channelExists(channel_id)) {
     return NextResponse.json(
       { error: "channel not found" },
       { status: 404 }
     );
   }
 
-  const user = profile_id ?? "anonymous";
-  const msg = addMessage(content, channel_id, user);
-  if (profile_id) {
-    trackUser(user);
-  }
+  const msg = addMessage(content, channel_id, user.username);
+  trackUser(user.username);
   return NextResponse.json(msg, { status: 201 });
 }
 
 export async function PATCH(request: NextRequest) {
-  const body = await request.json();
-  const { channel_id, profile_id } = body;
+  const user = requireApprovedUser(request);
+  if (user instanceof NextResponse) {
+    return user;
+  }
 
-  if (!channel_id || !profile_id) {
+  const body = await request.json();
+  const { channel_id } = body;
+
+  if (!channel_id) {
     return NextResponse.json(
-      { error: "channel_id and profile_id are required" },
+      { error: "channel_id is required" },
       { status: 400 }
     );
   }
 
-  broadcastTyping(channel_id, profile_id);
+  broadcastTyping(channel_id, user.username);
   return NextResponse.json({ ok: true });
 }

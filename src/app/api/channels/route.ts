@@ -1,11 +1,21 @@
-import { channels, addChannel } from "@/lib/store";
+import { addChannel, getChannels } from "@/lib/store";
+import { requireAdmin, requireApprovedUser } from "@/lib/auth";
 import { NextRequest, NextResponse } from "next/server";
 
-export async function GET() {
-  return NextResponse.json(channels);
+export async function GET(request: NextRequest) {
+  const user = requireApprovedUser(request);
+  if (user instanceof NextResponse) {
+    return user;
+  }
+  return NextResponse.json(getChannels());
 }
 
 export async function POST(request: NextRequest) {
+  const admin = requireAdmin(request);
+  if (admin instanceof NextResponse) {
+    return admin;
+  }
+
   const body = await request.json();
   const { name, description } = body;
 

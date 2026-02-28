@@ -81,7 +81,7 @@ export default function MessageArea({
       eventSource.close();
       setTypingUsers(new Map());
     };
-  }, [channelId, username]);
+  }, [channelId]);
 
   // Clean up stale typing indicators
   useEffect(() => {
@@ -113,7 +113,7 @@ export default function MessageArea({
     fetch("/api/messages", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ channel_id: channelId, profile_id: username }),
+      body: JSON.stringify({ channel_id: channelId }),
     }).catch((err) => {
       console.error("Failed to send typing indicator:", err);
     });
@@ -144,7 +144,6 @@ export default function MessageArea({
         body: JSON.stringify({
           content,
           channel_id: channelId,
-          profile_id: username,
         }),
       });
     } catch (error) {

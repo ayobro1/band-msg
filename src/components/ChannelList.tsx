@@ -7,6 +7,7 @@ interface ChannelListProps {
   activeChannelId: string | null;
   onSelectChannel: (id: string) => void;
   onCreateChannel: () => void;
+  canCreateChannel: boolean;
 }
 
 export default function ChannelList({
@@ -14,6 +15,7 @@ export default function ChannelList({
   activeChannelId,
   onSelectChannel,
   onCreateChannel,
+  canCreateChannel,
 }: ChannelListProps) {
   return (
     <div className="flex h-full w-60 flex-col bg-[#2b2d31] text-gray-300">
@@ -28,15 +30,17 @@ export default function ChannelList({
           <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
             Channels
           </p>
-          <button
-            onClick={onCreateChannel}
-            className="text-gray-500 transition-colors hover:text-gray-300"
-            title="Create Channel"
-          >
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-            </svg>
-          </button>
+          {canCreateChannel && (
+            <button
+              onClick={onCreateChannel}
+              className="text-gray-500 transition-colors hover:text-gray-300"
+              title="Create Channel"
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+              </svg>
+            </button>
+          )}
         </div>
         {channels.map((channel) => (
           <button

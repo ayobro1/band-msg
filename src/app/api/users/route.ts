@@ -1,21 +1,22 @@
 import { getActiveUsers, trackUser } from "@/lib/store";
+import { requireApprovedUser } from "@/lib/auth";
 import { NextRequest, NextResponse } from "next/server";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const user = requireApprovedUser(request);
+  if (user instanceof NextResponse) {
+    return user;
+  }
+
   return NextResponse.json(getActiveUsers());
 }
 
 export async function POST(request: NextRequest) {
-  const body = await request.json();
-  const { profile_id } = body;
-
-  if (!profile_id || typeof profile_id !== "string") {
-    return NextResponse.json(
-      { error: "profile_id is required" },
-      { status: 400 }
-    );
+  const user = requireApprovedUser(request);
+  if (user instanceof NextResponse) {
+    return user;
   }
 
-  trackUser(profile_id);
+  trackUser(user.username);
   return NextResponse.json({ ok: true });
 }

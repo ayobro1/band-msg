@@ -1,61 +1,52 @@
 "use client";
 
-import { useEffect, useState, useCallback, useSyncExternalStore } from "react";
-import { Channel } from "@/lib/types";
+import { useEffect, useState, useCallback } from "react";
+import { AuthUser, Channel } from "@/lib/types";
 import ChannelList from "@/components/ChannelList";
 import MessageArea from "@/components/MessageArea";
 import MemberList from "@/components/MemberList";
 import UsernameModal from "@/components/UsernameModal";
 import CreateChannelModal from "@/components/CreateChannelModal";
+import AdminApprovalModal from "@/components/AdminApprovalModal";
 
-const USERNAME_KEY = "band-chat-username";
 const HEARTBEAT_INTERVAL_MS = 120000; // 2 minutes
 
-let storageListeners: Array<() => void> = [];
-
-function subscribeToStorage(callback: () => void) {
-  storageListeners.push(callback);
-  window.addEventListener("storage", callback);
-  return () => {
-    storageListeners = storageListeners.filter((l) => l !== callback);
-    window.removeEventListener("storage", callback);
-  };
-}
-
-function getStoredUsername() {
-  return localStorage.getItem(USERNAME_KEY) ?? "";
-}
-
-function getServerSnapshot() {
-  return "";
-}
-
-function setStoredUsername(name: string) {
-  localStorage.setItem(USERNAME_KEY, name);
-  // Notify all subscribers of the change
-  for (const fn of storageListeners) {
-    fn();
-  }
-}
-
 export default function ChatPage() {
-  const username = useSyncExternalStore(
-    subscribeToStorage,
-    getStoredUsername,
-    getServerSnapshot
-  );
+  const [authUser, setAuthUser] = useState<AuthUser | null>(null);
+  const [authResolved, setAuthResolved] = useState(false);
   const [channels, setChannels] = useState<Channel[]>([]);
   const [activeChannelId, setActiveChannelId] = useState<string | null>(null);
   const [showCreateChannel, setShowCreateChannel] = useState(false);
+  const [showApprovals, setShowApprovals] = useState(false);
   const [showMembers, setShowMembers] = useState(true);
+
+  useEffect(() => {
+    const loadCurrentUser = async () => {
+      try {
+        const res = await fetch("/api/auth/me");
+        if (!res.ok) {
+          setAuthUser(null);
+          return;
+        }
+        const user: AuthUser = await res.json();
+        setAuthUser(user);
+      } catch {
+        setAuthUser(null);
+      } finally {
+        setAuthResolved(true);
+      }
+    };
+
+    loadCurrentUser();
+  }, []);
 
   // Register user as active on login
   useEffect(() => {
-    if (!username) return;
+    if (!authUser) return;
+
     fetch("/api/users", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ profile_id: username }),
     }).catch(() => {});
 
     // Heartbeat every 2 minutes
@@ -63,16 +54,21 @@ export default function ChatPage() {
       fetch("/api/users", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ profile_id: username }),
       }).catch(() => {});
     }, HEARTBEAT_INTERVAL_MS);
     return () => clearInterval(interval);
-  }, [username]);
+  }, [authUser]);
 
   useEffect(() => {
+    if (!authUser) return;
+
     const fetchChannels = async () => {
       try {
         const res = await fetch("/api/channels");
+        if (res.status === 401 || res.status === 403) {
+          setAuthUser(null);
+          return;
+        }
         const data: Channel[] = await res.json();
         if (data.length > 0) {
           setChannels(data);
@@ -84,10 +80,10 @@ export default function ChatPage() {
     };
 
     fetchChannels();
-  }, []);
+  }, [authUser]);
 
-  const handleSetUsername = useCallback((name: string) => {
-    setStoredUsername(name);
+  const handleAuthenticated = useCallback((user: AuthUser) => {
+    setAuthUser(user);
   }, []);
 
   const handleCreateChannel = useCallback(
@@ -98,6 +94,9 @@ export default function ChatPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ name, description }),
         });
+        if (!res.ok) {
+          return;
+        }
         if (res.ok) {
           const channel: Channel = await res.json();
           setChannels((prev) => [...prev, channel]);
@@ -111,11 +110,25 @@ export default function ChatPage() {
     []
   );
 
+  const handleLogout = useCallback(async () => {
+    await fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
+    setAuthUser(null);
+    setChannels([]);
+    setActiveChannelId(null);
+  }, []);
+
   const activeChannel = channels.find((c) => c.id === activeChannelId);
 
-  // Show username modal if not set
-  if (!username) {
-    return <UsernameModal onSubmit={handleSetUsername} />;
+  if (!authResolved) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-[#313338] text-gray-300">
+        Loading...
+      </div>
+    );
+  }
+
+  if (!authUser) {
+    return <UsernameModal onAuthenticated={handleAuthenticated} />;
   }
 
   return (
@@ -130,6 +143,28 @@ export default function ChatPage() {
           </svg>
         </div>
         <div className="mx-auto h-0.5 w-8 rounded bg-[#35373c]" />
+        <div className="mt-auto flex flex-col gap-2 pb-2">
+          {authUser.role === "admin" && (
+            <button
+              onClick={() => setShowApprovals(true)}
+              className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#23a55a] text-white transition-colors hover:bg-[#1f944f]"
+              title="Approve Accounts"
+            >
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+            </button>
+          )}
+          <button
+            onClick={handleLogout}
+            className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#3f4147] text-gray-200 transition-colors hover:bg-[#4a4d55]"
+            title="Sign Out"
+          >
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1m0-10V6m0 0a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2h6a2 2 0 002-2v-1" />
+            </svg>
+          </button>
+        </div>
       </div>
 
       {/* Channel list sidebar */}
@@ -138,6 +173,7 @@ export default function ChatPage() {
         activeChannelId={activeChannelId}
         onSelectChannel={setActiveChannelId}
         onCreateChannel={() => setShowCreateChannel(true)}
+        canCreateChannel={authUser.role === "admin"}
       />
 
       {/* Message area */}
@@ -147,13 +183,13 @@ export default function ChatPage() {
             channelId={activeChannelId}
             channelName={activeChannel?.name ?? ""}
             channelDescription={activeChannel?.description ?? ""}
-            username={username}
+            username={authUser.username}
             showMembers={showMembers}
             onToggleMembers={() => setShowMembers(!showMembers)}
           />
 
           {/* Member list sidebar */}
-          {showMembers && <MemberList currentUser={username} />}
+          {showMembers && <MemberList currentUser={authUser.username} />}
         </div>
       </div>
 
@@ -163,6 +199,10 @@ export default function ChatPage() {
           onSubmit={handleCreateChannel}
           onClose={() => setShowCreateChannel(false)}
         />
+      )}
+
+      {showApprovals && authUser.role === "admin" && (
+        <AdminApprovalModal onClose={() => setShowApprovals(false)} />
       )}
     </div>
   );

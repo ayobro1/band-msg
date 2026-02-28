@@ -2,12 +2,39 @@ name: Auto Deploy
 on:
   push:
     branches: [ main ]
+  pull_request:
+    branches: [ main ]
 
 jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install Dependencies
+        run: npm ci --include=optional
+
+      - name: Static Code Analysis
+        run: npm run static-analysis
+
+      - name: Build Validation
+        run: npm run build
+
   deploy:
+    needs: quality
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: self-hosted
     env:
       PM2_HOME: /home/deploy/.pm2
+      CLOUDFLARE_TUNNEL_TOKEN: ${{ secrets.CLOUDFLARE_TUNNEL_TOKEN }}
+      CLOUDFLARE_HOSTNAME: lazzycal.com
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -55,6 +82,24 @@ jobs:
           # Delete the old one and start fresh in the deploy user's list
           pm2 delete band-msg || true
           pm2 start npm --name "band-msg" --cwd "$APP_DIR" -- start
+
+          if [ -n "${CLOUDFLARE_TUNNEL_TOKEN:-}" ]; then
+            mkdir -p "$HOME/.local/bin"
+            CLOUDFLARED_BIN="$HOME/.local/bin/cloudflared"
+
+            if [ ! -x "$CLOUDFLARED_BIN" ]; then
+              echo "Installing cloudflared to $CLOUDFLARED_BIN"
+              curl -fsSL "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64" -o "$CLOUDFLARED_BIN"
+              chmod +x "$CLOUDFLARED_BIN"
+            fi
+
+            pm2 delete band-msg-cloudflared || true
+            pm2 start "$CLOUDFLARED_BIN" --name "band-msg-cloudflared" -- tunnel run --token "$CLOUDFLARE_TUNNEL_TOKEN"
+            echo "Cloudflared tunnel started for ${CLOUDFLARE_HOSTNAME}."
+          else
+            echo "CLOUDFLARE_TUNNEL_TOKEN is not set. Skipping cloudflared tunnel startup."
+          fi
+
           pm2 save
           pm2 status
           pm2 logs band-msg --lines 20 --nostream

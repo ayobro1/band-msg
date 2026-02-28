@@ -1,8 +1,15 @@
 import { subscribe } from "@/lib/store";
+import { NextRequest } from "next/server";
+import { requireApprovedUser } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const user = requireApprovedUser(request);
+  if (user instanceof Response) {
+    return user;
+  }
+
   const encoder = new TextEncoder();
   let cleanup: (() => void) | undefined;
 
