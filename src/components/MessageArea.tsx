@@ -43,6 +43,33 @@ export default function MessageArea({
   const [giphyTarget, setGiphyTarget] = useState<string | null>(null);
   const [reactions, setReactions] = useState<Map<string, Reaction[]>>(new Map());
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  // ── Swipe-from-left-edge to go back (mobile) ──
+  const touchRef = useRef<{ startX: number; startY: number; edge: boolean } | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    if (!mobile || !onBack) return;
+    const touch = e.touches[0];
+    // Only trigger when starting from the left 30px edge
+    if (touch.clientX <= 30) {
+      touchRef.current = { startX: touch.clientX, startY: touch.clientY, edge: true };
+    } else {
+      touchRef.current = null;
+    }
+  }, [mobile, onBack]);
+
+  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+    if (!touchRef.current?.edge || !onBack) return;
+    const touch = e.changedTouches[0];
+    const dx = touch.clientX - touchRef.current.startX;
+    const dy = Math.abs(touch.clientY - touchRef.current.startY);
+    // Need to swipe at least 80px right, and more horizontal than vertical
+    if (dx > 80 && dx > dy * 1.5) {
+      onBack();
+    }
+    touchRef.current = null;
+  }, [onBack]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastTypingSentRef = useRef(0);
@@ -278,7 +305,12 @@ export default function MessageArea({
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-[#313338]">
+    <div
+      ref={containerRef}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+      className="flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-[#313338]"
+    >
       {/* Channel header */}
       <div className="flex h-12 shrink-0 items-center border-b border-[#1e1f22] px-2 shadow-sm md:px-4">
         {mobile && onBack && (
