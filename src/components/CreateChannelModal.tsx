@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, FormEvent, useEffect, useRef } from "react";
+import { useState, FormEvent, useEffect, useRef, useCallback } from "react";
 
 interface CreateChannelModalProps {
   onSubmit: (name: string, description: string, visibility: "public" | "private", allowedUsers: string[]) => void;
@@ -19,6 +19,19 @@ export default function CreateChannelModal({
   const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
   const [loadingUsers, setLoadingUsers] = useState(false);
 
+  // Fetch approved users (called when switching to private visibility)
+  const fetchedRef = useRef(false);
+  const fetchApprovedUsers = useCallback(() => {
+    if (fetchedRef.current) return;
+    fetchedRef.current = true;
+    setLoadingUsers(true);
+    fetch("/api/users/approved")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((data) => setAllUsers(data))
+      .catch(() => setAllUsers([]))
+      .finally(() => setLoadingUsers(false));
+  }, []);
+
   useEffect(() => {
     const timer = setTimeout(() => {
       document.getElementById("channel-name-input")?.focus();
@@ -33,22 +46,6 @@ export default function CreateChannelModal({
     window.addEventListener("keydown", handleEsc);
     return () => window.removeEventListener("keydown", handleEsc);
   }, [onClose]);
-
-  // Fetch approved users when visibility set to private
-  const fetchedRef = useRef(false);
-  useEffect(() => {
-    if (visibility !== "private") return;
-    if (fetchedRef.current) return;
-    fetchedRef.current = true;
-    let cancelled = false;
-    setLoadingUsers(true);
-    fetch("/api/users/approved")
-      .then((r) => (r.ok ? r.json() : []))
-      .then((data) => { if (!cancelled) setAllUsers(data); })
-      .catch(() => { if (!cancelled) setAllUsers([]); })
-      .finally(() => { if (!cancelled) setLoadingUsers(false); });
-    return () => { cancelled = true; };
-  }, [visibility]);
 
   const toggleUser = (username: string) => {
     setSelectedUsers((prev) => {
@@ -165,7 +162,7 @@ export default function CreateChannelModal({
             </button>
             <button
               type="button"
-              onClick={() => setVisibility("private")}
+              onClick={() => { setVisibility("private"); fetchApprovedUsers(); }}
               className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
                 visibility === "private"
                   ? "bg-[#5865f2] text-white"
