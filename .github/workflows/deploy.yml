@@ -11,6 +11,12 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
       - name: Deploy App
         run: |
           APP_DIR="$HOME/band-msg"
@@ -29,6 +35,8 @@ jobs:
             cd "$APP_DIR"
           fi
 
+          node -v
+          npm -v
           npm ci --include=optional
           npm run build
           # This restarts the app. If it's not running, it starts it.
