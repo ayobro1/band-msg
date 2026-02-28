@@ -19,7 +19,7 @@ jobs:
           cache: npm
 
       - name: Install Dependencies
-        run: npm ci --include=optional
+        run: npm install --include=optional
 
       - name: Static Code Analysis
         run: npm run static-analysis
