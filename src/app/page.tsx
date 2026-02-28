@@ -10,6 +10,20 @@ import CreateChannelModal from "@/components/CreateChannelModal";
 import AdminApprovalModal from "@/components/AdminApprovalModal";
 
 const HEARTBEAT_INTERVAL_MS = 120000; // 2 minutes
+const MOBILE_BREAKPOINT = 768; // md
+
+type MobileView = "channels" | "chat";
+
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < MOBILE_BREAKPOINT);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+  return isMobile;
+}
 
 export default function ChatPage() {
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
@@ -19,6 +33,9 @@ export default function ChatPage() {
   const [showCreateChannel, setShowCreateChannel] = useState(false);
   const [showApprovals, setShowApprovals] = useState(false);
   const [showMembers, setShowMembers] = useState(true);
+  const [mobileView, setMobileView] = useState<MobileView>("channels");
+
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     const loadCurrentUser = async () => {
@@ -86,6 +103,20 @@ export default function ChatPage() {
     setAuthUser(user);
   }, []);
 
+  const handleSelectChannel = useCallback(
+    (id: string) => {
+      setActiveChannelId(id);
+      if (isMobile) {
+        setMobileView("chat");
+      }
+    },
+    [isMobile]
+  );
+
+  const handleBackToChannels = useCallback(() => {
+    setMobileView("channels");
+  }, []);
+
   const handleCreateChannel = useCallback(
     async (name: string, description: string) => {
       try {
@@ -102,12 +133,15 @@ export default function ChatPage() {
           setChannels((prev) => [...prev, channel]);
           setActiveChannelId(channel.id);
           setShowCreateChannel(false);
+          if (isMobile) {
+            setMobileView("chat");
+          }
         }
       } catch (error) {
         console.error("Failed to create channel:", error);
       }
     },
-    []
+    [isMobile]
   );
 
   const handleLogout = useCallback(async () => {
@@ -115,13 +149,14 @@ export default function ChatPage() {
     setAuthUser(null);
     setChannels([]);
     setActiveChannelId(null);
+    setMobileView("channels");
   }, []);
 
   const activeChannel = channels.find((c) => c.id === activeChannelId);
 
   if (!authResolved) {
     return (
-      <div className="flex h-screen items-center justify-center bg-[#313338] text-gray-300">
+      <div className="flex h-dvh items-center justify-center bg-[#313338] text-gray-300">
         Loading...
       </div>
     );
@@ -131,8 +166,87 @@ export default function ChatPage() {
     return <UsernameModal onAuthenticated={handleAuthenticated} />;
   }
 
+  /* ───────── MOBILE LAYOUT ───────── */
+  if (isMobile) {
+    return (
+      <div className="flex h-dvh flex-col overflow-hidden text-gray-300">
+        {mobileView === "channels" ? (
+          /* Full-screen channel list */
+          <div className="flex h-full flex-col bg-[#2b2d31]">
+            {/* Mobile header */}
+            <div className="flex h-14 shrink-0 items-center justify-between border-b border-[#1e1f22] px-4">
+              <div className="flex items-center gap-2">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#5865f2] text-white">
+                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+                  </svg>
+                </div>
+                <span className="text-lg font-semibold text-white">Band Chat</span>
+              </div>
+              <div className="flex items-center gap-1">
+                {authUser.role === "admin" && (
+                  <button
+                    onClick={() => setShowApprovals(true)}
+                    className="flex h-9 w-9 items-center justify-center rounded-lg text-[#23a55a]"
+                    title="Approve Accounts"
+                  >
+                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </button>
+                )}
+                <button
+                  onClick={handleLogout}
+                  className="flex h-9 w-9 items-center justify-center rounded-lg text-gray-400"
+                  title="Sign Out"
+                >
+                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1m0-10V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2h6a2 2 0 002-2v-1" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            {/* Channel list */}
+            <ChannelList
+              channels={channels}
+              activeChannelId={activeChannelId}
+              onSelectChannel={handleSelectChannel}
+              onCreateChannel={() => setShowCreateChannel(true)}
+              canCreateChannel={authUser.role === "admin"}
+              mobile
+            />
+          </div>
+        ) : (
+          /* Full-screen chat */
+          <MessageArea
+            channelId={activeChannelId}
+            channelName={activeChannel?.name ?? ""}
+            channelDescription={activeChannel?.description ?? ""}
+            username={authUser.username}
+            showMembers={false}
+            onToggleMembers={() => {}}
+            mobile
+            onBack={handleBackToChannels}
+          />
+        )}
+
+        {showCreateChannel && (
+          <CreateChannelModal
+            onSubmit={handleCreateChannel}
+            onClose={() => setShowCreateChannel(false)}
+          />
+        )}
+        {showApprovals && authUser.role === "admin" && (
+          <AdminApprovalModal onClose={() => setShowApprovals(false)} />
+        )}
+      </div>
+    );
+  }
+
+  /* ───────── DESKTOP LAYOUT ───────── */
   return (
-    <div className="flex h-screen overflow-hidden text-gray-300">
+    <div className="flex h-dvh overflow-hidden text-gray-300">
       {/* Server icon sidebar */}
       <div className="flex w-[72px] flex-col items-center gap-2 bg-[#1e1f22] py-3">
         <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#5865f2] text-lg font-bold text-white transition-all hover:rounded-xl"
@@ -171,7 +285,7 @@ export default function ChatPage() {
       <ChannelList
         channels={channels}
         activeChannelId={activeChannelId}
-        onSelectChannel={setActiveChannelId}
+        onSelectChannel={handleSelectChannel}
         onCreateChannel={() => setShowCreateChannel(true)}
         canCreateChannel={authUser.role === "admin"}
       />

@@ -13,6 +13,8 @@ interface MessageAreaProps {
   username: string;
   showMembers: boolean;
   onToggleMembers: () => void;
+  mobile?: boolean;
+  onBack?: () => void;
 }
 
 export default function MessageArea({
@@ -22,6 +24,8 @@ export default function MessageArea({
   username,
   showMembers,
   onToggleMembers,
+  mobile,
+  onBack,
 }: MessageAreaProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState("");
@@ -202,28 +206,41 @@ export default function MessageArea({
   return (
     <div className="flex flex-1 flex-col bg-[#313338]">
       {/* Channel header */}
-      <div className="flex h-12 items-center border-b border-[#1e1f22] px-4 shadow-sm">
-        <span className="mr-2 text-xl text-gray-500">#</span>
+      <div className="flex h-12 shrink-0 items-center border-b border-[#1e1f22] px-2 shadow-sm md:px-4">
+        {mobile && onBack && (
+          <button
+            onClick={onBack}
+            className="mr-1 flex h-9 w-9 items-center justify-center rounded-lg text-gray-300 active:bg-[#404249]"
+            aria-label="Back to channels"
+          >
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+        )}
+        <span className="mr-1 text-xl text-gray-500">#</span>
         <span className="font-semibold text-white">{channelName}</span>
-        {channelDescription && (
+        {channelDescription && !mobile && (
           <>
             <div className="mx-3 h-6 w-px bg-[#3f4147]" />
             <span className="truncate text-sm text-gray-400">{channelDescription}</span>
           </>
         )}
-        <div className="ml-auto">
-          <button
-            onClick={onToggleMembers}
-            className={`rounded p-1.5 transition-colors ${
-              showMembers ? "text-white" : "text-gray-400 hover:text-gray-200"
-            }`}
-            title="Toggle Member List"
-          >
-            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-            </svg>
-          </button>
-        </div>
+        {!mobile && (
+          <div className="ml-auto">
+            <button
+              onClick={onToggleMembers}
+              className={`rounded p-1.5 transition-colors ${
+                showMembers ? "text-white" : "text-gray-400 hover:text-gray-200"
+              }`}
+              title="Toggle Member List"
+            >
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+              </svg>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Messages */}
@@ -321,7 +338,7 @@ export default function MessageArea({
       </div>
 
       {/* Message input */}
-      <form onSubmit={handleSend} className="px-4 pb-6">
+      <form onSubmit={handleSend} className="px-3 pb-[env(safe-area-inset-bottom,6px)] pt-1 md:px-4 md:pb-6">
         {sendError && (
           <p className="mb-2 text-xs text-red-400">{sendError}</p>
         )}
@@ -332,6 +349,8 @@ export default function MessageArea({
             onChange={handleInputChange}
             placeholder={`Message #${channelName}`}
             className="min-w-0 flex-1 bg-transparent px-4 py-3 text-sm text-gray-200 placeholder-gray-500 outline-none"
+            enterKeyHint="send"
+            autoComplete="off"
           />
           <button
             type="submit"

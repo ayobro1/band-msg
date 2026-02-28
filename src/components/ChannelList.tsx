@@ -8,6 +8,7 @@ interface ChannelListProps {
   onSelectChannel: (id: string) => void;
   onCreateChannel: () => void;
   canCreateChannel: boolean;
+  mobile?: boolean;
 }
 
 export default function ChannelList({
@@ -16,7 +17,54 @@ export default function ChannelList({
   onSelectChannel,
   onCreateChannel,
   canCreateChannel,
+  mobile,
 }: ChannelListProps) {
+  if (mobile) {
+    return (
+      <nav className="flex-1 overflow-y-auto px-3 pt-3 pb-6">
+        <div className="mb-2 flex items-center justify-between px-1">
+          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+            Channels
+          </p>
+          {canCreateChannel && (
+            <button
+              onClick={onCreateChannel}
+              className="flex h-7 w-7 items-center justify-center rounded-full bg-[#404249] text-gray-300 active:bg-[#5865f2]"
+              title="Create Channel"
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+              </svg>
+            </button>
+          )}
+        </div>
+        {channels.map((channel) => (
+          <button
+            key={channel.id}
+            onClick={() => onSelectChannel(channel.id)}
+            className={`mb-1 flex w-full items-center rounded-lg px-3 py-3 text-left transition-colors active:bg-[#404249] ${
+              activeChannelId === channel.id
+                ? "bg-[#404249] text-white"
+                : "text-gray-300 hover:bg-[#35373c] hover:text-white"
+            }`}
+          >
+            <span className={`mr-2 text-lg ${activeChannelId === channel.id ? "text-gray-300" : "text-gray-500"}`}>#</span>
+            <div className="min-w-0 flex-1">
+              <span className="block truncate text-[15px] font-medium">{channel.name}</span>
+              {channel.description && (
+                <span className="block truncate text-xs text-gray-500">{channel.description}</span>
+              )}
+            </div>
+            {/* Chevron */}
+            <svg className="ml-2 h-4 w-4 shrink-0 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+        ))}
+      </nav>
+    );
+  }
+
   return (
     <div className="flex h-full w-60 flex-col bg-[#2b2d31] text-gray-300">
       <div className="flex h-12 items-center border-b border-[#1e1f22] px-4 font-semibold text-white shadow-sm">

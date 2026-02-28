@@ -14,6 +14,16 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: "gg sans", "Noto Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
+}
+
+/* Safe-area padding for iOS standalone PWA */
+@supports (padding: env(safe-area-inset-bottom)) {
+  html {
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
 }
 
 /* Custom scrollbar */

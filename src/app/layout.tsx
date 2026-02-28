@@ -10,7 +10,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     title: "Band Chat",
-    statusBarStyle: "default",
+    statusBarStyle: "black-translucent",
   },
   icons: {
     icon: [
@@ -19,6 +19,17 @@ export const metadata: Metadata = {
     ],
     apple: [{ url: "/icons/icon-192.svg" }],
   },
+  other: {
+    "mobile-web-app-capable": "yes",
+  },
+};
+
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: "cover" as const,
 };
 
 export default function RootLayout({
