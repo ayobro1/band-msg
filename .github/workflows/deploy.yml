@@ -19,11 +19,42 @@ jobs:
 
       - name: Build and Start
         run: |
+          set -euo pipefail
+
+          APP_DIR="/home/deploy/band-msg"
+          REPO_URL="https://github.com/ayobro1/band-msg.git"
+
+          echo "whoami=$(whoami)"
+          echo "PM2_HOME=$PM2_HOME"
+          echo "workspace=$PWD"
+
+          if [ -d "$APP_DIR/.git" ]; then
+            cd "$APP_DIR"
+            git fetch origin main
+            git reset --hard origin/main
+          elif [ -d "$APP_DIR" ]; then
+            rm -rf "$APP_DIR"
+            git clone "$REPO_URL" "$APP_DIR"
+            cd "$APP_DIR"
+          else
+            git clone "$REPO_URL" "$APP_DIR"
+            cd "$APP_DIR"
+          fi
+
           node -v
           npm -v
+          which node
+          which npm
+          which pm2
+
+          node -e 'const major=Number(process.versions.node.split(".")[0]); if(major<20){console.error("Node 20+ required"); process.exit(1)}'
+
           npm install
           npm run build
+
           # Delete the old one and start fresh in the deploy user's list
           pm2 delete band-msg || true
-          pm2 start npm --name "band-msg" -- start
+          pm2 start npm --name "band-msg" --cwd "$APP_DIR" -- start
           pm2 save
+          pm2 status
+          pm2 logs band-msg --lines 20 --nostream
