@@ -85,6 +85,7 @@ jobs:
           pm2 start npm --name "band-msg" --cwd "$APP_DIR" -- start
 
           if [ -n "${CLOUDFLARE_TUNNEL_TOKEN:-}" ]; then
+            echo "Using Cloudflared named tunnel (token mode)."
             mkdir -p "$HOME/.local/bin"
             CLOUDFLARED_BIN="$HOME/.local/bin/cloudflared"
 
@@ -98,6 +99,7 @@ jobs:
             pm2 start "$CLOUDFLARED_BIN" --name "band-msg-cloudflared" -- tunnel run --token "$CLOUDFLARE_TUNNEL_TOKEN"
             echo "Cloudflared named tunnel started for ${CLOUDFLARE_HOSTNAME}."
           elif [ -n "${CLOUDFLARED_URL:-}" ]; then
+            echo "Using Cloudflared quick tunnel (URL mode) for ${CLOUDFLARED_URL}."
             mkdir -p "$HOME/.local/bin"
             CLOUDFLARED_BIN="$HOME/.local/bin/cloudflared"
 
@@ -112,7 +114,15 @@ jobs:
             echo "Cloudflared quick tunnel started for $CLOUDFLARED_URL."
           else
             echo "No Cloudflared settings found. Set CLOUDFLARE_TUNNEL_TOKEN or CLOUDFLARED_URL."
+            exit 1
           fi
+
+          if ! pm2 describe band-msg-cloudflared >/dev/null 2>&1; then
+            echo "Cloudflared process was not created in PM2."
+            exit 1
+          fi
+
+          pm2 logs band-msg-cloudflared --lines 20 --nostream
 
           pm2 save
           pm2 status
