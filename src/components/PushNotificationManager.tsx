@@ -20,8 +20,14 @@ export default function PushNotificationManager({ channels = [] }: PushNotificat
   const [showSettings, setShowSettings] = useState(false);
   const [pushEnabled, setPushEnabled] = useState(true);
   const [mutedChannels, setMutedChannels] = useState<string[]>([]);
-  const [pushSupported, setPushSupported] = useState(true);
-  const [permissionState, setPermissionState] = useState<NotificationPermission | "unknown">("unknown");
+  const [pushSupported, setPushSupported] = useState(() => {
+    if (typeof window === "undefined") return true;
+    return ("serviceWorker" in navigator) && ("PushManager" in window);
+  });
+  const [permissionState, setPermissionState] = useState<NotificationPermission | "unknown">(() => {
+    if (typeof Notification !== "undefined") return Notification.permission;
+    return "unknown";
+  });
   const [saving, setSaving] = useState(false);
 
   // Load prefs on mount
@@ -35,13 +41,6 @@ export default function PushNotificationManager({ channels = [] }: PushNotificat
         }
       })
       .catch(() => {});
-
-    if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
-      setPushSupported(false);
-    }
-    if (typeof Notification !== "undefined") {
-      setPermissionState(Notification.permission);
-    }
   }, []);
 
   const registerPush = useCallback(async () => {

@@ -191,7 +191,7 @@ export default function ChatPage() {
         console.error("Failed to create channel:", error);
       }
     },
-    [isMobile]
+    [isMobile, handleSelectChannelMobile]
   );
 
   const handleLogout = useCallback(async () => {
