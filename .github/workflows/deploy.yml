@@ -71,29 +71,52 @@ jobs:
           pm2 start npm --name "band-msg" --cwd "$APP_DIR" -- start
 
           # 4. Handle Cloudflared (System Service Mode)
-          if ! command -v cloudflared >/dev/null 2>&1; then
-            echo "Installing cloudflared..."
-            curl -L --output cloudflared.deb https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
-            sudo dpkg -i cloudflared.deb
-          fi
-
-          # We stop the PM2 version if it exists to avoid conflicts
-          pm2 delete band-msg-cloudflared || true
-
           if [ -z "${CLOUDFLARE_TUNNEL_TOKEN:-}" ]; then
             echo "CLOUDFLARE_TUNNEL_TOKEN is missing."
             exit 1
           fi
 
-          # Install/Update the official Cloudflare Service using your Token
-          # This forces "Named Tunnel" mode and ignores "Quick Tunnels"
-          sudo cloudflared service uninstall || true
-          sudo cloudflared service install "$CLOUDFLARE_TUNNEL_TOKEN"
+          if sudo -n true >/dev/null 2>&1; then
+            echo "Passwordless sudo detected. Using cloudflared system service mode."
 
-          # Restart to ensure it's using the latest token
-          sudo systemctl daemon-reload
-          sudo systemctl restart cloudflared
+            if ! command -v cloudflared >/dev/null 2>&1; then
+              echo "Installing cloudflared via .deb package..."
+              curl -L --output cloudflared.deb https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
+              sudo -n dpkg -i cloudflared.deb
+            fi
+
+            # Stop PM2 tunnel process to avoid conflicts with service mode
+            pm2 delete band-msg-cloudflared || true
+
+            sudo -n cloudflared service uninstall || true
+            sudo -n cloudflared service install "$CLOUDFLARE_TUNNEL_TOKEN"
+            sudo -n systemctl daemon-reload
+            sudo -n systemctl restart cloudflared
+            sudo -n systemctl is-active --quiet cloudflared
+          else
+            echo "No passwordless sudo available. Falling back to PM2 named tunnel mode."
+
+            mkdir -p "$HOME/.local/bin"
+            CLOUDFLARED_BIN="$HOME/.local/bin/cloudflared"
+
+            if [ ! -x "$CLOUDFLARED_BIN" ]; then
+              echo "Installing cloudflared binary to $CLOUDFLARED_BIN"
+              curl -fsSL "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64" -o "$CLOUDFLARED_BIN"
+              chmod +x "$CLOUDFLARED_BIN"
+            fi
+
+            pm2 delete band-msg-cloudflared || true
+            pm2 start "$CLOUDFLARED_BIN" --name "band-msg-cloudflared" -- tunnel run --token "$CLOUDFLARE_TUNNEL_TOKEN"
+            if ! pm2 describe band-msg-cloudflared >/dev/null 2>&1; then
+              echo "Cloudflared PM2 process was not created."
+              exit 1
+            fi
+          fi
 
           echo "Deployment complete. Checking status..."
           pm2 status
-          sudo systemctl status cloudflared --no-pager
+          if sudo -n true >/dev/null 2>&1; then
+            sudo -n systemctl status cloudflared --no-pager
+          else
+            pm2 logs band-msg-cloudflared --lines 20 --nostream
+          fi
