@@ -1,10 +1,16 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback, FormEvent } from "react";
-import { Message, StreamEvent, TypingEvent } from "@/lib/types";
+import { Message, StreamEvent, TypingEvent, Reaction } from "@/lib/types";
 import { getAvatarColor, formatTimestamp } from "@/lib/utils";
+import GiphyPicker from "@/components/GiphyPicker";
 
 const MESSAGE_GROUP_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
+const MAX_FILE_SIZE = 500 * 1024 * 1024; // 500 MB
+const ALLOWED_MEDIA_TYPES = [
+  "image/jpeg", "image/png", "image/gif", "image/webp", "image/svg+xml",
+  "video/mp4", "video/webm", "video/quicktime",
+];
 
 interface MessageAreaProps {
   channelId: string | null;
@@ -32,7 +38,12 @@ export default function MessageArea({
   const [typingUsers, setTypingUsers] = useState<Map<string, number>>(new Map());
   const [isLoading, setIsLoading] = useState(false);
   const [sendError, setSendError] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const [showGiphy, setShowGiphy] = useState(false);
+  const [giphyTarget, setGiphyTarget] = useState<string | null>(null);
+  const [reactions, setReactions] = useState<Map<string, Reaction[]>>(new Map());
   const bottomRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastTypingSentRef = useRef(0);
 
@@ -88,6 +99,16 @@ export default function MessageArea({
             return next;
           });
         }
+      } else if (streamEvent.type === "reaction") {
+        const reaction = streamEvent.payload as Reaction;
+        setReactions((prev) => {
+          const next = new Map(prev);
+          const existing = next.get(reaction.message_id) ?? [];
+          if (!existing.find((r) => r.id === reaction.id)) {
+            next.set(reaction.message_id, [...existing, reaction]);
+          }
+          return next;
+        });
       }
     };
 
@@ -141,6 +162,59 @@ export default function MessageArea({
     if (e.target.value.trim()) {
       sendTypingIndicator();
     }
+  };
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !channelId) return;
+    e.target.value = "";
+
+    if (!ALLOWED_MEDIA_TYPES.includes(file.type)) {
+      setSendError("Only images and videos are allowed.");
+      return;
+    }
+    if (file.size > MAX_FILE_SIZE) {
+      setSendError("File must be under 500 MB.");
+      return;
+    }
+
+    setUploading(true);
+    setSendError("");
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("channel_id", channelId);
+
+      const res = await fetch("/api/upload", { method: "POST", body: formData });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({ error: "Upload failed" }));
+        throw new Error(data.error ?? "Upload failed");
+      }
+    } catch (error) {
+      setSendError(error instanceof Error ? error.message : "Upload failed");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleGiphyReaction = async (messageId: string, gifUrl: string, gifId: string) => {
+    try {
+      await fetch("/api/reactions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message_id: messageId, gif_url: gifUrl, gif_id: gifId }),
+      });
+    } catch {
+      /* ignore */
+    }
+    setGiphyTarget(null);
+    setShowGiphy(false);
+  };
+
+  const openGiphyForReaction = (messageId: string) => {
+    setGiphyTarget(messageId);
+    setShowGiphy(true);
   };
 
   const handleSend = async (e: FormEvent) => {
@@ -210,10 +284,11 @@ export default function MessageArea({
         {mobile && onBack && (
           <button
             onClick={onBack}
-            className="-ml-1 mr-1 flex h-11 w-11 items-center justify-center rounded-xl text-gray-200 active:bg-[#404249]"
+            className="relative -ml-2 mr-0.5 flex h-12 w-14 items-center justify-center text-white active:bg-[#404249]"
             aria-label="Back to channels"
+            style={{ zIndex: 10 }}
           >
-            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <svg className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
             </svg>
           </button>
@@ -266,6 +341,47 @@ export default function MessageArea({
           <div className="pb-4">
             {messages.map((msg, i) => {
               const grouped = shouldGroup(msg, messages[i - 1]);
+              const msgReactions = reactions.get(msg.id) ?? [];
+              const attachment = msg.attachment_url ? msg : null;
+
+              const reactionRow = (msgReactions.length > 0 || true) && (
+                <div className="mt-1 flex flex-wrap items-center gap-1">
+                  {msgReactions.map((r) => (
+                    <img key={r.id} src={r.gif_url} alt="reaction" className="h-8 rounded" loading="lazy" />
+                  ))}
+                  <button
+                    onClick={() => openGiphyForReaction(msg.id)}
+                    className="flex h-6 w-6 items-center justify-center rounded bg-[#404249] text-xs text-gray-400 opacity-0 transition-opacity group-hover:opacity-100 hover:text-white"
+                    title="Add Reaction"
+                  >+</button>
+                </div>
+              );
+
+              const attachmentEl = attachment?.attachment_url && (
+                <div className="mt-1">
+                  {attachment.attachment_mime?.startsWith("video/") ? (
+                    <video
+                      src={attachment.attachment_url}
+                      controls
+                      preload="metadata"
+                      className="max-h-80 max-w-full rounded-lg"
+                    />
+                  ) : (
+                    <img
+                      src={attachment.attachment_url}
+                      alt="attachment"
+                      className="max-h-80 max-w-full rounded-lg"
+                      loading="lazy"
+                    />
+                  )}
+                  {attachment.attachment_expires && (
+                    <span className="mt-0.5 block text-[10px] text-gray-600">
+                      Expires {new Date(attachment.attachment_expires).toLocaleDateString()}
+                    </span>
+                  )}
+                </div>
+              );
+
               return grouped ? (
                 <div
                   key={msg.id}
@@ -279,8 +395,10 @@ export default function MessageArea({
                       })}
                     </span>
                   </div>
-                  <div className="ml-3">
-                    <p className="text-sm text-gray-300">{msg.content}</p>
+                  <div className="ml-3 min-w-0">
+                    {msg.content && <p className="text-sm text-gray-300">{msg.content}</p>}
+                    {attachmentEl}
+                    {reactionRow}
                   </div>
                 </div>
               ) : (
@@ -308,7 +426,9 @@ export default function MessageArea({
                         {formatTimestamp(msg.created)}
                       </span>
                     </div>
-                    <p className="text-sm text-gray-300">{msg.content}</p>
+                    {msg.content && <p className="text-sm text-gray-300">{msg.content}</p>}
+                    {attachmentEl}
+                    {reactionRow}
                   </div>
                 </div>
               );
@@ -338,31 +458,84 @@ export default function MessageArea({
       </div>
 
       {/* Message input */}
-      <form onSubmit={handleSend} className="px-3 pb-[env(safe-area-inset-bottom,6px)] pt-1 md:px-4 md:pb-6">
-        {sendError && (
-          <p className="mb-2 text-xs text-red-400">{sendError}</p>
-        )}
-        <div className="flex items-center rounded-lg bg-[#383a40]">
-          <input
-            type="text"
-            value={newMessage}
-            onChange={handleInputChange}
-            placeholder={`Message #${channelName}`}
-            className="min-w-0 flex-1 bg-transparent px-4 py-3 text-sm text-gray-200 placeholder-gray-500 outline-none"
-            enterKeyHint="send"
-            autoComplete="off"
+      <div className="relative">
+        {/* Giphy picker */}
+        {showGiphy && (
+          <GiphyPicker
+            onSelect={(gifUrl, gifId) => {
+              if (giphyTarget) {
+                handleGiphyReaction(giphyTarget, gifUrl, gifId);
+              } else if (channelId) {
+                // Send as inline GIF message
+                fetch("/api/messages", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ content: gifUrl, channel_id: channelId }),
+                }).catch(() => {});
+                setShowGiphy(false);
+              }
+            }}
+            onClose={() => setShowGiphy(false)}
           />
-          <button
-            type="submit"
-            disabled={!newMessage.trim()}
-            className="mr-2 flex h-8 w-8 items-center justify-center rounded text-gray-400 transition-colors hover:text-gray-200 disabled:opacity-30 disabled:hover:text-gray-400"
-          >
-            <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
-            </svg>
-          </button>
-        </div>
-      </form>
+        )}
+        <form onSubmit={handleSend} className="px-3 pb-[env(safe-area-inset-bottom,6px)] pt-1 md:px-4 md:pb-6">
+          {sendError && (
+            <p className="mb-2 text-xs text-red-400">{sendError}</p>
+          )}
+          <div className="flex items-center rounded-lg bg-[#383a40] ring-1 ring-transparent focus-within:ring-[#5865f2]/50">
+            {/* Attachment button */}
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+              className="ml-2 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-gray-400 transition-colors hover:bg-[#404249] hover:text-gray-200 disabled:opacity-40"
+              title="Upload photo or video (max 500 MB, auto-deletes after 30 days)"
+            >
+              {uploading ? (
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-gray-500 border-t-gray-200" />
+              ) : (
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                </svg>
+              )}
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*,video/*"
+              onChange={handleFileSelect}
+              className="hidden"
+            />
+            <input
+              type="text"
+              value={newMessage}
+              onChange={handleInputChange}
+              placeholder={`Message #${channelName}`}
+              className="min-w-0 flex-1 bg-transparent px-3 py-3 text-sm text-white placeholder-gray-400 outline-none"
+              enterKeyHint="send"
+              autoComplete="off"
+            />
+            {/* GIF picker toggle */}
+            <button
+              type="button"
+              onClick={() => { setGiphyTarget(null); setShowGiphy((v) => !v); }}
+              className="mr-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-gray-400 transition-colors hover:bg-[#404249] hover:text-gray-200"
+              title="Send a GIF"
+            >
+              <span className="text-xs font-bold">GIF</span>
+            </button>
+            <button
+              type="submit"
+              disabled={!newMessage.trim()}
+              className="mr-2 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#5865f2] transition-colors hover:text-[#7983f5] disabled:text-gray-600"
+            >
+              <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
+              </svg>
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }

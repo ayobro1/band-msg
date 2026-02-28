@@ -1,4 +1,4 @@
-import { addChannel, getChannels } from "@/lib/store";
+import { addChannel, getChannelsForUser } from "@/lib/store";
 import { requireAdmin, requireApprovedUser } from "@/lib/auth";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -7,7 +7,7 @@ export async function GET(request: NextRequest) {
   if (user instanceof NextResponse) {
     return user;
   }
-  return NextResponse.json(getChannels());
+  return NextResponse.json(getChannelsForUser(user.username, user.role));
 }
 
 export async function POST(request: NextRequest) {
@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json();
-  const { name, description } = body;
+  const { name, description, visibility, allowed_users } = body;
 
   if (!name || typeof name !== "string") {
     return NextResponse.json(
@@ -26,7 +26,12 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const channel = addChannel(name, description ?? "");
+  const channel = addChannel(
+    name,
+    description ?? "",
+    visibility === "private" ? "private" : "public",
+    Array.isArray(allowed_users) ? allowed_users : []
+  );
   if (!channel) {
     return NextResponse.json(
       { error: "Invalid name or channel already exists" },

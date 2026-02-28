@@ -24,6 +24,47 @@ self.addEventListener("activate", (event) => {
   );
 });
 
+// Push notification handler
+self.addEventListener("push", (event) => {
+  let data = { title: "Band Chat", body: "New message", icon: "/icons/icon-192.svg" };
+  try {
+    if (event.data) {
+      data = Object.assign(data, event.data.json());
+    }
+  } catch {
+    if (event.data) {
+      data.body = event.data.text();
+    }
+  }
+
+  event.waitUntil(
+    self.registration.showNotification(data.title, {
+      body: data.body,
+      icon: data.icon || "/icons/icon-192.svg",
+      badge: "/icons/icon-192.svg",
+      tag: data.tag || "band-chat-notification",
+      data: data.url ? { url: data.url } : {},
+    })
+  );
+});
+
+// Notification click handler - focus or open the app
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const url = event.notification.data?.url || "/";
+
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
+      for (const client of clients) {
+        if (client.url.includes(self.location.origin) && "focus" in client) {
+          return client.focus();
+        }
+      }
+      return self.clients.openWindow(url);
+    })
+  );
+});
+
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") {
     return;

@@ -48,7 +48,13 @@ export default function ChannelList({
                 : "text-gray-300 hover:bg-[#35373c] hover:text-white"
             }`}
           >
-            <span className={`mr-2 text-lg ${activeChannelId === channel.id ? "text-gray-300" : "text-gray-500"}`}>#</span>
+            <span className={`mr-2 text-lg ${activeChannelId === channel.id ? "text-gray-300" : "text-gray-500"}`}>
+              {channel.visibility === "private" ? (
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+              ) : "#"}
+            </span>
             <div className="min-w-0 flex-1">
               <span className="block truncate text-[15px] font-medium">{channel.name}</span>
               {channel.description && (
@@ -101,7 +107,13 @@ export default function ChannelList({
             }`}
             title={channel.description || undefined}
           >
-            <span className={`mr-1.5 ${activeChannelId === channel.id ? "text-gray-300" : "text-gray-500"}`}>#</span>
+            <span className={`mr-1.5 ${activeChannelId === channel.id ? "text-gray-300" : "text-gray-500"}`}>
+              {channel.visibility === "private" ? (
+                <svg className="inline h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+              ) : "#"}
+            </span>
             <span className="truncate">{channel.name}</span>
           </button>
         ))}

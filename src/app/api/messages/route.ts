@@ -2,9 +2,11 @@ import {
   addMessage,
   broadcastTyping,
   channelExists,
+  canAccessChannel,
   getMessagesByChannel,
   trackUser,
 } from "@/lib/store";
+import { sendPushNotifications } from "@/lib/push";
 import { requireApprovedUser } from "@/lib/auth";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -21,6 +23,11 @@ export async function GET(request: NextRequest) {
       { status: 400 }
     );
   }
+
+  if (!canAccessChannel(channelId, user.username, user.role)) {
+    return NextResponse.json({ error: "access denied" }, { status: 403 });
+  }
+
   return NextResponse.json(getMessagesByChannel(channelId));
 }
 
@@ -47,8 +54,16 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  if (!canAccessChannel(channel_id, user.username, user.role)) {
+    return NextResponse.json({ error: "access denied" }, { status: 403 });
+  }
+
   const msg = addMessage(content, channel_id, user.username);
   trackUser(user.username);
+
+  // Send push notifications in background (non-blocking)
+  sendPushNotifications(user.username, channel_id, content).catch(() => {});
+
   return NextResponse.json(msg, { status: 201 });
 }
 

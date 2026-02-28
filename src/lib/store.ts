@@ -1,9 +1,12 @@
 import crypto from "node:crypto";
+import fs from "node:fs";
+import path from "node:path";
 import { getDb } from "./db";
 import {
   AuthUser,
   Channel,
   Message,
+  Reaction,
   StreamEvent,
   TypingEvent,
   UserAccount,
@@ -296,11 +299,38 @@ export function approveUser(usernameInput: string):
 export function getChannels(): Channel[] {
   return db
     .prepare(
-      `SELECT id, name, description, created
+      `SELECT id, name, description, visibility, created
        FROM channels
        ORDER BY created ASC, name ASC`
     )
     .all() as Channel[];
+}
+
+export function getChannelsForUser(username: string, role: string): Channel[] {
+  if (role === "admin") return getChannels();
+
+  return db
+    .prepare(
+      `SELECT c.id, c.name, c.description, c.visibility, c.created
+       FROM channels c
+       WHERE c.visibility = 'public'
+          OR EXISTS (SELECT 1 FROM channel_members cm WHERE cm.channel_id = c.id AND cm.username = ?)
+       ORDER BY c.created ASC, c.name ASC`
+    )
+    .all(username) as Channel[];
+}
+
+export function canAccessChannel(channelId: string, username: string, role: string): boolean {
+  if (role === "admin") return true;
+  const ch = db
+    .prepare("SELECT visibility FROM channels WHERE id = ?")
+    .get(channelId) as { visibility: string } | undefined;
+  if (!ch) return false;
+  if (ch.visibility === "public") return true;
+  const member = db
+    .prepare("SELECT 1 FROM channel_members WHERE channel_id = ? AND username = ?")
+    .get(channelId, username);
+  return Boolean(member);
 }
 
 export function channelExists(channelId: string): boolean {
@@ -310,7 +340,12 @@ export function channelExists(channelId: string): boolean {
   return Boolean(row);
 }
 
-export function addChannel(name: string, description = ""): Channel | null {
+export function addChannel(
+  name: string,
+  description = "",
+  visibility: "public" | "private" = "public",
+  allowedUsers: string[] = []
+): Channel | null {
   const normalized = name.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
   if (!normalized) return null;
 
@@ -323,32 +358,73 @@ export function addChannel(name: string, description = ""): Channel | null {
     id: `ch_${crypto.randomUUID()}`,
     name: normalized,
     description,
+    visibility,
     created: new Date().toISOString(),
   };
 
   db.prepare(
-    `INSERT INTO channels (id, name, description, created)
-     VALUES (?, ?, ?, ?)`
-  ).run(channel.id, channel.name, channel.description, channel.created);
+    `INSERT INTO channels (id, name, description, visibility, created)
+     VALUES (?, ?, ?, ?, ?)`
+  ).run(channel.id, channel.name, channel.description, channel.visibility, channel.created);
+
+  if (visibility === "private" && allowedUsers.length > 0) {
+    setChannelMembers(channel.id, allowedUsers);
+  }
 
   return channel;
+}
+
+export function setChannelMembers(channelId: string, usernames: string[]): void {
+  db.prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channelId);
+  const insert = db.prepare(
+    "INSERT OR IGNORE INTO channel_members (channel_id, username) VALUES (?, ?)"
+  );
+  for (const u of usernames) {
+    insert.run(channelId, u.trim().toLowerCase());
+  }
+}
+
+export function getChannelMembers(channelId: string): string[] {
+  return db
+    .prepare("SELECT username FROM channel_members WHERE channel_id = ? ORDER BY username ASC")
+    .all(channelId)
+    .map((r) => (r as { username: string }).username);
 }
 
 export function getMessagesByChannel(channelId: string): Message[] {
   return db
     .prepare(
-      `SELECT id, content, profile_id, channel_id, created
-       FROM messages
-       WHERE channel_id = ?
-       ORDER BY created ASC`
+      `SELECT m.id, m.content, m.profile_id, m.channel_id, m.created,
+              a.id AS att_id, a.mime_type AS att_mime, a.expires_at AS att_expires
+       FROM messages m
+       LEFT JOIN attachments a ON a.message_id = m.id
+       WHERE m.channel_id = ?
+       ORDER BY m.created ASC`
     )
-    .all(channelId) as Message[];
+    .all(channelId)
+    .map((row) => {
+      const r = row as Record<string, unknown>;
+      const msg: Message = {
+        id: r.id as string,
+        content: r.content as string,
+        profile_id: r.profile_id as string,
+        channel_id: r.channel_id as string,
+        created: r.created as string,
+      };
+      if (r.att_id) {
+        msg.attachment_url = `/api/upload/${r.att_id as string}`;
+        msg.attachment_mime = r.att_mime as string;
+        msg.attachment_expires = r.att_expires as string;
+      }
+      return msg;
+    });
 }
 
 export function addMessage(
   content: string,
   channelId: string,
-  profileId: string
+  profileId: string,
+  attachmentId?: string
 ): Message {
   const msg: Message = {
     id: `msg_${crypto.randomUUID()}`,
@@ -359,9 +435,21 @@ export function addMessage(
   };
 
   db.prepare(
-    `INSERT INTO messages (id, content, profile_id, channel_id, created)
-     VALUES (?, ?, ?, ?, ?)`
-  ).run(msg.id, msg.content, msg.profile_id, msg.channel_id, msg.created);
+    `INSERT INTO messages (id, content, profile_id, channel_id, attachment_id, created)
+     VALUES (?, ?, ?, ?, ?, ?)`
+  ).run(msg.id, msg.content, msg.profile_id, msg.channel_id, attachmentId ?? null, msg.created);
+
+  // Attach URL if there's an attachment
+  if (attachmentId) {
+    const att = db
+      .prepare("SELECT id, mime_type, expires_at FROM attachments WHERE id = ?")
+      .get(attachmentId) as { id: string; mime_type: string; expires_at: string } | undefined;
+    if (att) {
+      msg.attachment_url = `/api/upload/${att.id}`;
+      msg.attachment_mime = att.mime_type;
+      msg.attachment_expires = att.expires_at;
+    }
+  }
 
   trackUser(profileId);
   notifySubscribers({ type: "message", payload: msg });
@@ -388,4 +476,166 @@ function notifySubscribers(event: StreamEvent) {
   for (const fn of subscribers) {
     fn(event);
   }
+}
+
+// ───── Attachments ─────
+
+const uploadsDir = process.env.UPLOADS_PATH ?? path.join(process.cwd(), "data", "uploads");
+
+export function addAttachment(
+  messageId: string,
+  filename: string,
+  mimeType: string,
+  size: number,
+  filePath: string,
+  expiresInDays = 30
+): string {
+  const id = `att_${crypto.randomUUID()}`;
+  const now = new Date();
+  const expires = new Date(now.getTime() + expiresInDays * 24 * 60 * 60 * 1000);
+  db.prepare(
+    `INSERT INTO attachments (id, message_id, filename, mime_type, size, path, created, expires_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+  ).run(id, messageId, filename, mimeType, size, filePath, now.toISOString(), expires.toISOString());
+  return id;
+}
+
+export function getAttachment(id: string): {
+  id: string;
+  message_id: string;
+  filename: string;
+  mime_type: string;
+  size: number;
+  path: string;
+  created: string;
+  expires_at: string;
+} | null {
+  return (
+    (db
+      .prepare("SELECT * FROM attachments WHERE id = ?")
+      .get(id) as {
+      id: string;
+      message_id: string;
+      filename: string;
+      mime_type: string;
+      size: number;
+      path: string;
+      created: string;
+      expires_at: string;
+    } | undefined) ?? null
+  );
+}
+
+export function cleanupExpiredAttachments(): number {
+  const now = new Date().toISOString();
+  const expired = db
+    .prepare("SELECT id, path FROM attachments WHERE expires_at <= ?")
+    .all(now) as { id: string; path: string }[];
+
+  for (const att of expired) {
+    try {
+      const fullPath = path.isAbsolute(att.path) ? att.path : path.join(uploadsDir, att.path);
+      if (fs.existsSync(fullPath)) fs.unlinkSync(fullPath);
+    } catch {
+      // ignore file-not-found
+    }
+    db.prepare("DELETE FROM attachments WHERE id = ?").run(att.id);
+  }
+  return expired.length;
+}
+
+export function getUploadsDir(): string {
+  return uploadsDir;
+}
+
+export function updateAttachmentMessageId(attachmentId: string, messageId: string): void {
+  db.prepare("UPDATE attachments SET message_id = ? WHERE id = ?").run(messageId, attachmentId);
+}
+
+// ───── Reactions ─────
+
+export function addReaction(
+  messageId: string,
+  username: string,
+  gifUrl: string,
+  gifId: string
+): Reaction {
+  const reaction: Reaction = {
+    id: `r_${crypto.randomUUID()}`,
+    message_id: messageId,
+    username,
+    gif_url: gifUrl,
+    gif_id: gifId,
+    created: new Date().toISOString(),
+  };
+
+  db.prepare(
+    `INSERT INTO reactions (id, message_id, username, gif_url, gif_id, created)
+     VALUES (?, ?, ?, ?, ?, ?)`
+  ).run(reaction.id, reaction.message_id, reaction.username, reaction.gif_url, reaction.gif_id, reaction.created);
+
+  notifySubscribers({ type: "reaction", payload: reaction });
+  return reaction;
+}
+
+export function getReactionsForMessages(messageIds: string[]): Map<string, Reaction[]> {
+  const result = new Map<string, Reaction[]>();
+  if (messageIds.length === 0) return result;
+
+  const placeholders = messageIds.map(() => "?").join(",");
+  const rows = db
+    .prepare(
+      `SELECT id, message_id, username, gif_url, gif_id, created
+       FROM reactions WHERE message_id IN (${placeholders})
+       ORDER BY created ASC`
+    )
+    .all(...messageIds) as Reaction[];
+
+  for (const r of rows) {
+    const list = result.get(r.message_id) ?? [];
+    list.push(r);
+    result.set(r.message_id, list);
+  }
+  return result;
+}
+
+// ───── Push Subscriptions ─────
+
+export function savePushSubscription(
+  endpoint: string,
+  username: string,
+  p256dh: string,
+  auth: string
+): void {
+  db.prepare(
+    `INSERT INTO push_subscriptions (endpoint, username, p256dh, auth, created)
+     VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(endpoint) DO UPDATE SET
+       username = excluded.username,
+       p256dh = excluded.p256dh,
+       auth = excluded.auth`
+  ).run(endpoint, username, p256dh, auth, new Date().toISOString());
+}
+
+export function removePushSubscription(endpoint: string): void {
+  db.prepare("DELETE FROM push_subscriptions WHERE endpoint = ?").run(endpoint);
+}
+
+export function getAllPushSubscriptions(): {
+  endpoint: string;
+  username: string;
+  p256dh: string;
+  auth: string;
+}[] {
+  return db
+    .prepare("SELECT endpoint, username, p256dh, auth FROM push_subscriptions")
+    .all() as { endpoint: string; username: string; p256dh: string; auth: string }[];
+}
+
+// ───── Approved users list (for channel member picker) ─────
+
+export function getApprovedUsers(): { username: string; role: string }[] {
+  return db
+    .prepare("SELECT username, role FROM users WHERE status = 'approved' ORDER BY username ASC")
+    .all() as { username: string; role: string }[];
 }

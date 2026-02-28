@@ -8,6 +8,7 @@ import MemberList from "@/components/MemberList";
 import UsernameModal from "@/components/UsernameModal";
 import CreateChannelModal from "@/components/CreateChannelModal";
 import AdminApprovalModal from "@/components/AdminApprovalModal";
+import PushNotificationManager from "@/components/PushNotificationManager";
 
 const HEARTBEAT_INTERVAL_MS = 120000; // 2 minutes
 const MOBILE_BREAKPOINT = 768; // md
@@ -118,12 +119,12 @@ export default function ChatPage() {
   }, []);
 
   const handleCreateChannel = useCallback(
-    async (name: string, description: string) => {
+    async (name: string, description: string, visibility: "public" | "private" = "public", allowedUsers: string[] = []) => {
       try {
         const res = await fetch("/api/channels", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name, description }),
+          body: JSON.stringify({ name, description, visibility, allowed_users: allowedUsers }),
         });
         if (!res.ok) {
           return;
@@ -170,6 +171,7 @@ export default function ChatPage() {
   if (isMobile) {
     return (
       <div className="flex h-dvh flex-col overflow-hidden text-gray-300">
+        <PushNotificationManager />
         {mobileView === "channels" ? (
           /* Full-screen channel list */
           <div className="flex h-full flex-col bg-[#2b2d31]">
@@ -247,6 +249,7 @@ export default function ChatPage() {
   /* ───────── DESKTOP LAYOUT ───────── */
   return (
     <div className="flex h-dvh overflow-hidden text-gray-300">
+      <PushNotificationManager />
       {/* Server icon sidebar */}
       <div className="flex w-[72px] flex-col items-center gap-2 bg-[#1e1f22] py-3">
         <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#5865f2] text-lg font-bold text-white transition-all hover:rounded-xl"
