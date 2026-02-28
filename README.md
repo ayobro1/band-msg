@@ -68,6 +68,8 @@ echo -n "your-password" | sha256sum
 
 - On pull requests and pushes to `main`, GitHub Actions runs static code analysis (`eslint` + `tsc --noEmit`) and production build validation.
 - Deployment on the self-hosted runner only starts after all quality checks pass.
+- You can run manual deploys/rollbacks from Actions using **Run workflow** and setting `deploy_ref` to a branch, tag, or commit SHA.
+- Deploys are serialized with a production concurrency lock, and a post-deploy smoke check (`http://127.0.0.1:3000`) must pass.
 
 ### Cloudflared Forwarding (`lazzycal.com`)
 
