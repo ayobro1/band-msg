@@ -69,8 +69,35 @@ jobs:
           APP_DIR="/home/deploy/band-msg"
           REPO_URL="https://github.com/ayobro1/band-msg.git"
           DEPLOY_REF="${DEPLOY_REF:-main}"
+          DEPLOY_REF_ESCAPED="$(printf '%q' "$DEPLOY_REF")"
+          CLOUDFLARE_TUNNEL_TOKEN_ESCAPED="$(printf '%q' "${CLOUDFLARE_TUNNEL_TOKEN:-}")"
 
-          echo "Deploying ref: $DEPLOY_REF"
+          su - deploy -s /bin/bash -c "DEPLOY_REF=$DEPLOY_REF_ESCAPED CLOUDFLARE_TUNNEL_TOKEN=$CLOUDFLARE_TUNNEL_TOKEN_ESCAPED bash -s" <<'DEPLOY_SCRIPT'
+          set -euo pipefail
+
+          APP_DIR="/home/deploy/band-msg"
+          REPO_URL="https://github.com/ayobro1/band-msg.git"
+          DEPLOY_REF="${DEPLOY_REF:-main}"
+
+          echo "Deploying ref as deploy user: $DEPLOY_REF"
+
+          pm2_count_by_name() {
+            local process_name="$1"
+            pm2 jlist | node -e '
+              const fs = require("fs");
+              const targetName = process.argv[1];
+              const input = fs.readFileSync(0, "utf8");
+              let list = [];
+              try {
+                list = JSON.parse(input);
+              } catch {
+                process.stdout.write("0");
+                process.exit(0);
+              }
+              const count = list.filter((proc) => proc && proc.name === targetName).length;
+              process.stdout.write(String(count));
+            ' "$process_name"
+          }
 
           # 1. Sync Code
           if [ -d "$APP_DIR/.git" ]; then
@@ -102,7 +129,7 @@ jobs:
           pm2 delete band-msg || true
           pm2 start npm --name "band-msg" --cwd "$APP_DIR" -- start
 
-          BAND_MSG_COUNT="$(pm2 jlist | grep -o '"name":"band-msg"' | wc -l | tr -d ' ')"
+          BAND_MSG_COUNT="$(pm2_count_by_name "band-msg")"
           if [ "$BAND_MSG_COUNT" != "1" ]; then
             echo "Expected exactly one band-msg process, found $BAND_MSG_COUNT"
             pm2 status
@@ -128,7 +155,7 @@ jobs:
             pm2 stop band-msg-cloudflared || true
             pm2 delete band-msg-cloudflared || true
 
-            CLOUDFLARED_PM2_COUNT="$(pm2 jlist | grep -o '"name":"band-msg-cloudflared"' | wc -l | tr -d ' ')"
+            CLOUDFLARED_PM2_COUNT="$(pm2_count_by_name "band-msg-cloudflared")"
             if [ "$CLOUDFLARED_PM2_COUNT" != "0" ]; then
               echo "Expected zero PM2 cloudflared processes in service mode, found $CLOUDFLARED_PM2_COUNT"
               pm2 status
@@ -160,7 +187,7 @@ jobs:
               exit 1
             fi
 
-            CLOUDFLARED_PM2_COUNT="$(pm2 jlist | grep -o '"name":"band-msg-cloudflared"' | wc -l | tr -d ' ')"
+            CLOUDFLARED_PM2_COUNT="$(pm2_count_by_name "band-msg-cloudflared")"
             if [ "$CLOUDFLARED_PM2_COUNT" != "1" ]; then
               echo "Expected exactly one PM2 cloudflared process, found $CLOUDFLARED_PM2_COUNT"
               pm2 status
@@ -175,6 +202,7 @@ jobs:
           else
             pm2 logs band-msg-cloudflared --lines 20 --nostream
           fi
+          DEPLOY_SCRIPT
 
       - name: Smoke Check
         run: |
@@ -194,5 +222,5 @@ jobs:
           done
 
           echo "Smoke check failed after $ATTEMPTS attempts."
-          pm2 status || true
+          su - deploy -s /bin/bash -c 'pm2 status' || true
           exit 1
