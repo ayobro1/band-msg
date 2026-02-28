@@ -12,7 +12,7 @@ jobs:
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.SERVER_IP }}
-          username: nolan
+          username: root
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             cd ~/band-msg
