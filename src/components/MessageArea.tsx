@@ -81,7 +81,7 @@ export default function MessageArea({
       eventSource.close();
       setTypingUsers(new Map());
     };
-  }, [channelId]);
+  }, [channelId, username]);
 
   // Clean up stale typing indicators
   useEffect(() => {
@@ -117,7 +117,7 @@ export default function MessageArea({
     }).catch((err) => {
       console.error("Failed to send typing indicator:", err);
     });
-  }, [channelId, username]);
+  }, [channelId]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setNewMessage(e.target.value);
