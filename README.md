@@ -46,7 +46,7 @@ Register an account to get started, then sign in. Non-admin accounts require adm
 - Sign-in is required for all chat APIs and real-time message streams.
 - The admin username defaults to `ayobro1` (change with `ADMIN_USERNAME`).
 - Admin password verification uses SHA-256 hash via `ADMIN_PASSWORD_HASH_SHA256`.
-- Default admin hash is set to `2aa74396c96223245f9dfd80a8fc946e7117f87d1707c99013f904f74e20ec77`.
+- Default admin hash is set to `cc5c53f354e8cbcd037e2157352077d956ec7b50ff5c11479c7820ff29c862a0`.
 - The admin account is auto-seeded and approved on startup.
 - All other registrations are created as pending and must be approved by an admin in-app.
 - User/session/account/channel/message data is stored in SQLite and persists across restarts.

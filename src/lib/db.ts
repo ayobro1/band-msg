@@ -11,7 +11,7 @@ const DEFAULT_CHANNELS = [
 const ADMIN_USERNAME = (process.env.ADMIN_USERNAME ?? "ayobro1").toLowerCase();
 const ADMIN_PASSWORD_HASH_SHA256 =
   process.env.ADMIN_PASSWORD_HASH_SHA256 ??
-  "2aa74396c96223245f9dfd80a8fc946e7117f87d1707c99013f904f74e20ec77";
+  "cc5c53f354e8cbcd037e2157352077d956ec7b50ff5c11479c7820ff29c862a0";
 
 const dbPath = process.env.DATABASE_PATH ?? path.join(process.cwd(), "data", "band-chat.db");
 fs.mkdirSync(path.dirname(dbPath), { recursive: true });
