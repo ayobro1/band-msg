@@ -10,12 +10,29 @@
   --color-foreground: var(--foreground);
 }
 
+html, body {
+  height: 100%;
+  overflow: hidden;
+  position: fixed;
+  inset: 0;
+  touch-action: none;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: "gg sans", "Noto Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
   -webkit-tap-highlight-color: transparent;
   overscroll-behavior: none;
+  -webkit-overflow-scrolling: auto;
+}
+
+/* Allow scroll only in designated areas */
+.scroll-area {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+  overscroll-behavior: contain;
 }
 
 /* Safe-area padding for iOS standalone PWA */

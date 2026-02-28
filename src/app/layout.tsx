@@ -38,8 +38,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark">
-      <body className="antialiased">
+    <html lang="en" className="dark h-full overflow-hidden">
+      <body className="antialiased h-full overflow-hidden">
         <PwaRegister />
         {children}
       </body>

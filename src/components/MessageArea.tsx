@@ -210,10 +210,10 @@ export default function MessageArea({
         {mobile && onBack && (
           <button
             onClick={onBack}
-            className="mr-1 flex h-9 w-9 items-center justify-center rounded-lg text-gray-300 active:bg-[#404249]"
+            className="-ml-1 mr-1 flex h-11 w-11 items-center justify-center rounded-xl text-gray-200 active:bg-[#404249]"
             aria-label="Back to channels"
           >
-            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
             </svg>
           </button>
@@ -244,7 +244,7 @@ export default function MessageArea({
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="scroll-area flex-1">
         {isLoading ? (
           <div className="flex items-center justify-center py-8">
             <div className="h-6 w-6 animate-spin rounded-full border-2 border-gray-600 border-t-[#5865f2]" />

@@ -21,7 +21,7 @@ export default function ChannelList({
 }: ChannelListProps) {
   if (mobile) {
     return (
-      <nav className="flex-1 overflow-y-auto px-3 pt-3 pb-6">
+      <nav className="scroll-area flex-1 px-3 pt-3 pb-6">
         <div className="mb-2 flex items-center justify-between px-1">
           <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
             Channels
@@ -73,7 +73,7 @@ export default function ChannelList({
         </svg>
         Band Chat
       </div>
-      <nav className="flex-1 overflow-y-auto p-2">
+      <nav className="scroll-area flex-1 p-2">
         <div className="mb-1 flex items-center justify-between px-2">
           <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
             Channels

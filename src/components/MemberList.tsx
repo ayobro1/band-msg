@@ -39,7 +39,7 @@ export default function MemberList({ currentUser }: MemberListProps) {
 
   return (
     <div className="flex h-full w-60 flex-col bg-[#2b2d31]">
-      <div className="p-4">
+      <div className="scroll-area flex-1 p-4">
         <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
           Online — {allMembers.length}
         </p>
