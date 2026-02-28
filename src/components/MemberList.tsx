@@ -14,10 +14,18 @@ export default function MemberList({ currentUser }: MemberListProps) {
     const fetchMembers = async () => {
       try {
         const res = await fetch("/api/users");
-        const data: string[] = await res.json();
-        setMembers(data);
+        if (!res.ok) {
+          setMembers([]);
+          return;
+        }
+        const data: unknown = await res.json();
+        if (Array.isArray(data)) {
+          setMembers(data.filter((value): value is string => typeof value === "string"));
+        } else {
+          setMembers([]);
+        }
       } catch {
-        // ignore
+        setMembers([]);
       }
     };
 

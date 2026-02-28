@@ -39,10 +39,19 @@ export default function MessageArea({
     const fetchMessages = async () => {
       try {
         const res = await fetch(`/api/messages?channelId=${channelId}`);
-        const data: Message[] = await res.json();
-        setMessages(data);
+        if (!res.ok) {
+          setMessages([]);
+          return;
+        }
+        const data: unknown = await res.json();
+        if (Array.isArray(data)) {
+          setMessages(data as Message[]);
+        } else {
+          setMessages([]);
+        }
       } catch (error) {
         console.error("Failed to fetch messages:", error);
+        setMessages([]);
       } finally {
         setIsLoading(false);
       }

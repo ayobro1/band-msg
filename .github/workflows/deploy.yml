@@ -35,7 +35,6 @@ jobs:
       PM2_HOME: /home/deploy/.pm2
       CLOUDFLARE_TUNNEL_TOKEN: ${{ secrets.CLOUDFLARE_TUNNEL_TOKEN }}
       CLOUDFLARE_HOSTNAME: lazzycal.com
-      CLOUDFLARED_URL: http://10.0.0.169:3000
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -84,41 +83,49 @@ jobs:
           pm2 delete band-msg || true
           pm2 start npm --name "band-msg" --cwd "$APP_DIR" -- start
 
-          if [ -n "${CLOUDFLARE_TUNNEL_TOKEN:-}" ]; then
-            echo "Using Cloudflared named tunnel (token mode)."
-            mkdir -p "$HOME/.local/bin"
-            CLOUDFLARED_BIN="$HOME/.local/bin/cloudflared"
-
-            if [ ! -x "$CLOUDFLARED_BIN" ]; then
-              echo "Installing cloudflared to $CLOUDFLARED_BIN"
-              curl -fsSL "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64" -o "$CLOUDFLARED_BIN"
-              chmod +x "$CLOUDFLARED_BIN"
-            fi
-
-            pm2 delete band-msg-cloudflared || true
-            pm2 start "$CLOUDFLARED_BIN" --name "band-msg-cloudflared" -- tunnel run --token "$CLOUDFLARE_TUNNEL_TOKEN"
-            echo "Cloudflared named tunnel started for ${CLOUDFLARE_HOSTNAME}."
-          elif [ -n "${CLOUDFLARED_URL:-}" ]; then
-            echo "Using Cloudflared quick tunnel (URL mode) for ${CLOUDFLARED_URL}."
-            mkdir -p "$HOME/.local/bin"
-            CLOUDFLARED_BIN="$HOME/.local/bin/cloudflared"
-
-            if [ ! -x "$CLOUDFLARED_BIN" ]; then
-              echo "Installing cloudflared to $CLOUDFLARED_BIN"
-              curl -fsSL "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64" -o "$CLOUDFLARED_BIN"
-              chmod +x "$CLOUDFLARED_BIN"
-            fi
-
-            pm2 delete band-msg-cloudflared || true
-            pm2 start "$CLOUDFLARED_BIN" --name "band-msg-cloudflared" -- tunnel --no-autoupdate --url "$CLOUDFLARED_URL"
-            echo "Cloudflared quick tunnel started for $CLOUDFLARED_URL."
-          else
-            echo "No Cloudflared settings found. Set CLOUDFLARE_TUNNEL_TOKEN or CLOUDFLARED_URL."
+          echo "Waiting for app startup..."
+          sleep 4
+          if ! curl -fsS "http://127.0.0.1:3000" >/dev/null; then
+            echo "App health check failed on http://127.0.0.1:3000"
+            pm2 logs band-msg --lines 50 --nostream || true
             exit 1
           fi
 
+          if [ -z "${CLOUDFLARE_TUNNEL_TOKEN:-}" ]; then
+            echo "CLOUDFLARE_TUNNEL_TOKEN is missing. Named tunnel is required; quick tunnels are disabled."
+            exit 1
+          fi
+
+          echo "Using Cloudflared named tunnel (token mode) for ${CLOUDFLARE_HOSTNAME}."
+          mkdir -p "$HOME/.local/bin"
+          CLOUDFLARED_BIN="$HOME/.local/bin/cloudflared"
+
+          if [ ! -x "$CLOUDFLARED_BIN" ]; then
+            echo "Installing cloudflared to $CLOUDFLARED_BIN"
+            curl -fsSL "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64" -o "$CLOUDFLARED_BIN"
+            chmod +x "$CLOUDFLARED_BIN"
+          fi
+
+          pm2 delete band-msg-cloudflared || true
+          pm2 start "$CLOUDFLARED_BIN" --name "band-msg-cloudflared" -- tunnel run --token "$CLOUDFLARE_TUNNEL_TOKEN"
+          echo "Cloudflared named tunnel started for ${CLOUDFLARE_HOSTNAME}."
+
           if ! pm2 describe band-msg-cloudflared >/dev/null 2>&1; then
             echo "Cloudflared process was not created in PM2."
+            exit 1
+          fi
+
+          echo "Waiting for tunnel startup..."
+          sleep 4
+          CLOUDFLARED_LOGS="$(pm2 logs band-msg-cloudflared --lines 60 --nostream || true)"
+          if echo "$CLOUDFLARED_LOGS" | grep -qi "trycloudflare.com"; then
+            echo "Detected quick tunnel output (trycloudflare.com). Named tunnel is required."
+            exit 1
+          fi
+
+          if ! echo "$CLOUDFLARED_LOGS" | grep -qi "Registered tunnel connection"; then
+            echo "Cloudflared did not report a registered tunnel connection."
+            echo "$CLOUDFLARED_LOGS"
             exit 1
           fi
 
