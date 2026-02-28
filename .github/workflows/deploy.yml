@@ -67,8 +67,16 @@ jobs:
           npm run build
 
           # 3. Start App via PM2
+          pm2 stop band-msg || true
           pm2 delete band-msg || true
           pm2 start npm --name "band-msg" --cwd "$APP_DIR" -- start
+
+          BAND_MSG_COUNT="$(pm2 jlist | grep -o '"name":"band-msg"' | wc -l | tr -d ' ')"
+          if [ "$BAND_MSG_COUNT" != "1" ]; then
+            echo "Expected exactly one band-msg process, found $BAND_MSG_COUNT"
+            pm2 status
+            exit 1
+          fi
 
           # 4. Handle Cloudflared (System Service Mode)
           if [ -z "${CLOUDFLARE_TUNNEL_TOKEN:-}" ]; then
@@ -86,7 +94,15 @@ jobs:
             fi
 
             # Stop PM2 tunnel process to avoid conflicts with service mode
+            pm2 stop band-msg-cloudflared || true
             pm2 delete band-msg-cloudflared || true
+
+            CLOUDFLARED_PM2_COUNT="$(pm2 jlist | grep -o '"name":"band-msg-cloudflared"' | wc -l | tr -d ' ')"
+            if [ "$CLOUDFLARED_PM2_COUNT" != "0" ]; then
+              echo "Expected zero PM2 cloudflared processes in service mode, found $CLOUDFLARED_PM2_COUNT"
+              pm2 status
+              exit 1
+            fi
 
             sudo -n cloudflared service uninstall || true
             sudo -n cloudflared service install "$CLOUDFLARE_TUNNEL_TOKEN"
@@ -105,10 +121,18 @@ jobs:
               chmod +x "$CLOUDFLARED_BIN"
             fi
 
+            pm2 stop band-msg-cloudflared || true
             pm2 delete band-msg-cloudflared || true
             pm2 start "$CLOUDFLARED_BIN" --name "band-msg-cloudflared" -- tunnel run --token "$CLOUDFLARE_TUNNEL_TOKEN"
             if ! pm2 describe band-msg-cloudflared >/dev/null 2>&1; then
               echo "Cloudflared PM2 process was not created."
+              exit 1
+            fi
+
+            CLOUDFLARED_PM2_COUNT="$(pm2 jlist | grep -o '"name":"band-msg-cloudflared"' | wc -l | tr -d ' ')"
+            if [ "$CLOUDFLARED_PM2_COUNT" != "1" ]; then
+              echo "Expected exactly one PM2 cloudflared process, found $CLOUDFLARED_PM2_COUNT"
+              pm2 status
               exit 1
             fi
           fi
