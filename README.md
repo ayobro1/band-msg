@@ -43,6 +43,8 @@ Enter a display name to get started. The app comes with three default channels (
 
 - On every pull request to `main`, GitHub Actions runs lint and production build checks.
 - On push to `main`, the same quality checks run first, then deployment proceeds over SSH if they pass.
+- You can also run a manual deployment from GitHub Actions and choose a specific `deploy_ref` (branch/tag/SHA).
+- Manual runs support rollback by providing `rollback_ref`, which takes priority over `deploy_ref`.
 
 ## Project Structure
 

@@ -1,0 +1,23 @@
+name: Auto Deploy
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Deploy App
+        run: |
+          # Go to your app folder (adjust path if needed)
+          cd ~/band-msg || git clone https://github.com/ayobro1/band-msg.git ~/band-msg
+          cd ~/band-msg
+          git pull origin main
+          npm install
+          npm run build
+          # Restart the app with PM2
+          pm2 restart band-msg || pm2 start npm --name "band-msg" -- start

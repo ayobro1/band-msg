@@ -5,6 +5,16 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      deploy_ref:
+        description: "Git ref to deploy (branch, tag, or commit SHA)"
+        required: true
+        default: "main"
+      rollback_ref:
+        description: "Optional rollback ref (overrides deploy_ref when provided)"
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -19,6 +29,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && (inputs.rollback_ref != '' && inputs.rollback_ref || inputs.deploy_ref) || github.sha }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -37,19 +49,38 @@ jobs:
 
   deploy:
     needs: quality
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: |
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
+      - name: Resolve deployment target
+        id: target
+        run: |
+          target_ref="main"
+          if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
+            target_ref="${{ inputs.deploy_ref }}"
+            if [ -n "${{ inputs.rollback_ref }}" ]; then
+              target_ref="${{ inputs.rollback_ref }}"
+            fi
+          fi
+          echo "target_ref=$target_ref" >> "$GITHUB_OUTPUT"
+
       - name: Deploying to Ubuntu Server
         uses: appleboy/ssh-action@v1.0.3
+        env:
+          TARGET_REF: ${{ steps.target.outputs.target_ref }}
         with:
           host: ${{ secrets.SERVER_IP }}
           username: root
           key: ${{ secrets.SSH_PRIVATE_KEY }}
+          envs: TARGET_REF
           script: |
             cd ~/band-msg
-            git pull origin main
-            npm install --include=optional
+            git fetch --all --prune
+            git checkout "$TARGET_REF"
+            git reset --hard "$TARGET_REF"
+            npm ci --include=optional
             npm run build
             pm2 restart band-msg || pm2 start npm --name "band-msg" -- start
