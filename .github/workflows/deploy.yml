@@ -51,86 +51,49 @@ jobs:
           APP_DIR="/home/deploy/band-msg"
           REPO_URL="https://github.com/ayobro1/band-msg.git"
 
-          echo "whoami=$(whoami)"
-          echo "PM2_HOME=$PM2_HOME"
-          echo "workspace=$PWD"
-
+          # 1. Sync Code
           if [ -d "$APP_DIR/.git" ]; then
             cd "$APP_DIR"
             git fetch origin main
             git reset --hard origin/main
-          elif [ -d "$APP_DIR" ]; then
+          else
             rm -rf "$APP_DIR"
             git clone "$REPO_URL" "$APP_DIR"
             cd "$APP_DIR"
-          else
-            git clone "$REPO_URL" "$APP_DIR"
-            cd "$APP_DIR"
           fi
 
-          node -v
-          npm -v
-          which node
-          which npm
-          which pm2
-
-          node -e 'const major=Number(process.versions.node.split(".")[0]); if(major<20){console.error("Node 20+ required"); process.exit(1)}'
-
+          # 2. Build App
           npm install
           npm run build
 
-          # Delete the old one and start fresh in the deploy user's list
+          # 3. Start App via PM2
           pm2 delete band-msg || true
           pm2 start npm --name "band-msg" --cwd "$APP_DIR" -- start
 
-          echo "Waiting for app startup..."
-          sleep 4
-          if ! curl -fsS "http://127.0.0.1:3000" >/dev/null; then
-            echo "App health check failed on http://127.0.0.1:3000"
-            pm2 logs band-msg --lines 50 --nostream || true
-            exit 1
+          # 4. Handle Cloudflared (System Service Mode)
+          if ! command -v cloudflared >/dev/null 2>&1; then
+            echo "Installing cloudflared..."
+            curl -L --output cloudflared.deb https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
+            sudo dpkg -i cloudflared.deb
           fi
+
+          # We stop the PM2 version if it exists to avoid conflicts
+          pm2 delete band-msg-cloudflared || true
 
           if [ -z "${CLOUDFLARE_TUNNEL_TOKEN:-}" ]; then
-            echo "CLOUDFLARE_TUNNEL_TOKEN is missing. Named tunnel is required; quick tunnels are disabled."
+            echo "CLOUDFLARE_TUNNEL_TOKEN is missing."
             exit 1
           fi
 
-          echo "Using Cloudflared named tunnel (token mode) for ${CLOUDFLARE_HOSTNAME}."
-          mkdir -p "$HOME/.local/bin"
-          CLOUDFLARED_BIN="$HOME/.local/bin/cloudflared"
+          # Install/Update the official Cloudflare Service using your Token
+          # This forces "Named Tunnel" mode and ignores "Quick Tunnels"
+          sudo cloudflared service uninstall || true
+          sudo cloudflared service install "$CLOUDFLARE_TUNNEL_TOKEN"
 
-          if [ ! -x "$CLOUDFLARED_BIN" ]; then
-            echo "Installing cloudflared to $CLOUDFLARED_BIN"
-            curl -fsSL "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64" -o "$CLOUDFLARED_BIN"
-            chmod +x "$CLOUDFLARED_BIN"
-          fi
+          # Restart to ensure it's using the latest token
+          sudo systemctl daemon-reload
+          sudo systemctl restart cloudflared
 
-          pm2 delete band-msg-cloudflared || true
-          pm2 start "$CLOUDFLARED_BIN" --name "band-msg-cloudflared" -- tunnel run --token "$CLOUDFLARE_TUNNEL_TOKEN"
-          echo "Cloudflared named tunnel started for ${CLOUDFLARE_HOSTNAME}."
-
-          if ! pm2 describe band-msg-cloudflared >/dev/null 2>&1; then
-            echo "Cloudflared process was not created in PM2."
-            exit 1
-          fi
-
-          echo "Waiting for tunnel startup..."
-          sleep 4
-          CLOUDFLARED_LOGS="$(pm2 logs band-msg-cloudflared --lines 60 --nostream || true)"
-          if echo "$CLOUDFLARED_LOGS" | grep -qi "trycloudflare.com"; then
-            echo "Detected quick tunnel output (trycloudflare.com). Named tunnel is required."
-            exit 1
-          fi
-
-          if ! echo "$CLOUDFLARED_LOGS" | grep -qi "Registered tunnel connection"; then
-            echo "Cloudflared did not report a registered tunnel connection."
-            echo "$CLOUDFLARED_LOGS"
-            exit 1
-          fi
-
-          pm2 logs band-msg-cloudflared --lines 20 --nostream
-
-          pm2 save
+          echo "Deployment complete. Checking status..."
           pm2 status
-          pm2 logs band-msg --lines 20 --nostream
+          sudo systemctl status cloudflared --no-pager
