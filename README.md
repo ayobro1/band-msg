@@ -18,6 +18,7 @@ A Discord-style real-time chat application for bands, built with Next.js and Tai
 - **Built-in backend + SQLite** — Next.js API routes with persistent local SQLite storage
 - **Secure sign-in** — Username/password authentication with server-side sessions
 - **Admin approvals** — New accounts require admin approval before chat access
+- **Mobile PWA support** — Installable web app manifest, service worker caching, and offline fallback page
 
 ## Getting Started
 

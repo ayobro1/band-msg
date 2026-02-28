@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Band Chat icon">
+  <rect width="512" height="512" rx="96" fill="#1f2937" />
+  <circle cx="256" cy="168" r="64" fill="#38bdf8" />
+  <rect x="116" y="272" width="280" height="42" rx="21" fill="#e2e8f0" />
+  <rect x="154" y="344" width="204" height="32" rx="16" fill="#94a3b8" />
+</svg>
