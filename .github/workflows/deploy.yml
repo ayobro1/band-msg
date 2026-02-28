@@ -12,8 +12,15 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
       - name: Build and Start
         run: |
+          node -v
+          npm -v
           npm install
           npm run build
           # Delete the old one and start fresh in the deploy user's list
