@@ -1,4 +1,4 @@
-const CACHE_NAME = "band-chat-v1";
+const CACHE_NAME = "band-chat-v2";
 const OFFLINE_URL = "/offline";
 const STATIC_ASSETS = [
   "/",
@@ -98,19 +98,18 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
+  // Network-first for all other same-origin GET requests
   event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      if (cachedResponse) {
-        return cachedResponse;
-      }
-
-      return fetch(event.request)
-        .then((response) => {
-          const copy = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
-          return response;
-        })
-        .catch(() => caches.match(OFFLINE_URL));
-    })
+    fetch(event.request)
+      .then((response) => {
+        const copy = response.clone();
+        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+        return response;
+      })
+      .catch(async () => {
+        const cached = await caches.match(event.request);
+        if (cached) return cached;
+        return caches.match(OFFLINE_URL);
+      })
   );
 });
