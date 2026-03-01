@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { getDb } from "./db";
+import { signJwt } from "./jwt";
 import {
   AuthUser,
   Channel,
@@ -13,7 +14,6 @@ import {
 } from "./types";
 
 const db = getDb();
-const SESSION_TTL_MS = 24 * 60 * 60 * 1000;
 const AUTH_WINDOW_MS = 10 * 60 * 1000;
 const AUTH_MAX_ATTEMPTS = 15;
 
@@ -118,13 +118,20 @@ export function registerUser(usernameInput: string, password: string):
   }
 
   const salt = crypto.randomBytes(16).toString("hex");
+
+  // First registered user becomes admin + auto-approved
+  const userCount = db
+    .prepare("SELECT COUNT(*) as cnt FROM users")
+    .get() as { cnt: number };
+  const isFirst = userCount.cnt === 0;
+
   const account: UserAccount = {
     username,
     passwordSalt: salt,
     passwordHash: hashPassword(password, salt),
     passwordAlgorithm: "pbkdf2",
-    role: "member",
-    status: "pending",
+    role: isFirst ? "admin" : "member",
+    status: isFirst ? "approved" : "pending",
     created: new Date().toISOString(),
   };
 
@@ -187,11 +194,7 @@ export function loginUser(usernameInput: string, password: string):
     return { ok: false, error: "Account pending admin approval", code: 403 };
   }
 
-  const token = crypto.randomBytes(32).toString("hex");
-  db.prepare(
-    `INSERT INTO sessions (token, username, expires_at)
-     VALUES (?, ?, ?)`
-  ).run(token, account.username, Date.now() + SESSION_TTL_MS);
+  const token = signJwt(account.username, account.role, account.status);
 
   clearAuthAttempts(key);
 
@@ -204,47 +207,6 @@ export function loginUser(usernameInput: string, password: string):
       status: account.status,
     },
   };
-}
-
-export function getUserBySession(token: string | undefined): AuthUser | null {
-  if (!token) return null;
-
-  const session = db
-    .prepare("SELECT username, expires_at FROM sessions WHERE token = ?")
-    .get(token) as { username: string; expires_at: number } | undefined;
-
-  if (!session) return null;
-  if (session.expires_at < Date.now()) {
-    db.prepare("DELETE FROM sessions WHERE token = ?").run(token);
-    return null;
-  }
-
-  db.prepare("UPDATE sessions SET expires_at = ? WHERE token = ?").run(
-    Date.now() + SESSION_TTL_MS,
-    token
-  );
-
-  const user = db
-    .prepare("SELECT username, role, status FROM users WHERE username = ?")
-    .get(session.username) as
-    | { username: string; role: "admin" | "member"; status: "pending" | "approved" }
-    | undefined;
-
-  if (!user || user.status !== "approved") {
-    db.prepare("DELETE FROM sessions WHERE token = ?").run(token);
-    return null;
-  }
-
-  return {
-    username: user.username,
-    role: user.role,
-    status: user.status,
-  };
-}
-
-export function logoutSession(token: string | undefined): void {
-  if (!token) return;
-  db.prepare("DELETE FROM sessions WHERE token = ?").run(token);
 }
 
 export function getPendingUsers(): AuthUser[] {
@@ -486,20 +448,32 @@ export function broadcastTyping(channelId: string, profileId: string): void {
   notifySubscribers({ type: "typing", payload: event });
 }
 
-// Simple pub/sub for SSE
-type Subscriber = (event: StreamEvent) => void;
-const subscribers = new Set<Subscriber>();
+// WebSocket broadcast pub/sub
+export interface WsClient {
+  send(data: string): void;
+  readyState: number;
+}
 
-export function subscribe(fn: Subscriber): () => void {
-  subscribers.add(fn);
-  return () => {
-    subscribers.delete(fn);
-  };
+const wsClients = new Set<WsClient>();
+
+export function addWsClient(ws: WsClient): void {
+  wsClients.add(ws);
+}
+
+export function removeWsClient(ws: WsClient): void {
+  wsClients.delete(ws);
 }
 
 function notifySubscribers(event: StreamEvent) {
-  for (const fn of subscribers) {
-    fn(event);
+  const data = JSON.stringify(event);
+  for (const ws of wsClients) {
+    try {
+      if (ws.readyState === 1) {
+        ws.send(data);
+      }
+    } catch {
+      wsClients.delete(ws);
+    }
   }
 }
 

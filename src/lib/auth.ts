@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { AuthUser } from "./types";
-import { getUserBySession } from "./store";
+import { verifyJwt } from "./jwt";
 
 export const SESSION_COOKIE = "band_chat_session";
 
@@ -14,7 +14,14 @@ export function getSessionToken(request: NextRequest): string | undefined {
 
 export function getRequestUser(request: NextRequest): AuthUser | null {
   const token = getSessionToken(request);
-  return getUserBySession(token);
+  if (!token) return null;
+  const payload = verifyJwt(token);
+  if (!payload) return null;
+  return {
+    username: payload.sub,
+    role: payload.role as AuthUser["role"],
+    status: payload.status as AuthUser["status"],
+  };
 }
 
 export function requireApprovedUser(request: NextRequest): AuthUser | NextResponse {

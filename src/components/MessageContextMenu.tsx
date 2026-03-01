@@ -79,7 +79,7 @@ export default function MessageContextMenu({
     <div
       ref={menuRef}
       className="fixed z-50 flex flex-col rounded-xl bg-[#2b2d31] shadow-lg shadow-black/40 ring-1 ring-white/10"
-      style={{ left: x, top: y, opacity: 0, transform: "scale(0.95)", transition: "opacity 0.1s, transform 0.1s" }}
+      style={{ left: x, top: y, opacity: 0, transform: "scale(0.95)" }}
     >
       {/* Quick emoji row */}
       <div className="flex items-center gap-0.5 px-2 pt-2 pb-1">
@@ -87,7 +87,7 @@ export default function MessageContextMenu({
           <button
             key={emoji}
             onClick={() => { onEmojiReact(messageId, emoji); onClose(); }}
-            className="flex h-9 w-9 items-center justify-center rounded-lg text-xl transition-colors hover:bg-[#404249] active:scale-110"
+            className="flex h-9 w-9 items-center justify-center rounded-lg text-xl hover:bg-[#404249] active:scale-110"
           >
             {emoji}
           </button>

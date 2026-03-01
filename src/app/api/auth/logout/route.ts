@@ -1,11 +1,7 @@
-import { NextRequest, NextResponse } from "next/server";
-import { getSessionToken, SESSION_COOKIE } from "@/lib/auth";
-import { logoutSession } from "@/lib/store";
+import { NextResponse } from "next/server";
+import { SESSION_COOKIE } from "@/lib/auth";
 
-export async function POST(request: NextRequest) {
-  const token = getSessionToken(request);
-  logoutSession(token);
-
+export async function POST() {
   const response = NextResponse.json({ ok: true });
   response.cookies.set({
     name: SESSION_COOKIE,

@@ -47,7 +47,7 @@ export default function MemberList({ currentUser }: MemberListProps) {
           {allMembers.map((member) => (
             <div
               key={member}
-              className="flex items-center gap-3 rounded px-2 py-1.5 transition-colors hover:bg-[#35373c]"
+              className="flex items-center gap-3 rounded px-2 py-1.5 hover:bg-[#35373c]"
             >
               <div className="relative">
                 <div
