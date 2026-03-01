@@ -622,7 +622,7 @@ export default function MessageArea({
               return grouped ? (
                 <div
                   key={msg.id}
-                  className="group flex items-start px-4 py-px hover:bg-[#2e3035]"
+                  className="group flex items-start px-4 py-px hover:bg-[#2e3035] select-none"
                   style={{ willChange: "transform" }}
                   {...interactionProps}
                 >
@@ -644,7 +644,7 @@ export default function MessageArea({
               ) : (
                 <div
                   key={msg.id}
-                  className={`group flex items-start gap-3 px-4 pb-px hover:bg-[#2e3035] ${
+                  className={`group flex items-start gap-3 px-4 pb-px hover:bg-[#2e3035] select-none ${
                     i > 0 ? "pt-2.5" : "pt-3"
                   }`}
                   style={{ willChange: "transform" }}
