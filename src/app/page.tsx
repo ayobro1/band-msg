@@ -132,7 +132,6 @@ export default function ChatPage() {
     // Cancel any pending slide-in rAFs so they don't override the exit animation
     setSlideIn(false);
     if (chatPanelRef.current) {
-      chatPanelRef.current.style.transition = "transform 0.3s cubic-bezier(0.2, 0, 0, 1)";
       chatPanelRef.current.style.transform = "translateX(100%)";
     }
     setTimeout(() => {
@@ -145,11 +144,9 @@ export default function ChatPage() {
     if (!chatPanelRef.current) return;
     if (offset === 0) {
       isSwiping.current = false;
-      chatPanelRef.current.style.transition = "transform 0.25s cubic-bezier(0.2, 0, 0, 1)";
       chatPanelRef.current.style.transform = "translateX(0)";
     } else {
       isSwiping.current = true;
-      chatPanelRef.current.style.transition = "none";
       chatPanelRef.current.style.transform = `translateX(${offset}px)`;
     }
   }, []);
@@ -172,7 +169,6 @@ export default function ChatPage() {
         // If back was triggered while rAFs were pending, skip the slide-in
         if (isAnimatingRef.current) return;
         if (chatPanelRef.current) {
-          chatPanelRef.current.style.transition = "transform 0.3s cubic-bezier(0.2, 0, 0, 1)";
           chatPanelRef.current.style.transform = "translateX(0)";
         }
         setSlideIn(false);
@@ -322,7 +318,7 @@ export default function ChatPage() {
     <div className="flex h-dvh overflow-hidden text-gray-300">
       {/* Server icon sidebar */}
       <div className="flex w-[72px] flex-col items-center gap-2 bg-[#1e1f22] py-3">
-        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#5865f2] text-lg font-bold text-white transition-all hover:rounded-xl"
+        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#5865f2] text-lg font-bold text-white hover:rounded-xl"
           title="Band Chat"
         >
           <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -335,7 +331,7 @@ export default function ChatPage() {
           {authUser.role === "admin" && (
             <button
               onClick={() => setShowApprovals(true)}
-              className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#23a55a] text-white transition-colors hover:bg-[#1f944f]"
+              className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#23a55a] text-white hover:bg-[#1f944f]"
               title="Approve Accounts"
             >
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -345,7 +341,7 @@ export default function ChatPage() {
           )}
           <button
             onClick={handleLogout}
-            className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#3f4147] text-gray-200 transition-colors hover:bg-[#4a4d55]"
+            className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#3f4147] text-gray-200 hover:bg-[#4a4d55]"
             title="Sign Out"
           >
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

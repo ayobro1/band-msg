@@ -185,7 +185,6 @@ export default function MessageArea({
       longPressRef.current = null;
     }
     const offset = Math.max(-80, Math.min(0, dx));
-    msgSwipeRef.current.el.style.transition = "none";
     msgSwipeRef.current.el.style.transform = `translateX(${offset}px)`;
   }, []);
 
@@ -196,7 +195,6 @@ export default function MessageArea({
     const match = currentTransform.match(/translateX\((-?\d+)px\)/);
     const offset = match ? parseInt(match[1]) : 0;
     // Snap back
-    ref.el.style.transition = "transform 0.2s ease-out";
     ref.el.style.transform = "translateX(0)";
     // If swiped far enough, trigger reply
     if (offset <= -50) {
@@ -243,8 +241,11 @@ export default function MessageArea({
 
     fetchMessages();
 
-    const eventSource = new EventSource("/api/messages/stream");
-    eventSource.onmessage = (event) => {
+    const wsPort = process.env.NEXT_PUBLIC_WS_PORT || "3001";
+    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+    const ws = new WebSocket(`${protocol}//${window.location.hostname}:${wsPort}`);
+
+    ws.onmessage = (event) => {
       const streamEvent: StreamEvent = JSON.parse(event.data);
 
       if (streamEvent.type === "message") {
@@ -252,7 +253,6 @@ export default function MessageArea({
         if (msg.channel_id === channelId) {
           setMessages((prev) => [...prev, msg]);
         }
-        // Remove typing indicator for user who sent message
         setTypingUsers((prev) => {
           const next = new Map(prev);
           next.delete(msg.profile_id);
@@ -272,7 +272,6 @@ export default function MessageArea({
         setReactions((prev) => {
           const next = new Map(prev);
           if (reaction._removed) {
-            // Remove the reaction
             const existing = next.get(reaction.message_id) ?? [];
             next.set(reaction.message_id, existing.filter((r) => r.id !== reaction.id));
           } else {
@@ -288,7 +287,7 @@ export default function MessageArea({
 
     return () => {
       clearTimeout(loadingTimer);
-      eventSource.close();
+      ws.close();
       setTypingUsers(new Map());
     };
   }, [channelId, username]);
@@ -489,7 +488,7 @@ export default function MessageArea({
           <div className="ml-auto">
             <button
               onClick={onToggleMembers}
-              className={`rounded p-1.5 transition-colors ${
+              className={`rounded p-1.5 ${
                 showMembers ? "text-white" : "text-gray-400 hover:text-gray-200"
               }`}
               title="Toggle Member List"
@@ -553,7 +552,7 @@ export default function MessageArea({
                       <button
                         key={emoji}
                         onClick={() => handleEmojiReact(msg.id, emoji)}
-                        className={`inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-xs transition-colors ${
+                        className={`inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-xs ${
                           iMine
                             ? "bg-[#5865f2]/25 ring-1 ring-[#5865f2]/60 text-white"
                             : "bg-[#404249] text-gray-300 hover:bg-[#4e5058]"
@@ -758,7 +757,7 @@ export default function MessageArea({
               type="button"
               onClick={() => fileInputRef.current?.click()}
               disabled={uploading}
-              className="ml-2 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-gray-400 transition-colors hover:bg-[#404249] hover:text-gray-200 disabled:opacity-40"
+              className="ml-2 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-gray-400 hover:bg-[#404249] hover:text-gray-200 disabled:opacity-40"
               title="Upload photo or video (max 500 MB, auto-deletes after 30 days)"
             >
               {uploading ? (
@@ -790,7 +789,7 @@ export default function MessageArea({
             <button
               type="button"
               onClick={() => { setGiphyTarget(null); setShowGiphy((v) => !v); }}
-              className="mr-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-gray-400 transition-colors hover:bg-[#404249] hover:text-gray-200"
+              className="mr-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-gray-400 hover:bg-[#404249] hover:text-gray-200"
               title="Send a GIF"
             >
               <span className="text-xs font-bold">GIF</span>
@@ -798,7 +797,7 @@ export default function MessageArea({
             <button
               type="submit"
               disabled={!newMessage.trim()}
-              className="mr-2 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#5865f2] transition-colors hover:text-[#7983f5] disabled:text-gray-600"
+              className="mr-2 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#5865f2] hover:text-[#7983f5] disabled:text-gray-600"
             >
               <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />

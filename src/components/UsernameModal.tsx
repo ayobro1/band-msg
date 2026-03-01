@@ -136,7 +136,7 @@ export default function UsernameModal({ onAuthenticated }: UsernameModalProps) {
               setMode("login");
               setError("");
             }}
-            className={`flex-1 rounded px-3 py-2 text-sm font-medium transition-colors ${
+            className={`flex-1 rounded px-3 py-2 text-sm font-medium ${
               mode === "login" ? "bg-[#5865f2] text-white" : "text-gray-300 hover:text-white"
             }`}
           >
@@ -148,7 +148,7 @@ export default function UsernameModal({ onAuthenticated }: UsernameModalProps) {
               setMode("register");
               setError("");
             }}
-            className={`flex-1 rounded px-3 py-2 text-sm font-medium transition-colors ${
+            className={`flex-1 rounded px-3 py-2 text-sm font-medium ${
               mode === "register" ? "bg-[#5865f2] text-white" : "text-gray-300 hover:text-white"
             }`}
           >
@@ -174,7 +174,7 @@ export default function UsernameModal({ onAuthenticated }: UsernameModalProps) {
             }}
             placeholder="your-username"
             maxLength={20}
-            className="w-full rounded-md bg-[#1e1f22] px-3 py-2.5 text-sm text-gray-200 placeholder-gray-500 outline-none ring-1 ring-transparent transition-all focus:ring-[#5865f2]"
+            className="w-full rounded-md bg-[#1e1f22] px-3 py-2.5 text-sm text-gray-200 placeholder-gray-500 outline-none ring-1 ring-transparent focus:ring-[#5865f2]"
           />
 
           <label
@@ -195,7 +195,7 @@ export default function UsernameModal({ onAuthenticated }: UsernameModalProps) {
             placeholder="At least 8 characters"
             minLength={8}
             maxLength={100}
-            className="w-full rounded-md bg-[#1e1f22] px-3 py-2.5 text-sm text-gray-200 placeholder-gray-500 outline-none ring-1 ring-transparent transition-all focus:ring-[#5865f2]"
+            className="w-full rounded-md bg-[#1e1f22] px-3 py-2.5 text-sm text-gray-200 placeholder-gray-500 outline-none ring-1 ring-transparent focus:ring-[#5865f2]"
           />
 
           {pendingMessage && <p className="mt-2 text-xs text-yellow-300">{pendingMessage}</p>}
@@ -205,7 +205,7 @@ export default function UsernameModal({ onAuthenticated }: UsernameModalProps) {
           <button
             type="submit"
             disabled={isSubmitting}
-            className="mt-4 w-full rounded-md bg-[#5865f2] py-2.5 text-sm font-medium text-white transition-colors hover:bg-[#4752c4] disabled:opacity-60"
+            className="mt-4 w-full rounded-md bg-[#5865f2] py-2.5 text-sm font-medium text-white hover:bg-[#4752c4] disabled:opacity-60"
           >
             {isSubmitting
               ? "Please wait..."
