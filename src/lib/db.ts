@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { Database } from "bun:sqlite";
+import Database from "better-sqlite3";
 
 const DEFAULT_CHANNELS = [
   { id: "ch_1", name: "general", description: "General band discussion" },
@@ -16,7 +16,7 @@ const uploadsPath = process.env.UPLOADS_PATH ?? path.join(process.cwd(), "data",
 fs.mkdirSync(uploadsPath, { recursive: true });
 
 const db = new Database(dbPath);
-db.exec("PRAGMA journal_mode = WAL");
+db.pragma("journal_mode = WAL");
 
 db.exec(`
 CREATE TABLE IF NOT EXISTS channels (
