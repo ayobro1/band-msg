@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { Database } from "bun:sqlite";
+import Database from "better-sqlite3";
 
 const DEFAULT_CHANNELS = [
   { id: "ch_1", name: "general", description: "General band discussion" },
