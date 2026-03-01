@@ -61,7 +61,6 @@ export default function ChannelList({
                 <span className="block truncate text-xs text-gray-500">{channel.description}</span>
               )}
             </div>
-            {/* Chevron */}
             <svg className="ml-2 h-4 w-4 shrink-0 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
             </svg>

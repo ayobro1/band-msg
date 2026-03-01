@@ -1,4 +1,4 @@
-import { addChannel, getChannelsForUser } from "@/lib/store";
+import { addChannel, deleteChannel, getChannelsForUser } from "@/lib/store";
 import { requireAdmin, requireApprovedUser } from "@/lib/auth";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -40,4 +40,25 @@ export async function POST(request: NextRequest) {
   }
 
   return NextResponse.json(channel, { status: 201 });
+}
+
+export async function DELETE(request: NextRequest) {
+  const admin = requireAdmin(request);
+  if (admin instanceof NextResponse) {
+    return admin;
+  }
+
+  const body = await request.json().catch(() => ({} as { channel_id?: string }));
+  const channelId = typeof body.channel_id === "string" ? body.channel_id : "";
+
+  if (!channelId) {
+    return NextResponse.json({ error: "channel_id is required" }, { status: 400 });
+  }
+
+  const removed = deleteChannel(channelId);
+  if (!removed) {
+    return NextResponse.json({ error: "channel not found" }, { status: 404 });
+  }
+
+  return NextResponse.json({ ok: true });
 }

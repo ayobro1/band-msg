@@ -274,7 +274,7 @@ export default function MessageArea({
     fetchMessages();
 
     // Connect via Server-Sent Events for real-time updates (works through Cloudflare)
-    const es = new EventSource("/api/events");
+    const es = new EventSource("/api/messages/stream");
 
     es.onmessage = (event) => {
       const streamEvent: StreamEvent = JSON.parse(event.data as string);

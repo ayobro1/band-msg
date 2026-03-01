@@ -16,6 +16,15 @@ export interface PracticeDay {
   created: string;
 }
 
+export interface CalendarEvent {
+  id: string;
+  title: string;
+  date: string;
+  notes: string;
+  created_by: string;
+  created: string;
+}
+
 export interface Message {
   id: string;
   content: string;

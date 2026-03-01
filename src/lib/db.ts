@@ -161,6 +161,21 @@ CREATE TABLE IF NOT EXISTS practice_days (
 );
 `);
 
+// Calendar events table
+db.exec(`
+CREATE TABLE IF NOT EXISTS calendar_events (
+  id TEXT PRIMARY KEY,
+  title TEXT NOT NULL,
+  date TEXT NOT NULL,
+  notes TEXT NOT NULL DEFAULT '',
+  created_by TEXT NOT NULL,
+  created TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_calendar_events_date
+ON calendar_events(date);
+`);
+
 // Notification preferences table
 db.exec(`
 CREATE TABLE IF NOT EXISTS notification_prefs (

@@ -9,6 +9,7 @@ import MemberList from "@/components/MemberList";
 import UsernameModal from "@/components/UsernameModal";
 import CreateChannelModal from "@/components/CreateChannelModal";
 import AdminApprovalModal from "@/components/AdminApprovalModal";
+import ChannelManagementModal from "@/components/ChannelManagementModal";
 import PushNotificationManager from "@/components/PushNotificationManager";
 
 const HEARTBEAT_INTERVAL_MS = 120000; // 2 minutes
@@ -35,6 +36,7 @@ export default function ChatPage() {
   const [activeChannelId, setActiveChannelId] = useState<string | null>(null);
   const [showCreateChannel, setShowCreateChannel] = useState(false);
   const [showApprovals, setShowApprovals] = useState(false);
+  const [showChannelManager, setShowChannelManager] = useState(false);
   const [showMembers, setShowMembers] = useState(true);
   const [mobileView, setMobileView] = useState<MobileView>("channels");
 
@@ -167,6 +169,31 @@ export default function ChatPage() {
     [isMobile, handleSelectChannelMobile]
   );
 
+  const handleDeleteChannel = useCallback(async (channel: Channel) => {
+    try {
+      const res = await fetch("/api/channels", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ channel_id: channel.id }),
+      });
+
+      if (!res.ok) {
+        return;
+      }
+
+      setChannels((prev) => {
+        const next = prev.filter((c) => c.id !== channel.id);
+        setActiveChannelId((current) => {
+          if (current !== channel.id) return current;
+          return next[0]?.id ?? null;
+        });
+        return next;
+      });
+    } catch {
+      // ignore
+    }
+  }, []);
+
   const handleLogout = useCallback(async () => {
     await fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
     setAuthUser(null);
@@ -233,6 +260,17 @@ export default function ChatPage() {
               </button>
               {authUser.role === "admin" && (
                 <button
+                  onClick={() => setShowChannelManager(true)}
+                  className="flex h-9 w-9 items-center justify-center rounded-lg text-red-400"
+                  title="Manage Channels"
+                >
+                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M9 7h6m-7 0h8m-1-2a1 1 0 00-1-1h-4a1 1 0 00-1 1v2h6V5z" />
+                  </svg>
+                </button>
+              )}
+              {authUser.role === "admin" && (
+                <button
                   onClick={() => setShowApprovals(true)}
                   className="flex h-9 w-9 items-center justify-center rounded-lg text-[#23a55a]"
                   title="Approve Accounts"
@@ -294,6 +332,13 @@ export default function ChatPage() {
         {showApprovals && authUser.role === "admin" && (
           <AdminApprovalModal onClose={() => setShowApprovals(false)} />
         )}
+        {showChannelManager && authUser.role === "admin" && (
+          <ChannelManagementModal
+            channels={channels}
+            onDeleteChannel={handleDeleteChannel}
+            onClose={() => setShowChannelManager(false)}
+          />
+        )}
       </div>
     );
   }
@@ -322,6 +367,17 @@ export default function ChatPage() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
             </svg>
           </button>
+          {authUser.role === "admin" && (
+            <button
+              onClick={() => setShowChannelManager(true)}
+              className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#a12828] text-white hover:bg-[#8f2020]"
+              title="Manage Channels"
+            >
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M9 7h6m-7 0h8m-1-2a1 1 0 00-1-1h-4a1 1 0 00-1 1v2h6V5z" />
+              </svg>
+            </button>
+          )}
           {authUser.role === "admin" && (
             <button
               onClick={() => setShowApprovals(true)}
@@ -382,6 +438,13 @@ export default function ChatPage() {
 
       {showApprovals && authUser.role === "admin" && (
         <AdminApprovalModal onClose={() => setShowApprovals(false)} />
+      )}
+      {showChannelManager && authUser.role === "admin" && (
+        <ChannelManagementModal
+          channels={channels}
+          onDeleteChannel={handleDeleteChannel}
+          onClose={() => setShowChannelManager(false)}
+        />
       )}
     </div>
   );

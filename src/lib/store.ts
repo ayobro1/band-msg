@@ -5,6 +5,7 @@ import { getDb } from "./db";
 import { signJwt } from "./jwt";
 import {
   AuthUser,
+  CalendarEvent,
   Channel,
   Message,
   Reaction,
@@ -258,6 +259,80 @@ export function approveUser(usernameInput: string):
   };
 }
 
+export function promoteUserToAdmin(usernameInput: string):
+  | { ok: true; user: AuthUser }
+  | { ok: false; error: string; code: number } {
+  const username = usernameInput.trim().toLowerCase();
+
+  const account = db
+    .prepare("SELECT username, role, status FROM users WHERE username = ?")
+    .get(username) as
+    | { username: string; role: "admin" | "member"; status: "pending" | "approved" }
+    | undefined;
+
+  if (!account) {
+    return { ok: false, error: "User not found", code: 404 };
+  }
+
+  if (account.status !== "approved") {
+    return { ok: false, error: "User must be approved first", code: 400 };
+  }
+
+  if (account.role === "admin") {
+    return { ok: false, error: "User is already an admin", code: 409 };
+  }
+
+  db.prepare("UPDATE users SET role = 'admin' WHERE username = ?").run(username);
+
+  return {
+    ok: true,
+    user: {
+      username: account.username,
+      role: "admin",
+      status: account.status,
+    },
+  };
+}
+
+export function demoteAdminToMember(usernameInput: string):
+  | { ok: true; user: AuthUser }
+  | { ok: false; error: string; code: number } {
+  const username = usernameInput.trim().toLowerCase();
+
+  const account = db
+    .prepare("SELECT username, role, status FROM users WHERE username = ?")
+    .get(username) as
+    | { username: string; role: "admin" | "member"; status: "pending" | "approved" }
+    | undefined;
+
+  if (!account) {
+    return { ok: false, error: "User not found", code: 404 };
+  }
+
+  if (account.role !== "admin") {
+    return { ok: false, error: "User is not an admin", code: 409 };
+  }
+
+  const adminCount = db
+    .prepare("SELECT COUNT(*) as cnt FROM users WHERE role = 'admin' AND status = 'approved'")
+    .get() as { cnt: number };
+
+  if (adminCount.cnt <= 1) {
+    return { ok: false, error: "Cannot demote the last admin", code: 400 };
+  }
+
+  db.prepare("UPDATE users SET role = 'member' WHERE username = ?").run(username);
+
+  return {
+    ok: true,
+    user: {
+      username: account.username,
+      role: "member",
+      status: account.status,
+    },
+  };
+}
+
 export function getChannels(): Channel[] {
   return db
     .prepare(
@@ -371,6 +446,41 @@ export function getChannelMembers(channelId: string): string[] {
     .prepare("SELECT username FROM channel_members WHERE channel_id = ? ORDER BY username ASC")
     .all(channelId)
     .map((r) => (r as { username: string }).username);
+}
+
+export function deleteChannel(channelId: string): boolean {
+  const exists = db.prepare("SELECT 1 FROM channels WHERE id = ?").get(channelId);
+  if (!exists) return false;
+
+  const attachments = db
+    .prepare(
+      `SELECT a.id, a.path
+       FROM attachments a
+       INNER JOIN messages m ON m.id = a.message_id
+       WHERE m.channel_id = ?`
+    )
+    .all(channelId) as { id: string; path: string }[];
+
+  const removeChannel = db.transaction(() => {
+    db.prepare("DELETE FROM reactions WHERE message_id IN (SELECT id FROM messages WHERE channel_id = ?)").run(channelId);
+    db.prepare("DELETE FROM attachments WHERE message_id IN (SELECT id FROM messages WHERE channel_id = ?)").run(channelId);
+    db.prepare("DELETE FROM messages WHERE channel_id = ?").run(channelId);
+    db.prepare("DELETE FROM channel_members WHERE channel_id = ?").run(channelId);
+    db.prepare("DELETE FROM channels WHERE id = ?").run(channelId);
+  });
+
+  removeChannel();
+
+  for (const att of attachments) {
+    try {
+      const fullPath = path.isAbsolute(att.path) ? att.path : path.join(uploadsDir, att.path);
+      if (fs.existsSync(fullPath)) fs.unlinkSync(fullPath);
+    } catch {
+      // ignore missing files
+    }
+  }
+
+  return true;
 }
 
 export function getMessagesByChannel(channelId: string): Message[] {
@@ -748,5 +858,49 @@ export function addPracticeDay(date: string, notes: string, createdBy: string): 
 
 export function removePracticeDay(id: string): boolean {
   const info = db.prepare("DELETE FROM practice_days WHERE id = ?").run(id);
+  return info.changes > 0;
+}
+
+export function getCalendarEvents(from?: string, to?: string): CalendarEvent[] {
+  if (from && to) {
+    return db
+      .prepare(
+        `SELECT id, title, date, notes, created_by, created
+         FROM calendar_events
+         WHERE date >= ? AND date <= ?
+         ORDER BY date ASC, created ASC`
+      )
+      .all(from, to) as CalendarEvent[];
+  }
+
+  return db
+    .prepare(
+      `SELECT id, title, date, notes, created_by, created
+       FROM calendar_events
+       ORDER BY date ASC, created ASC`
+    )
+    .all() as CalendarEvent[];
+}
+
+export function addCalendarEvent(date: string, title: string, notes: string, createdBy: string): CalendarEvent {
+  const event: CalendarEvent = {
+    id: `ev_${crypto.randomUUID()}`,
+    title: title.trim(),
+    date,
+    notes,
+    created_by: createdBy,
+    created: new Date().toISOString(),
+  };
+
+  db.prepare(
+    `INSERT INTO calendar_events (id, title, date, notes, created_by, created)
+     VALUES (?, ?, ?, ?, ?, ?)`
+  ).run(event.id, event.title, event.date, event.notes, event.created_by, event.created);
+
+  return event;
+}
+
+export function removeCalendarEvent(id: string): boolean {
+  const info = db.prepare("DELETE FROM calendar_events WHERE id = ?").run(id);
   return info.changes > 0;
 }
