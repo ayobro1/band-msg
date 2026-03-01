@@ -13,6 +13,7 @@ interface MessageContextMenuProps {
   onGifReact: (messageId: string) => void;
   onCopy: (text: string) => void;
   onReply: (messageId: string, content: string) => void;
+  onCreateThread: (messageId: string, content: string) => void;
   onClose: () => void;
 }
 
@@ -25,6 +26,7 @@ export default function MessageContextMenu({
   onGifReact,
   onCopy,
   onReply,
+  onCreateThread,
   onClose,
 }: MessageContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
@@ -106,6 +108,15 @@ export default function MessageContextMenu({
             <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
           </svg>
           <span>Reply</span>
+        </button>
+        <button
+          onClick={() => { onCreateThread(messageId, messageContent); onClose(); }}
+          className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm text-gray-300 hover:bg-[#404249]"
+        >
+          <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+          </svg>
+          <span>Create Thread</span>
         </button>
         <button
           onClick={() => { onGifReact(messageId); onClose(); }}
