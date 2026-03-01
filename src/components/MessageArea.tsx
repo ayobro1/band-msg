@@ -254,7 +254,7 @@ export default function MessageArea({
       if (streamEvent.type === "message") {
         const msg = streamEvent.payload as Message;
         if (msg.channel_id === channelId) {
-          setMessages((prev) => [...prev, msg]);
+          setMessages((prev) => prev.some((m) => m.id === msg.id) ? prev : [...prev, msg]);
         }
         // Remove typing indicator for user who sent message
         setTypingUsers((prev) => {
@@ -433,6 +433,9 @@ export default function MessageArea({
             : "Failed to send message.");
         throw new Error(errorMessage);
       }
+
+      const sent: Message = await res.json();
+      setMessages((prev) => prev.some((m) => m.id === sent.id) ? prev : [...prev, sent]);
     } catch (error) {
       console.error("Failed to send message:", error);
       setNewMessage(content);
@@ -634,7 +637,7 @@ export default function MessageArea({
               return grouped ? (
                 <div
                   key={msg.id}
-                  className="group flex items-start px-4 py-px hover:bg-[#2e3035]"
+                  className="msg-item group flex items-start px-4 py-px hover:bg-[#2e3035]"
                   style={{ willChange: "transform" }}
                   {...interactionProps}
                 >
@@ -656,7 +659,7 @@ export default function MessageArea({
               ) : (
                 <div
                   key={msg.id}
-                  className={`group flex items-start gap-3 px-4 pb-px hover:bg-[#2e3035] ${
+                  className={`msg-item group flex items-start gap-3 px-4 pb-px hover:bg-[#2e3035] ${
                     i > 0 ? "pt-2.5" : "pt-3"
                   }`}
                   style={{ willChange: "transform" }}
