@@ -640,6 +640,7 @@ export function addMessage(
   replyToId?: string
 ): Message {
   const hasReplyColumn = hasColumn("messages", "reply_to_id");
+  const hasAttachmentColumn = hasColumn("messages", "attachment_id");
 
   const msg: Message = {
     id: `msg_${crypto.randomUUID()}`,
@@ -649,16 +650,26 @@ export function addMessage(
     created: new Date().toISOString(),
   };
 
-  if (hasReplyColumn) {
+  if (hasReplyColumn && hasAttachmentColumn) {
     db.prepare(
       `INSERT INTO messages (id, content, profile_id, channel_id, attachment_id, reply_to_id, created)
        VALUES (?, ?, ?, ?, ?, ?, ?)`
     ).run(msg.id, msg.content, msg.profile_id, msg.channel_id, attachmentId ?? null, replyToId ?? null, msg.created);
-  } else {
+  } else if (hasReplyColumn) {
+    db.prepare(
+      `INSERT INTO messages (id, content, profile_id, channel_id, reply_to_id, created)
+       VALUES (?, ?, ?, ?, ?, ?)`
+    ).run(msg.id, msg.content, msg.profile_id, msg.channel_id, replyToId ?? null, msg.created);
+  } else if (hasAttachmentColumn) {
     db.prepare(
       `INSERT INTO messages (id, content, profile_id, channel_id, attachment_id, created)
        VALUES (?, ?, ?, ?, ?, ?)`
     ).run(msg.id, msg.content, msg.profile_id, msg.channel_id, attachmentId ?? null, msg.created);
+  } else {
+    db.prepare(
+      `INSERT INTO messages (id, content, profile_id, channel_id, created)
+       VALUES (?, ?, ?, ?, ?)`
+    ).run(msg.id, msg.content, msg.profile_id, msg.channel_id, msg.created);
   }
 
   // Enrich with reply data

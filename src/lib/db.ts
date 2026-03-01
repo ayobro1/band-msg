@@ -170,6 +170,13 @@ try {
   // Column already exists
 }
 
+// Migrate: add attachment_id column to messages table
+try {
+  db.exec("ALTER TABLE messages ADD COLUMN attachment_id TEXT DEFAULT NULL");
+} catch {
+  // Column already exists
+}
+
 // Migrate: add thread_parent_id column to channels table
 try {
   db.exec("ALTER TABLE channels ADD COLUMN thread_parent_id TEXT DEFAULT NULL");
