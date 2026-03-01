@@ -6,7 +6,6 @@ export const metadata: Metadata = {
   title: "Band Chat",
   description: "A Discord-style chat app for your band",
   manifest: "/manifest.webmanifest",
-  themeColor: "#1f2937",
   appleWebApp: {
     capable: true,
     title: "Band Chat",
@@ -30,6 +29,7 @@ export const viewport = {
   maximumScale: 1,
   userScalable: false,
   viewportFit: "cover" as const,
+  themeColor: "#1f2937",
 };
 
 export default function RootLayout({
