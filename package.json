@@ -3,12 +3,12 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
+    "dev": "bun server.ts",
+    "build": "bun next build",
+    "start": "NODE_ENV=production bun server.ts",
     "lint": "eslint",
     "type-check": "tsc --noEmit",
-    "static-analysis": "npm run lint && npm run type-check",
+    "static-analysis": "bun run lint && bun run type-check",
     "backup:db": "bash ./scripts/db-backup.sh",
     "restore:db": "bash ./scripts/db-restore.sh"
   },

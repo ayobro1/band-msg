@@ -42,7 +42,7 @@ export default function ChannelList({
           <button
             key={channel.id}
             onClick={() => onSelectChannel(channel.id)}
-            className={`mb-1 flex w-full items-center rounded-lg px-3 py-3 text-left transition-colors active:bg-[#404249] ${
+            className={`mb-1 flex w-full items-center rounded-lg px-3 py-3 text-left active:bg-[#404249] ${
               activeChannelId === channel.id
                 ? "bg-[#404249] text-white"
                 : "text-gray-300 hover:bg-[#35373c] hover:text-white"
@@ -87,7 +87,7 @@ export default function ChannelList({
           {canCreateChannel && (
             <button
               onClick={onCreateChannel}
-              className="text-gray-500 transition-colors hover:text-gray-300"
+              className="text-gray-500 hover:text-gray-300"
               title="Create Channel"
             >
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -100,7 +100,7 @@ export default function ChannelList({
           <button
             key={channel.id}
             onClick={() => onSelectChannel(channel.id)}
-            className={`group mb-0.5 flex w-full items-center rounded px-2 py-1.5 text-left text-sm transition-colors ${
+            className={`group mb-0.5 flex w-full items-center rounded px-2 py-1.5 text-left text-sm ${
               activeChannelId === channel.id
                 ? "bg-[#404249] text-white"
                 : "hover:bg-[#35373c] hover:text-white"

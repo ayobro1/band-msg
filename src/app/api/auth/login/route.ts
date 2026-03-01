@@ -6,13 +6,7 @@ function resolveSecureCookie(request: NextRequest): boolean {
   const mode = (process.env.AUTH_COOKIE_SECURE ?? "auto").toLowerCase();
   if (mode === "true") return true;
   if (mode === "false") return false;
-
-  const forwardedProto = request.headers
-    .get("x-forwarded-proto")
-    ?.split(",")[0]
-    .trim()
-    .toLowerCase();
-
+  const forwardedProto = request.headers.get("x-forwarded-proto")?.split(",")[0].trim().toLowerCase();
   return forwardedProto === "https" || request.nextUrl.protocol === "https:";
 }
 

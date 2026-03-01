@@ -61,7 +61,7 @@ export default function AdminApprovalModal({ onClose }: AdminApprovalModalProps)
       <div className="modal-content w-full max-w-lg rounded-lg bg-[#313338] p-6 shadow-xl">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-xl font-bold text-white">Pending Account Approvals</h2>
-          <button onClick={onClose} className="text-gray-400 transition-colors hover:text-white">
+          <button onClick={onClose} className="text-gray-400 hover:text-white">
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -81,7 +81,7 @@ export default function AdminApprovalModal({ onClose }: AdminApprovalModalProps)
                 <span className="text-sm text-gray-200">{user.username}</span>
                 <button
                   onClick={() => approve(user.username)}
-                  className="rounded bg-[#23a55a] px-3 py-1 text-xs font-semibold text-white transition-colors hover:bg-[#1f944f]"
+                  className="rounded bg-[#23a55a] px-3 py-1 text-xs font-semibold text-white hover:bg-[#1f944f]"
                 >
                   Approve
                 </button>
@@ -93,13 +93,13 @@ export default function AdminApprovalModal({ onClose }: AdminApprovalModalProps)
         <div className="mt-5 flex justify-end">
           <button
             onClick={loadPendingUsers}
-            className="mr-2 rounded px-3 py-1.5 text-sm text-gray-300 transition-colors hover:text-white"
+            className="mr-2 rounded px-3 py-1.5 text-sm text-gray-300 hover:text-white"
           >
             Refresh
           </button>
           <button
             onClick={onClose}
-            className="rounded bg-[#5865f2] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#4752c4]"
+            className="rounded bg-[#5865f2] px-4 py-2 text-sm font-medium text-white hover:bg-[#4752c4]"
           >
             Close
           </button>

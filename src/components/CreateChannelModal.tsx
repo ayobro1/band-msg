@@ -92,7 +92,7 @@ export default function CreateChannelModal({
           <h2 className="text-xl font-bold text-white">Create Channel</h2>
           <button
             onClick={onClose}
-            className="text-gray-400 transition-colors hover:text-white"
+            className="text-gray-400 hover:text-white"
           >
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -141,7 +141,7 @@ export default function CreateChannelModal({
             onChange={(e) => setDescription(e.target.value)}
             placeholder="What is this channel about?"
             maxLength={100}
-            className="w-full rounded-md bg-[#1e1f22] px-3 py-2.5 text-sm text-gray-200 placeholder-gray-500 outline-none ring-1 ring-transparent transition-all focus:ring-[#5865f2]"
+            className="w-full rounded-md bg-[#1e1f22] px-3 py-2.5 text-sm text-gray-200 placeholder-gray-500 outline-none ring-1 ring-transparent focus:ring-[#5865f2]"
           />
 
           {/* Visibility toggle */}
@@ -152,7 +152,7 @@ export default function CreateChannelModal({
             <button
               type="button"
               onClick={() => setVisibility("public")}
-              className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+              className={`flex-1 rounded-md px-3 py-2 text-sm font-medium ${
                 visibility === "public"
                   ? "bg-[#5865f2] text-white"
                   : "bg-[#1e1f22] text-gray-400 hover:text-gray-200"
@@ -163,7 +163,7 @@ export default function CreateChannelModal({
             <button
               type="button"
               onClick={() => { setVisibility("private"); fetchApprovedUsers(); }}
-              className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+              className={`flex-1 rounded-md px-3 py-2 text-sm font-medium ${
                 visibility === "private"
                   ? "bg-[#5865f2] text-white"
                   : "bg-[#1e1f22] text-gray-400 hover:text-gray-200"
@@ -219,13 +219,13 @@ export default function CreateChannelModal({
             <button
               type="button"
               onClick={onClose}
-              className="rounded-md px-4 py-2 text-sm font-medium text-gray-300 transition-colors hover:text-white"
+              className="rounded-md px-4 py-2 text-sm font-medium text-gray-300 hover:text-white"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="rounded-md bg-[#5865f2] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#4752c4]"
+              className="rounded-md bg-[#5865f2] px-4 py-2 text-sm font-medium text-white hover:bg-[#4752c4]"
             >
               Create Channel
             </button>
