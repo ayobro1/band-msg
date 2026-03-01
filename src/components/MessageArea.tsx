@@ -214,8 +214,10 @@ export default function MessageArea({
   useEffect(() => {
     if (!channelId) return;
 
-    setIsLoading(true);
     setReplyTo(null); // Clear reply when switching channels
+
+    // Only show loading spinner if fetch takes longer than 300ms to avoid flash
+    const loadingTimer = setTimeout(() => setIsLoading(true), 300);
 
     const fetchMessages = async () => {
       try {
@@ -234,6 +236,7 @@ export default function MessageArea({
         console.error("Failed to fetch messages:", error);
         setMessages([]);
       } finally {
+        clearTimeout(loadingTimer);
         setIsLoading(false);
       }
     };
@@ -284,6 +287,7 @@ export default function MessageArea({
     };
 
     return () => {
+      clearTimeout(loadingTimer);
       eventSource.close();
       setTypingUsers(new Map());
     };
