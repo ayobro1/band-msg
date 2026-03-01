@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth";
-import { demoteAdminToMember } from "@/lib/store";
+import { addAuditLog, demoteAdminToMember } from "@/lib/store";
 
 export async function POST(request: NextRequest) {
   const admin = requireAdmin(request);
@@ -23,6 +23,8 @@ export async function POST(request: NextRequest) {
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: result.code });
   }
+  
+  addAuditLog(admin.username, "user_demoted", "user", result.user.username, "Demoted admin to member");
 
   return NextResponse.json(result.user);
 }

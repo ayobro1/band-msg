@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth";
-import { approveUser } from "@/lib/store";
+import { addAuditLog, approveUser } from "@/lib/store";
 
 export async function POST(request: NextRequest) {
   const admin = requireAdmin(request);
@@ -19,6 +19,8 @@ export async function POST(request: NextRequest) {
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: result.code });
   }
+
+  addAuditLog(admin.username, "user_approved", "user", result.user.username, "Approved pending account");
 
   return NextResponse.json(result.user);
 }

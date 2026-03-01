@@ -10,6 +10,7 @@ import UsernameModal from "@/components/UsernameModal";
 import CreateChannelModal from "@/components/CreateChannelModal";
 import AdminApprovalModal from "@/components/AdminApprovalModal";
 import ChannelManagementModal from "@/components/ChannelManagementModal";
+import ActivityLogModal from "@/components/ActivityLogModal";
 import PushNotificationManager from "@/components/PushNotificationManager";
 
 const HEARTBEAT_INTERVAL_MS = 120000; // 2 minutes
@@ -37,6 +38,7 @@ export default function ChatPage() {
   const [showCreateChannel, setShowCreateChannel] = useState(false);
   const [showApprovals, setShowApprovals] = useState(false);
   const [showChannelManager, setShowChannelManager] = useState(false);
+  const [showActivityLog, setShowActivityLog] = useState(false);
   const [showMembers, setShowMembers] = useState(true);
   const [mobileView, setMobileView] = useState<MobileView>("channels");
 
@@ -280,6 +282,17 @@ export default function ChatPage() {
                   </svg>
                 </button>
               )}
+              {authUser.role === "admin" && (
+                <button
+                  onClick={() => setShowActivityLog(true)}
+                  className="flex h-9 w-9 items-center justify-center rounded-lg text-[#f0b232]"
+                  title="Activity Log"
+                >
+                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l2 2m8-2a10 10 0 11-20 0 10 10 0 0120 0z" />
+                  </svg>
+                </button>
+              )}
               <button
                 onClick={handleLogout}
                 className="flex h-9 w-9 items-center justify-center rounded-lg text-gray-400"
@@ -339,6 +352,9 @@ export default function ChatPage() {
             onClose={() => setShowChannelManager(false)}
           />
         )}
+        {showActivityLog && authUser.role === "admin" && (
+          <ActivityLogModal onClose={() => setShowActivityLog(false)} />
+        )}
       </div>
     );
   }
@@ -386,6 +402,17 @@ export default function ChatPage() {
             >
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+            </button>
+          )}
+          {authUser.role === "admin" && (
+            <button
+              onClick={() => setShowActivityLog(true)}
+              className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#f0b232] text-[#1e1f22] hover:bg-[#d89f2e]"
+              title="Activity Log"
+            >
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l2 2m8-2a10 10 0 11-20 0 10 10 0 0120 0z" />
               </svg>
             </button>
           )}
@@ -445,6 +472,9 @@ export default function ChatPage() {
           onDeleteChannel={handleDeleteChannel}
           onClose={() => setShowChannelManager(false)}
         />
+      )}
+      {showActivityLog && authUser.role === "admin" && (
+        <ActivityLogModal onClose={() => setShowActivityLog(false)} />
       )}
     </div>
   );

@@ -1,4 +1,4 @@
-import { addChannel, deleteChannel, getChannelsForUser } from "@/lib/store";
+import { addAuditLog, addChannel, deleteChannel, getChannelsForUser } from "@/lib/store";
 import { requireAdmin, requireApprovedUser } from "@/lib/auth";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -59,6 +59,8 @@ export async function DELETE(request: NextRequest) {
   if (!removed) {
     return NextResponse.json({ error: "channel not found" }, { status: 404 });
   }
+
+  addAuditLog(admin.username, "channel_deleted", "channel", channelId, "Deleted channel and related content");
 
   return NextResponse.json({ ok: true });
 }

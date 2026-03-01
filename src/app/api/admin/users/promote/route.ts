@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth";
-import { promoteUserToAdmin } from "@/lib/store";
+import { addAuditLog, promoteUserToAdmin } from "@/lib/store";
 
 export async function POST(request: NextRequest) {
   const admin = requireAdmin(request);
@@ -19,6 +19,8 @@ export async function POST(request: NextRequest) {
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: result.code });
   }
+
+  addAuditLog(admin.username, "user_promoted", "user", result.user.username, "Promoted user to admin");
 
   return NextResponse.json(result.user);
 }

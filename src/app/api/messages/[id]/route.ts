@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireApprovedUser } from "@/lib/auth";
-import { canAccessChannel, deleteMessage } from "@/lib/store";
+import { addAuditLog, canAccessChannel, deleteMessage } from "@/lib/store";
 
 export async function DELETE(
   request: NextRequest,
@@ -24,6 +24,8 @@ export async function DELETE(
   if (!canAccessChannel(result.channel_id, user.username, user.role)) {
     return NextResponse.json({ error: "access denied" }, { status: 403 });
   }
+
+  addAuditLog(user.username, "message_unsent", "message", id, `Unsent message in channel ${result.channel_id}`);
 
   return NextResponse.json({ ok: true });
 }
