@@ -570,6 +570,7 @@ export function getMessagesByChannel(
     limit?: number;
   }
 ): Message[] {
+  const hasReplyColumn = hasColumn("messages", "reply_to_id");
   const where: string[] = ["m.channel_id = ?"];
   const params: Array<string | number> = [channelId];
 
@@ -597,12 +598,12 @@ export function getMessagesByChannel(
 
   return db
     .prepare(
-      `SELECT m.id, m.content, m.profile_id, m.channel_id, m.created, m.reply_to_id,
+      `SELECT m.id, m.content, m.profile_id, m.channel_id, m.created${hasReplyColumn ? ", m.reply_to_id" : ""},
               a.id AS att_id, a.mime_type AS att_mime, a.expires_at AS att_expires,
-              rm.content AS reply_content, rm.profile_id AS reply_user
+              ${hasReplyColumn ? "rm.content AS reply_content, rm.profile_id AS reply_user" : "NULL AS reply_content, NULL AS reply_user"}
        FROM messages m
        LEFT JOIN attachments a ON a.message_id = m.id
-       LEFT JOIN messages rm ON rm.id = m.reply_to_id
+       ${hasReplyColumn ? "LEFT JOIN messages rm ON rm.id = m.reply_to_id" : ""}
        WHERE ${where.join(" AND ")}
        ORDER BY m.created ASC
        LIMIT ?`
@@ -638,6 +639,8 @@ export function addMessage(
   attachmentId?: string,
   replyToId?: string
 ): Message {
+  const hasReplyColumn = hasColumn("messages", "reply_to_id");
+
   const msg: Message = {
     id: `msg_${crypto.randomUUID()}`,
     content,
@@ -646,13 +649,20 @@ export function addMessage(
     created: new Date().toISOString(),
   };
 
-  db.prepare(
-    `INSERT INTO messages (id, content, profile_id, channel_id, attachment_id, reply_to_id, created)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`
-  ).run(msg.id, msg.content, msg.profile_id, msg.channel_id, attachmentId ?? null, replyToId ?? null, msg.created);
+  if (hasReplyColumn) {
+    db.prepare(
+      `INSERT INTO messages (id, content, profile_id, channel_id, attachment_id, reply_to_id, created)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`
+    ).run(msg.id, msg.content, msg.profile_id, msg.channel_id, attachmentId ?? null, replyToId ?? null, msg.created);
+  } else {
+    db.prepare(
+      `INSERT INTO messages (id, content, profile_id, channel_id, attachment_id, created)
+       VALUES (?, ?, ?, ?, ?, ?)`
+    ).run(msg.id, msg.content, msg.profile_id, msg.channel_id, attachmentId ?? null, msg.created);
+  }
 
   // Enrich with reply data
-  if (replyToId) {
+  if (replyToId && hasReplyColumn) {
     const replyMsg = db.prepare("SELECT content, profile_id FROM messages WHERE id = ?").get(replyToId) as { content: string; profile_id: string } | undefined;
     if (replyMsg) {
       msg.reply_to_id = replyToId;
