@@ -82,6 +82,19 @@ jobs:
           fi
           echo "$BUN_INSTALL/bin" >> "$GITHUB_PATH"
 
+      - name: Setup Node.js
+        run: |
+          NODE_VERSION="20.19.0"
+          NODE_DIR="$HOME/.local/node"
+          if ! "$NODE_DIR/bin/node" --version &>/dev/null 2>&1; then
+            echo "Installing Node.js $NODE_VERSION..."
+            curl -fsSL "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.xz" -o /tmp/node.tar.xz
+            mkdir -p "$NODE_DIR"
+            tar -xJf /tmp/node.tar.xz -C "$NODE_DIR" --strip-components=1
+            rm -f /tmp/node.tar.xz
+          fi
+          echo "$NODE_DIR/bin" >> "$GITHUB_PATH"
+
       - name: Build and Start
         run: |
           set -euo pipefail
