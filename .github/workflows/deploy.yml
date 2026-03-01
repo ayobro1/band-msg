@@ -68,7 +68,11 @@ jobs:
       - name: Setup Bun
         run: |
           export BUN_INSTALL="$HOME/.bun"
-          if ! command -v bun &>/dev/null && ! [ -x "$BUN_INSTALL/bin/bun" ]; then
+          NEED_INSTALL=false
+          if ! "$BUN_INSTALL/bin/bun" --version &>/dev/null; then
+            NEED_INSTALL=true
+          fi
+          if [ "$NEED_INSTALL" = true ]; then
             curl -fsSL https://github.com/oven-sh/bun/releases/latest/download/bun-linux-x64-baseline.zip -o /tmp/bun.zip
             python3 -c "import zipfile; zipfile.ZipFile('/tmp/bun.zip').extractall('/tmp/bun-extract')"
             mkdir -p "$BUN_INSTALL/bin"
