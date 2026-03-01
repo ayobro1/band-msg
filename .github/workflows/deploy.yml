@@ -65,16 +65,18 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Install unzip
-        run: |
-          if ! command -v unzip &>/dev/null; then
-            sudo apt-get update -qq && sudo apt-get install -y -qq unzip
-          fi
-
       - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
+        run: |
+          export BUN_INSTALL="$HOME/.bun"
+          if ! command -v bun &>/dev/null && ! [ -x "$BUN_INSTALL/bin/bun" ]; then
+            curl -fsSL https://github.com/oven-sh/bun/releases/latest/download/bun-linux-x64.zip -o /tmp/bun.zip
+            python3 -c "import zipfile; zipfile.ZipFile('/tmp/bun.zip').extractall('/tmp/bun-extract')"
+            mkdir -p "$BUN_INSTALL/bin"
+            mv /tmp/bun-extract/bun-linux-x64/bun "$BUN_INSTALL/bin/bun"
+            chmod +x "$BUN_INSTALL/bin/bun"
+            rm -rf /tmp/bun.zip /tmp/bun-extract
+          fi
+          echo "$BUN_INSTALL/bin" >> "$GITHUB_PATH"
 
       - name: Build and Start
         run: |
