@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/triple-slash-reference */
 /// <reference path="./src/types/bun-globals.d.ts" />
 import http from "node:http";
 import { parse } from "node:url";
@@ -43,7 +44,7 @@ Bun.serve({
       (ws as unknown as { _client: WsClient })._client = client;
       addWsClient(client);
     },
-    message(_ws: Bun.ServerWebSocket, _message: string | ArrayBuffer) {
+    message() {
       // Clients don't send meaningful messages; ignore
     },
     close(ws: Bun.ServerWebSocket) {

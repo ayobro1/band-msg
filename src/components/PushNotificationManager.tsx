@@ -20,7 +20,7 @@ export default function PushNotificationManager({ channels = [] }: PushNotificat
   const [showSettings, setShowSettings] = useState(false);
   const [pushEnabled, setPushEnabled] = useState(true);
   const [mutedChannels, setMutedChannels] = useState<string[]>([]);
-  const [pushSupported, setPushSupported] = useState(() => {
+  const [pushSupported] = useState(() => {
     if (typeof window === "undefined") return true;
     return ("serviceWorker" in navigator) && ("PushManager" in window);
   });
