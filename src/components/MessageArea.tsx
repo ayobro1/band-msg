@@ -88,9 +88,10 @@ export default function MessageArea({
     // Complete swipe if dragged >35% of screen width or fast enough
     if (touchRef.current.locked && dx > screenW * 0.35) {
       onBack();
+    } else {
+      // Reset progress (animate back to 0)
+      onSwipeProgress?.(0);
     }
-    // Reset progress (animate back to 0)
-    onSwipeProgress?.(0);
     touchRef.current = null;
   }, [onBack, onSwipeProgress]);
 
