@@ -1,6 +1,14 @@
 import crypto from "node:crypto";
 
-const JWT_SECRET = process.env.JWT_SECRET || "dev-jwt-secret-change-in-production";
+function getJwtSecret(): string {
+  const secret = process.env.JWT_SECRET;
+  if (secret) return secret;
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("JWT_SECRET environment variable is required in production");
+  }
+  return "dev-jwt-secret-change-in-production";
+}
+
 const JWT_EXPIRY_SECONDS = 24 * 60 * 60; // 24 hours
 
 export interface JwtPayload {
@@ -19,7 +27,7 @@ export function signJwt(username: string, role: string, status: string): string 
   const headerB64 = Buffer.from(JSON.stringify(header)).toString("base64url");
   const payloadB64 = Buffer.from(JSON.stringify(payload)).toString("base64url");
   const signature = crypto
-    .createHmac("sha256", JWT_SECRET)
+    .createHmac("sha256", getJwtSecret())
     .update(`${headerB64}.${payloadB64}`)
     .digest("base64url");
 
@@ -34,7 +42,7 @@ export function verifyJwt(token: string | undefined): JwtPayload | null {
 
   const [headerB64, payloadB64, signatureB64] = parts;
   const expectedSig = crypto
-    .createHmac("sha256", JWT_SECRET)
+    .createHmac("sha256", getJwtSecret())
     .update(`${headerB64}.${payloadB64}`)
     .digest("base64url");
 

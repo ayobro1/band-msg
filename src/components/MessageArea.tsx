@@ -243,9 +243,13 @@ export default function MessageArea({
 
     const wsPort = process.env.NEXT_PUBLIC_WS_PORT || "3001";
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const ws = new WebSocket(`${protocol}//${window.location.hostname}:${wsPort}`);
+    const wsUrl = `${protocol}//${window.location.hostname}:${wsPort}`;
+    let ws: WebSocket | null = null;
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+    let reconnectDelay = 1000;
+    let closed = false;
 
-    ws.onmessage = (event) => {
+    function handleMessage(event: MessageEvent) {
       const streamEvent: StreamEvent = JSON.parse(event.data);
 
       if (streamEvent.type === "message") {
@@ -283,11 +287,29 @@ export default function MessageArea({
           return next;
         });
       }
-    };
+    }
+
+    function connect() {
+      if (closed) return;
+      ws = new WebSocket(wsUrl);
+      ws.onopen = () => { reconnectDelay = 1000; };
+      ws.onmessage = handleMessage;
+      ws.onclose = () => {
+        if (closed) return;
+        reconnectTimer = setTimeout(() => {
+          reconnectDelay = Math.min(reconnectDelay * 2, 30000);
+          connect();
+        }, reconnectDelay);
+      };
+    }
+
+    connect();
 
     return () => {
+      closed = true;
       clearTimeout(loadingTimer);
-      ws.close();
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+      ws?.close();
       setTypingUsers(new Map());
     };
   }, [channelId, username]);

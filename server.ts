@@ -8,8 +8,9 @@ const HTTP_PORT = parseInt(process.env.PORT || "3000", 10);
 const SESSION_COOKIE = "band_chat_session";
 
 // Initialize WebSocket clients set on globalThis
+interface WsClient { send: (data: string) => void; readyState: number }
 declare global {
-  var __wsClients: Set<unknown>;
+  var __wsClients: Set<WsClient>;
 }
 globalThis.__wsClients = globalThis.__wsClients || new Set();
 
