@@ -5,7 +5,8 @@ import { parse } from "node:url";
 import next from "next";
 import { addWsClient, removeWsClient, type WsClient } from "./src/lib/store";
 
-const dev = process.env.NODE_ENV !== "production";
+// Default to production mode; dev mode must be explicitly set to avoid Turbopack subprocess issues
+const dev = process.env.NODE_ENV === "development";
 const hostname = "0.0.0.0";
 const port = parseInt(process.env.PORT ?? "3000", 10);
 const wsPort = parseInt(process.env.WS_PORT ?? "3001", 10);
@@ -23,6 +24,10 @@ http
   })
   .listen(port, hostname, () => {
     console.log(`> Next.js ready on http://${hostname}:${port}`);
+  })
+  .on("error", (err: NodeJS.ErrnoException) => {
+    console.error(`HTTP server error (${err.code}): ${err.message}`);
+    process.exit(1);
   });
 
 // ─── WebSocket server (Bun.serve) ──────────────────────────

@@ -233,7 +233,7 @@ jobs:
           # 4. Start App via PM2
           pm2 stop band-msg || true
           pm2 delete band-msg || true
-          pm2 start bun --name "band-msg" --cwd "$APP_DIR" -- server.ts
+          NODE_ENV=production pm2 start bun --name "band-msg" --cwd "$APP_DIR" -- server.ts
 
           BAND_MSG_COUNT="$(pm2_count_by_name "band-msg")"
           if [ "$BAND_MSG_COUNT" != "1" ]; then
@@ -365,5 +365,6 @@ jobs:
           done
 
           echo "Smoke check failed after $ATTEMPTS attempts."
+          pm2 logs band-msg --lines 50 --nostream || true
           pm2 status || true
           exit 1
