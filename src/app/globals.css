@@ -97,3 +97,9 @@ body {
 .typing-dot:nth-child(1) { animation-delay: 0s; }
 .typing-dot:nth-child(2) { animation-delay: 0.2s; }
 .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+/* Prevent iOS native copy/callout popup on long-press for message items */
+.msg-item {
+  -webkit-touch-callout: none;
+  user-select: none;
+}
