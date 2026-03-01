@@ -69,10 +69,10 @@ jobs:
         run: |
           export BUN_INSTALL="$HOME/.bun"
           if ! command -v bun &>/dev/null && ! [ -x "$BUN_INSTALL/bin/bun" ]; then
-            curl -fsSL https://github.com/oven-sh/bun/releases/latest/download/bun-linux-x64.zip -o /tmp/bun.zip
+            curl -fsSL https://github.com/oven-sh/bun/releases/latest/download/bun-linux-x64-baseline.zip -o /tmp/bun.zip
             python3 -c "import zipfile; zipfile.ZipFile('/tmp/bun.zip').extractall('/tmp/bun-extract')"
             mkdir -p "$BUN_INSTALL/bin"
-            mv /tmp/bun-extract/bun-linux-x64/bun "$BUN_INSTALL/bin/bun"
+            mv /tmp/bun-extract/bun-linux-x64-baseline/bun "$BUN_INSTALL/bin/bun"
             chmod +x "$BUN_INSTALL/bin/bun"
             rm -rf /tmp/bun.zip /tmp/bun-extract
           fi
