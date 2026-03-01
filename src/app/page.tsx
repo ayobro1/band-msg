@@ -117,6 +117,15 @@ export default function ChatPage() {
   const isSwiping = useRef(false);
   const [slideIn, setSlideIn] = useState(false);
 
+  // Ref callback: positions the panel off-screen before first paint so React
+  // never owns the transform property (avoiding reconciliation conflicts).
+  const setChatPanelRef = useCallback((node: HTMLDivElement | null) => {
+    chatPanelRef.current = node;
+    if (node) {
+      node.style.transform = "translateX(100%)";
+    }
+  }, []);
+
   const handleBackToChannels = useCallback(() => {
     if (isAnimatingRef.current) return;
     isAnimatingRef.current = true;
@@ -270,9 +279,8 @@ export default function ChatPage() {
         {/* Overlay layer: Chat panel (slides in from right) */}
         {mobileView === "chat" && (
           <div
-            ref={chatPanelRef}
+            ref={setChatPanelRef}
             className="absolute inset-0 z-10"
-            style={{ transform: "translateX(100%)" }}
           >
             <MessageArea
               channelId={activeChannelId}
