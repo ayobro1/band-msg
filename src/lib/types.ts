@@ -5,6 +5,15 @@ export interface Channel {
   created: string;
   visibility?: "public" | "private";
   allowed_users?: string[];
+  thread_parent_id?: string | null;
+}
+
+export interface PracticeDay {
+  id: string;
+  date: string;
+  notes: string;
+  created_by: string;
+  created: string;
 }
 
 export interface Message {

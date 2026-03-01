@@ -143,6 +143,24 @@ try {
   // Column already exists
 }
 
+// Migrate: add thread_parent_id column to channels table
+try {
+  db.exec("ALTER TABLE channels ADD COLUMN thread_parent_id TEXT DEFAULT NULL");
+} catch {
+  // Column already exists
+}
+
+// Practice days table
+db.exec(`
+CREATE TABLE IF NOT EXISTS practice_days (
+  id TEXT PRIMARY KEY,
+  date TEXT NOT NULL UNIQUE,
+  notes TEXT NOT NULL DEFAULT '',
+  created_by TEXT NOT NULL,
+  created TEXT NOT NULL
+);
+`);
+
 // Notification preferences table
 db.exec(`
 CREATE TABLE IF NOT EXISTS notification_prefs (

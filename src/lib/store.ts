@@ -261,7 +261,7 @@ export function approveUser(usernameInput: string):
 export function getChannels(): Channel[] {
   return db
     .prepare(
-      `SELECT id, name, description, visibility, created
+      `SELECT id, name, description, visibility, created, thread_parent_id
        FROM channels
        ORDER BY created ASC, name ASC`
     )
@@ -273,7 +273,7 @@ export function getChannelsForUser(username: string, role: string): Channel[] {
 
   return db
     .prepare(
-      `SELECT c.id, c.name, c.description, c.visibility, c.created
+      `SELECT c.id, c.name, c.description, c.visibility, c.created, c.thread_parent_id
        FROM channels c
        WHERE c.visibility = 'public'
           OR EXISTS (SELECT 1 FROM channel_members cm WHERE cm.channel_id = c.id AND cm.username = ?)
@@ -313,7 +313,8 @@ export function addChannel(
   name: string,
   description = "",
   visibility: "public" | "private" = "public",
-  allowedUsers: string[] = []
+  allowedUsers: string[] = [],
+  threadParentId?: string
 ): Channel | null {
   const normalized = name.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
   if (!normalized) return null;
@@ -329,18 +330,30 @@ export function addChannel(
     description,
     visibility,
     created: new Date().toISOString(),
+    thread_parent_id: threadParentId ?? null,
   };
 
   db.prepare(
-    `INSERT INTO channels (id, name, description, visibility, created)
-     VALUES (?, ?, ?, ?, ?)`
-  ).run(channel.id, channel.name, channel.description, channel.visibility, channel.created);
+    `INSERT INTO channels (id, name, description, visibility, created, thread_parent_id)
+     VALUES (?, ?, ?, ?, ?, ?)`
+  ).run(channel.id, channel.name, channel.description, channel.visibility, channel.created, channel.thread_parent_id);
 
   if (visibility === "private" && allowedUsers.length > 0) {
     setChannelMembers(channel.id, allowedUsers);
   }
 
   return channel;
+}
+
+export function createThreadChannel(messageId: string, parentChannelId: string): Channel | null {
+  // Check if a thread channel for this message already exists
+  const existing = db
+    .prepare("SELECT id, name, description, visibility, created, thread_parent_id FROM channels WHERE thread_parent_id = ?")
+    .get(messageId) as Channel | undefined;
+  if (existing) return existing;
+
+  const name = `thread-${messageId.replace("msg_", "").slice(0, 8)}`;
+  return addChannel(name, `Thread from #${parentChannelId}`, "public", [], messageId);
 }
 
 export function setChannelMembers(channelId: string, usernames: string[]): void {
@@ -448,31 +461,39 @@ export function broadcastTyping(channelId: string, profileId: string): void {
   notifySubscribers({ type: "typing", payload: event });
 }
 
-// WebSocket broadcast pub/sub
-export interface WsClient {
-  send(data: string): void;
-  readyState: number;
+// SSE broadcast pub/sub
+type SseController = ReadableStreamDefaultController<Uint8Array>;
+
+const sseClients = new Set<SseController>();
+const _encoder = new TextEncoder();
+
+export function addSseClient(controller: SseController): void {
+  sseClients.add(controller);
 }
 
-const wsClients = new Set<WsClient>();
-
-export function addWsClient(ws: WsClient): void {
-  wsClients.add(ws);
+export function removeSseClient(controller: SseController): void {
+  sseClients.delete(controller);
 }
 
-export function removeWsClient(ws: WsClient): void {
-  wsClients.delete(ws);
-}
+// Send a keepalive comment every 25 seconds to keep connections alive through proxies
+setInterval(() => {
+  const ping = _encoder.encode(": ping\n\n");
+  for (const controller of sseClients) {
+    try {
+      controller.enqueue(ping);
+    } catch {
+      sseClients.delete(controller);
+    }
+  }
+}, 25_000);
 
 function notifySubscribers(event: StreamEvent) {
-  const data = JSON.stringify(event);
-  for (const ws of wsClients) {
+  const chunk = _encoder.encode(`data: ${JSON.stringify(event)}\n\n`);
+  for (const controller of sseClients) {
     try {
-      if (ws.readyState === 1) {
-        ws.send(data);
-      }
+      controller.enqueue(chunk);
     } catch {
-      wsClients.delete(ws);
+      sseClients.delete(controller);
     }
   }
 }
@@ -697,4 +718,35 @@ export function shouldNotifyUser(username: string, channelId: string): boolean {
   if (!prefs.enabled) return false;
   if (prefs.muted_channels.includes(channelId)) return false;
   return true;
+}
+
+// ───── Practice Days ─────
+
+import type { PracticeDay } from "./types";
+
+export function getPracticeDays(from?: string, to?: string): PracticeDay[] {
+  if (from && to) {
+    return db
+      .prepare("SELECT * FROM practice_days WHERE date >= ? AND date <= ? ORDER BY date ASC")
+      .all(from, to) as PracticeDay[];
+  }
+  return db
+    .prepare("SELECT * FROM practice_days ORDER BY date ASC")
+    .all() as PracticeDay[];
+}
+
+export function addPracticeDay(date: string, notes: string, createdBy: string): PracticeDay {
+  const id = `pd_${crypto.randomUUID()}`;
+  const created = new Date().toISOString();
+  db.prepare(
+    `INSERT INTO practice_days (id, date, notes, created_by, created)
+     VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(date) DO UPDATE SET notes = excluded.notes`
+  ).run(id, date, notes, createdBy, created);
+  return { id, date, notes, created_by: createdBy, created };
+}
+
+export function removePracticeDay(id: string): boolean {
+  const info = db.prepare("DELETE FROM practice_days WHERE id = ?").run(id);
+  return info.changes > 0;
 }

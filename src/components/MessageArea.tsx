@@ -23,6 +23,7 @@ interface MessageAreaProps {
   mobile?: boolean;
   onBack?: () => void;
   onSwipeProgress?: (offset: number) => void;
+  onNavigateToChannel?: (channelId: string) => void;
 }
 
 export default function MessageArea({
@@ -35,6 +36,7 @@ export default function MessageArea({
   mobile,
   onBack,
   onSwipeProgress,
+  onNavigateToChannel,
 }: MessageAreaProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState("");
@@ -49,6 +51,7 @@ export default function MessageArea({
   const [replyTo, setReplyTo] = useState<{ id: string; content: string; user: string } | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const longPressRef = useRef<{ timer: ReturnType<typeof setTimeout>; msgId: string; content: string } | null>(null);
+  const lastTapRef = useRef<{ msgId: string; time: number } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // ── Swipe-from-left-edge to go back (mobile) ──
@@ -130,6 +133,22 @@ export default function MessageArea({
     setContextMenu({ x: e.clientX, y: e.clientY, msgId, content });
   }, []);
 
+  // Double-tap to react with ❤️
+  const handleMsgClick = useCallback((msgId: string) => {
+    const now = Date.now();
+    if (lastTapRef.current && lastTapRef.current.msgId === msgId && now - lastTapRef.current.time < 350) {
+      lastTapRef.current = null;
+      if (navigator.vibrate) navigator.vibrate(20);
+      fetch("/api/reactions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message_id: msgId, emoji: "❤️" }),
+      }).catch(() => {});
+    } else {
+      lastTapRef.current = { msgId, time: now };
+    }
+  }, []);
+
   const handleEmojiReact = useCallback(async (messageId: string, emoji: string) => {
     try {
       await fetch("/api/reactions", {
@@ -155,6 +174,23 @@ export default function MessageArea({
   const cancelReply = useCallback(() => {
     setReplyTo(null);
   }, []);
+
+  // ── Create thread from context menu ──
+  const handleCreateThread = useCallback(async (msgId: string, _content: string) => {
+    try {
+      const res = await fetch("/api/threads", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message_id: msgId, channel_id: channelId }),
+      });
+      if (!res.ok) return;
+      const data: { id: string } = await res.json();
+      onNavigateToChannel?.(data.id);
+      if (mobile) onBack?.();
+    } catch {
+      /* ignore */
+    }
+  }, [channelId, onNavigateToChannel, mobile, onBack]);
 
   // ── Swipe-left on message to reply (mobile) ──
   const msgSwipeRef = useRef<{
@@ -237,19 +273,11 @@ export default function MessageArea({
 
     fetchMessages();
 
-    // Connect to WebSocket for real-time events
-    // NEXT_PUBLIC_WS_URL is the full URL (e.g. wss://ws.lazzycal.com) when behind a tunnel.
-    // Falls back to same-host with NEXT_PUBLIC_WS_PORT for local dev.
-    let wsUrl = process.env.NEXT_PUBLIC_WS_URL;
-    if (!wsUrl) {
-      const wsPort = process.env.NEXT_PUBLIC_WS_PORT ?? "3001";
-      const wsProtocol = window.location.protocol === "https:" ? "wss" : "ws";
-      wsUrl = `${wsProtocol}://${window.location.hostname}:${wsPort}`;
-    }
-    const ws = new WebSocket(wsUrl);
+    // Connect via Server-Sent Events for real-time updates (works through Cloudflare)
+    const es = new EventSource("/api/events");
 
-    ws.onmessage = (event) => {
-      const streamEvent: StreamEvent = JSON.parse(event.data);
+    es.onmessage = (event) => {
+      const streamEvent: StreamEvent = JSON.parse(event.data as string);
 
       if (streamEvent.type === "message") {
         const msg = streamEvent.payload as Message;
@@ -290,13 +318,8 @@ export default function MessageArea({
       }
     };
 
-    // Auto-reconnect on close
-    ws.onclose = () => {
-      // Will reconnect when effect re-runs on dependency change
-    };
-
     return () => {
-      ws.close();
+      es.close();
       setTypingUsers(new Map());
     };
   }, [channelId, username]);
@@ -599,6 +622,9 @@ export default function MessageArea({
                       alt="attachment"
                       className="max-h-60 max-w-full rounded-lg"
                       loading="lazy"
+                      draggable={false}
+                      onContextMenu={(e) => e.preventDefault()}
+                      style={{ WebkitTouchCallout: "none" } as React.CSSProperties}
                     />
                   )}
                   {attachment.attachment_expires && (
@@ -632,6 +658,7 @@ export default function MessageArea({
                 onTouchStart: (e: React.TouchEvent) => handleMsgTouchStart(e, msg.id, msg.content, msg.profile_id),
                 onTouchMove: handleMsgTouchMove,
                 onTouchEnd: handleMsgTouchEnd,
+                onClick: () => handleMsgClick(msg.id),
               };
 
               return grouped ? (
@@ -830,6 +857,7 @@ export default function MessageArea({
           onGifReact={(msgId) => { openGiphyForReaction(msgId); }}
           onCopy={handleCopyMessage}
           onReply={handleReply}
+          onCreateThread={handleCreateThread}
           onClose={() => setContextMenu(null)}
         />
       )}

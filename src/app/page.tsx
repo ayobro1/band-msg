@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { AuthUser, Channel } from "@/lib/types";
 import ChannelList from "@/components/ChannelList";
 import MessageArea from "@/components/MessageArea";
@@ -27,6 +28,7 @@ function useIsMobile() {
 }
 
 export default function ChatPage() {
+  const router = useRouter();
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
   const [authResolved, setAuthResolved] = useState(false);
   const [channels, setChannels] = useState<Channel[]>([]);
@@ -173,6 +175,21 @@ export default function ChatPage() {
     setMobileView("channels");
   }, []);
 
+  // Navigate to a channel (used when creating threads)
+  const handleNavigateToChannel = useCallback((channelId: string) => {
+    // Fetch fresh channel list and then navigate
+    fetch("/api/channels")
+      .then((r) => r.json())
+      .then((data: Channel[]) => {
+        if (Array.isArray(data)) setChannels(data);
+        setActiveChannelId(channelId);
+        if (isMobile) setMobileView("chat");
+      })
+      .catch(() => {
+        setActiveChannelId(channelId);
+      });
+  }, [isMobile]);
+
   const activeChannel = channels.find((c) => c.id === activeChannelId);
 
   if (!authResolved) {
@@ -205,6 +222,15 @@ export default function ChatPage() {
             </div>
             <div className="flex items-center gap-1">
               <PushNotificationManager channels={channels} />
+              <button
+                onClick={() => router.push("/dashboard")}
+                className="flex h-9 w-9 items-center justify-center rounded-lg text-gray-400"
+                title="Practice Dashboard"
+              >
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+              </button>
               {authUser.role === "admin" && (
                 <button
                   onClick={() => setShowApprovals(true)}
@@ -254,6 +280,7 @@ export default function ChatPage() {
               mobile
               onBack={handleBackToChannels}
               onSwipeProgress={handleSwipeProgress}
+              onNavigateToChannel={handleNavigateToChannel}
             />
           </div>
         )}
@@ -286,6 +313,15 @@ export default function ChatPage() {
         <div className="mx-auto h-0.5 w-8 rounded bg-[#35373c]" />
         <div className="mt-auto flex flex-col gap-2 pb-2">
           <PushNotificationManager channels={channels} />
+          <button
+            onClick={() => router.push("/dashboard")}
+            className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#3f4147] text-gray-200 hover:bg-[#5865f2]"
+            title="Practice Dashboard"
+          >
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+          </button>
           {authUser.role === "admin" && (
             <button
               onClick={() => setShowApprovals(true)}
@@ -328,6 +364,7 @@ export default function ChatPage() {
             username={authUser.username}
             showMembers={showMembers}
             onToggleMembers={() => setShowMembers(!showMembers)}
+            onNavigateToChannel={handleNavigateToChannel}
           />
 
           {/* Member list sidebar */}
