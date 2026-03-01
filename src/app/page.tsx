@@ -129,13 +129,14 @@ export default function ChatPage() {
   const handleBackToChannels = useCallback(() => {
     if (isAnimatingRef.current) return;
     isAnimatingRef.current = true;
+    // Cancel any pending slide-in rAFs so they don't override the exit animation
+    setSlideIn(false);
     if (chatPanelRef.current) {
       chatPanelRef.current.style.transition = "transform 0.3s cubic-bezier(0.2, 0, 0, 1)";
       chatPanelRef.current.style.transform = "translateX(100%)";
     }
     setTimeout(() => {
       setMobileView("channels");
-      setSlideIn(false);
       isAnimatingRef.current = false;
     }, 300);
   }, []);
@@ -165,8 +166,11 @@ export default function ChatPage() {
   // Trigger slide-in animation after chat panel mounts
   useEffect(() => {
     if (!slideIn || mobileView !== "chat") return;
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
+    let raf1 = 0, raf2 = 0;
+    raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(() => {
+        // If back was triggered while rAFs were pending, skip the slide-in
+        if (isAnimatingRef.current) return;
         if (chatPanelRef.current) {
           chatPanelRef.current.style.transition = "transform 0.3s cubic-bezier(0.2, 0, 0, 1)";
           chatPanelRef.current.style.transform = "translateX(0)";
@@ -174,6 +178,10 @@ export default function ChatPage() {
         setSlideIn(false);
       });
     });
+    return () => {
+      cancelAnimationFrame(raf1);
+      cancelAnimationFrame(raf2);
+    };
   }, [slideIn, mobileView]);
 
   const handleCreateChannel = useCallback(
