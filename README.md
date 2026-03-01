@@ -15,7 +15,7 @@ A Discord-style real-time chat application for bands, built with Next.js, Bun, a
 - **Channel descriptions** — Topics shown in the channel header
 - **Loading & empty states** — Spinners, welcome messages, and helpful prompts
 - **Polished UI** — Custom scrollbars, hover effects, and a dark theme matching Discord's aesthetic
-- **Built-in backend + SQLite** — Next.js API routes with persistent local SQLite storage (bun:sqlite)
+- **Built-in backend + SQLite** — Next.js API routes with persistent local SQLite storage (`better-sqlite3`)
 - **JWT authentication** — Stateless token-based auth with HTTP-only cookies
 - **Admin approvals** — First registered user becomes admin; subsequent accounts require admin approval
 - **Mobile PWA support** — Installable web app manifest, service worker caching, and offline fallback page
@@ -25,6 +25,23 @@ A Discord-style real-time chat application for bands, built with Next.js, Bun, a
 ### Prerequisites
 
 - [Bun](https://bun.sh) v1.0+
+
+### Self-Hosted Runner Prerequisites
+
+The `deploy` job runs on your own server. Before the first deploy, ensure the following are installed:
+
+```bash
+# SQLite native addon compilation tools (required by better-sqlite3)
+sudo apt-get install -y build-essential python3
+
+# Process manager
+npm install -g pm2
+
+# Version control
+sudo apt-get install -y git
+```
+
+The deploy workflow will automatically install `build-essential` and `python3` if they are missing, provided the runner has passwordless `sudo` configured (required for automated deployment).
 
 ### 1. Install dependencies
 
@@ -48,7 +65,7 @@ Register an account to get started, then sign in. Non-admin accounts require adm
 - The **first registered user** automatically becomes admin and is auto-approved.
 - All subsequent registrations are created as pending and must be approved by the admin in-app.
 - Authentication uses JWT tokens stored in an HTTP-only cookie.
-- User/channel/message data is stored in SQLite (via `bun:sqlite`) and persists across restarts.
+- User/channel/message data is stored in SQLite (via `better-sqlite3`) and persists across restarts.
 - Real-time events are delivered over WebSocket (port `WS_PORT`, default 3001).
 
 ### Configuration
