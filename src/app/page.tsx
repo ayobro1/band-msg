@@ -111,23 +111,12 @@ export default function ChatPage() {
     []
   );
 
-  // ── Mobile slide animation state ──
+  // ── Mobile swipe gesture state ──
   const chatPanelRef = useRef<HTMLDivElement>(null);
-  const isAnimatingRef = useRef(false);
   const isSwiping = useRef(false);
-  const [slideIn, setSlideIn] = useState(false);
 
   const handleBackToChannels = useCallback(() => {
-    if (isAnimatingRef.current) return;
-    isAnimatingRef.current = true;
-    if (chatPanelRef.current) {
-      chatPanelRef.current.style.transform = "translateX(100%)";
-    }
-    setTimeout(() => {
-      setMobileView("channels");
-      setSlideIn(false);
-      isAnimatingRef.current = false;
-    }, 300);
+    setMobileView("channels");
   }, []);
 
   const handleSwipeProgress = useCallback((offset: number) => {
@@ -144,24 +133,10 @@ export default function ChatPage() {
   const handleSelectChannelMobile = useCallback(
     (id: string) => {
       setActiveChannelId(id);
-      setSlideIn(true);
       setMobileView("chat");
     },
     []
   );
-
-  // Trigger slide-in animation after chat panel mounts
-  useEffect(() => {
-    if (!slideIn || mobileView !== "chat") return;
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        if (chatPanelRef.current) {
-          chatPanelRef.current.style.transform = "translateX(0)";
-        }
-        setSlideIn(false);
-      });
-    });
-  }, [slideIn, mobileView]);
 
   const handleCreateChannel = useCallback(
     async (name: string, description: string, visibility: "public" | "private" = "public", allowedUsers: string[] = []) => {
@@ -263,12 +238,11 @@ export default function ChatPage() {
           />
         </div>
 
-        {/* Overlay layer: Chat panel (slides in from right) */}
+        {/* Overlay layer: Chat panel */}
         {mobileView === "chat" && (
           <div
             ref={chatPanelRef}
             className="absolute inset-0 z-10"
-            style={{ transform: "translateX(100%)" }}
           >
             <MessageArea
               channelId={activeChannelId}
