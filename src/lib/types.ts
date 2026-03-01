@@ -45,6 +45,11 @@ export interface TypingEvent {
   channel_id: string;
 }
 
+export interface MessageDeletedEvent {
+  id: string;
+  channel_id: string;
+}
+
 export interface Reaction {
   id: string;
   message_id: string;
@@ -56,8 +61,8 @@ export interface Reaction {
 }
 
 export interface StreamEvent {
-  type: "message" | "typing" | "reaction";
-  payload: Message | TypingEvent | Reaction;
+  type: "message" | "typing" | "reaction" | "message_deleted";
+  payload: Message | TypingEvent | Reaction | MessageDeletedEvent;
 }
 
 export type UserRole = "admin" | "member";

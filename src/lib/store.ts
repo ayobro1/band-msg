@@ -704,6 +704,53 @@ export function broadcastTyping(channelId: string, profileId: string): void {
   notifySubscribers({ type: "typing", payload: event });
 }
 
+export function deleteMessage(
+  messageId: string,
+  actorUsername: string,
+  actorRole: string
+):
+  | { ok: true; channel_id: string }
+  | { ok: false; error: string; code: number } {
+  const msg = db
+    .prepare("SELECT id, profile_id, channel_id FROM messages WHERE id = ?")
+    .get(messageId) as { id: string; profile_id: string; channel_id: string } | undefined;
+
+  if (!msg) {
+    return { ok: false, error: "Message not found", code: 404 };
+  }
+
+  const isOwner = msg.profile_id === actorUsername;
+  const isAdmin = actorRole === "admin";
+  if (!isOwner && !isAdmin) {
+    return { ok: false, error: "You can only unsend your own messages", code: 403 };
+  }
+
+  const attachments = db
+    .prepare("SELECT id, path FROM attachments WHERE message_id = ?")
+    .all(messageId) as { id: string; path: string }[];
+
+  const remove = db.transaction(() => {
+    db.prepare("DELETE FROM reactions WHERE message_id = ?").run(messageId);
+    db.prepare("DELETE FROM attachments WHERE message_id = ?").run(messageId);
+    db.prepare("DELETE FROM messages WHERE id = ?").run(messageId);
+  });
+
+  remove();
+
+  for (const att of attachments) {
+    try {
+      const fullPath = path.isAbsolute(att.path) ? att.path : path.join(uploadsDir, att.path);
+      if (fs.existsSync(fullPath)) fs.unlinkSync(fullPath);
+    } catch {
+      // ignore missing files
+    }
+  }
+
+  notifySubscribers({ type: "message_deleted", payload: { id: messageId, channel_id: msg.channel_id } });
+
+  return { ok: true, channel_id: msg.channel_id };
+}
+
 // SSE broadcast pub/sub
 type SseController = ReadableStreamDefaultController<Uint8Array>;
 

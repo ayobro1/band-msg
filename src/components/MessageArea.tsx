@@ -13,6 +13,44 @@ const ALLOWED_MEDIA_TYPES = [
   "video/mp4", "video/webm", "video/quicktime",
 ];
 
+function getInlineMediaUrl(content: string): { type: "image" | "video"; url: string } | null {
+  const trimmed = content.trim();
+  if (!trimmed) return null;
+
+  try {
+    const u = new URL(trimmed);
+    if (!["http:", "https:"].includes(u.protocol)) return null;
+
+    const host = u.hostname.toLowerCase();
+    const path = u.pathname.toLowerCase();
+
+    const isGifHost =
+      host.includes("giphy.com") ||
+      host.includes("giphyusercontent.com") ||
+      host.includes("tenor.com") ||
+      host.includes("tenor.co");
+
+    if (path.endsWith(".mp4") || path.endsWith(".webm") || path.endsWith(".mov")) {
+      return { type: "video", url: trimmed };
+    }
+
+    if (
+      path.endsWith(".gif") ||
+      path.endsWith(".png") ||
+      path.endsWith(".jpg") ||
+      path.endsWith(".jpeg") ||
+      path.endsWith(".webp") ||
+      isGifHost
+    ) {
+      return { type: "image", url: trimmed };
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+}
+
 interface MessageAreaProps {
   channelId: string | null;
   channelName: string;
@@ -562,6 +600,7 @@ export default function MessageArea({
               const grouped = shouldGroup(msg, messages[i - 1]);
               const msgReactions = reactions.get(msg.id) ?? [];
               const attachment = msg.attachment_url ? msg : null;
+              const inlineMedia = getInlineMediaUrl(msg.content);
 
               // Group emoji reactions by emoji, track counts and users
               const emojiGroups = new Map<string, { count: number; users: string[]; ids: string[] }>();
@@ -679,7 +718,29 @@ export default function MessageArea({
                   </div>
                   <div className="ml-3 min-w-0">
                     {replyQuote}
-                    {msg.content && <p className="text-sm leading-snug text-gray-300">{msg.content}</p>}
+                    {inlineMedia ? (
+                      inlineMedia.type === "video" ? (
+                        <video
+                          src={inlineMedia.url}
+                          controls
+                          preload="metadata"
+                          className="mt-0.5 max-h-60 max-w-full rounded-lg"
+                        />
+                      ) : (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={inlineMedia.url}
+                          alt="inline media"
+                          className="mt-0.5 max-h-60 max-w-full rounded-lg"
+                          loading="lazy"
+                          draggable={false}
+                          onContextMenu={(e) => e.preventDefault()}
+                          style={{ WebkitTouchCallout: "none" } as React.CSSProperties}
+                        />
+                      )
+                    ) : (
+                      msg.content && <p className="text-sm leading-snug text-gray-300">{msg.content}</p>
+                    )}
                     {attachmentEl}
                     {reactionRow}
                   </div>
@@ -712,7 +773,29 @@ export default function MessageArea({
                         {formatTimestamp(msg.created)}
                       </span>
                     </div>
-                    {msg.content && <p className="text-sm leading-snug text-gray-300">{msg.content}</p>}
+                    {inlineMedia ? (
+                      inlineMedia.type === "video" ? (
+                        <video
+                          src={inlineMedia.url}
+                          controls
+                          preload="metadata"
+                          className="mt-0.5 max-h-60 max-w-full rounded-lg"
+                        />
+                      ) : (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={inlineMedia.url}
+                          alt="inline media"
+                          className="mt-0.5 max-h-60 max-w-full rounded-lg"
+                          loading="lazy"
+                          draggable={false}
+                          onContextMenu={(e) => e.preventDefault()}
+                          style={{ WebkitTouchCallout: "none" } as React.CSSProperties}
+                        />
+                      )
+                    ) : (
+                      msg.content && <p className="text-sm leading-snug text-gray-300">{msg.content}</p>
+                    )}
                     {attachmentEl}
                     {reactionRow}
                   </div>

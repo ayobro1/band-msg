@@ -14,6 +14,7 @@ interface MessageContextMenuProps {
   onCopy: (text: string) => void;
   onReply: (messageId: string, content: string) => void;
   onCreateThread: (messageId: string, content: string) => void;
+  onUnsend: (messageId: string) => void;
   onClose: () => void;
 }
 
@@ -27,6 +28,7 @@ export default function MessageContextMenu({
   onCopy,
   onReply,
   onCreateThread,
+  onUnsend,
   onClose,
 }: MessageContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
@@ -136,6 +138,15 @@ export default function MessageContextMenu({
             <span>Copy Message</span>
           </button>
         )}
+        <button
+          onClick={() => { onUnsend(messageId); onClose(); }}
+          className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm text-red-300 hover:bg-[#404249]"
+        >
+          <svg className="h-4 w-4 text-red-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+          <span>Unsend Message</span>
+        </button>
       </div>
     </div>
   );
