@@ -447,12 +447,14 @@ export function broadcastTyping(channelId: string, profileId: string): void {
 // Pub/sub for WebSocket broadcast
 type WsClient = { send: (data: string) => void; readyState: number };
 
+const WS_OPEN = 1;
+
 function notifySubscribers(event: StreamEvent) {
   const clients = (globalThis as Record<string, unknown>).__wsClients as Set<WsClient> | undefined;
   if (!clients) return;
   const data = JSON.stringify(event);
   for (const client of clients) {
-    if (client.readyState === 1) {
+    if (client.readyState === WS_OPEN) {
       client.send(data);
     }
   }
