@@ -1,6 +1,18 @@
 import fs from "node:fs";
 import path from "node:path";
-import Database from "better-sqlite3";
+import type BetterSqlite3 from "better-sqlite3";
+
+// Prefer bun:sqlite in Bun runtime (built-in, no native addon); fall back to
+// better-sqlite3 in Node.js environments such as Next.js build workers.
+const Database: new (path: string) => BetterSqlite3.Database = (() => {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
+    return (require("bun:sqlite") as any).Database;
+  } catch {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
+    return require("better-sqlite3") as any;
+  }
+})();
 
 const DEFAULT_CHANNELS = [
   { id: "ch_1", name: "general", description: "General band discussion" },

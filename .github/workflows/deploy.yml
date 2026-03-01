@@ -256,6 +256,37 @@ jobs:
             exit 1
           fi
 
+          # Wait up to 15 seconds for band-msg to stabilise (not errored/stopped)
+          echo "Waiting for band-msg to stabilise..."
+          STABLE=false
+          for _i in $(seq 1 15); do
+            BAND_STATUS="$(pm2 jlist | node -e '
+              const input = require("fs").readFileSync(0, "utf8");
+              let list = [];
+              try { list = JSON.parse(input); } catch { process.stdout.write("unknown"); process.exit(0); }
+              const p = list.find((x) => x && x.name === "band-msg");
+              process.stdout.write(p ? p.pm2_env.status : "missing");
+            ')"
+            if [ "$BAND_STATUS" = "online" ]; then
+              STABLE=true
+              break
+            fi
+            if [ "$BAND_STATUS" = "errored" ] || [ "$BAND_STATUS" = "stopped" ]; then
+              echo "band-msg entered '$BAND_STATUS' state after startup"
+              pm2 logs band-msg --lines 50 --nostream || true
+              pm2 status
+              exit 1
+            fi
+            sleep 1
+          done
+          if [ "$STABLE" != "true" ]; then
+            echo "band-msg did not reach 'online' state within 15 seconds"
+            pm2 logs band-msg --lines 50 --nostream || true
+            pm2 status
+            exit 1
+          fi
+          echo "band-msg is online."
+
           # 5. Handle Cloudflared (System Service Mode)
           if [ -z "${CLOUDFLARE_TUNNEL_TOKEN:-}" ]; then
             echo "CLOUDFLARE_TUNNEL_TOKEN is missing."
