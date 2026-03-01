@@ -95,6 +95,20 @@ jobs:
           fi
           echo "$NODE_DIR/bin" >> "$GITHUB_PATH"
 
+      - name: Ensure Native Build Tools
+        run: |
+          MISSING=""
+          command -v gcc    &>/dev/null || MISSING="$MISSING gcc"
+          command -v make   &>/dev/null || MISSING="$MISSING make"
+          command -v python3 &>/dev/null || MISSING="$MISSING python3"
+          if [ -n "$MISSING" ]; then
+            echo "Missing tools:$MISSING – installing build-essential and python3..."
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq build-essential python3
+          else
+            echo "Native build tools already present."
+          fi
+
       - name: Build and Start
         run: |
           set -euo pipefail
