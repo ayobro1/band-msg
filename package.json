@@ -13,14 +13,12 @@
     "restore:db": "bash ./scripts/db-restore.sh"
   },
   "dependencies": {
-    "better-sqlite3": "^11.0.0",
     "next": "16.1.6",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "web-push": "^3.6.7"
   },
   "devDependencies": {
-    "@types/better-sqlite3": "^7.6.8",
     "@types/bun": "^1.2.18",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
