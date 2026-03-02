@@ -1,0 +1,51 @@
+name: Deploy Convex (Production)
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "convex/**"
+      - "convex.json"
+      - "package.json"
+      - "package-lock.json"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: convex-production
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate Convex deploy key
+        shell: bash
+        env:
+          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${CONVEX_DEPLOY_KEY}" ]]; then
+            echo "::error::Missing required GitHub secret: CONVEX_DEPLOY_KEY"
+            exit 1
+          fi
+
+      - name: Deploy Convex to production
+        env:
+          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
+        run: npx convex deploy --prod
