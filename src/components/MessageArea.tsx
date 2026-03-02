@@ -88,9 +88,11 @@ export default function MessageArea({
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; msgId: string; content: string; canUnsend: boolean } | null>(null);
   const [replyTo, setReplyTo] = useState<{ id: string; content: string; user: string } | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const messagesScrollRef = useRef<HTMLDivElement>(null);
   const longPressRef = useRef<{ timer: ReturnType<typeof setTimeout>; msgId: string; content: string } | null>(null);
   const lastTapRef = useRef<{ msgId: string; time: number } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const shouldSnapToBottomRef = useRef(true);
 
   // ── Swipe-from-left-edge to go back (mobile) ──
   const touchRef = useRef<{ startX: number; startY: number; edge: boolean; locked: boolean | null } | null>(null);
@@ -304,6 +306,10 @@ export default function MessageArea({
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastTypingSentRef = useRef(0);
 
+  useEffect(() => {
+    shouldSnapToBottomRef.current = true;
+  }, [channelId]);
+
   const sendMessage = useCallback(async (content: string, replyToId?: string) => {
     if (!channelId) {
       throw new Error("No channel selected.");
@@ -440,6 +446,19 @@ export default function MessageArea({
   }, []);
 
   useEffect(() => {
+    if (shouldSnapToBottomRef.current) {
+      requestAnimationFrame(() => {
+        const container = messagesScrollRef.current;
+        if (container) {
+          container.scrollTop = container.scrollHeight;
+        } else {
+          bottomRef.current?.scrollIntoView({ behavior: "auto" });
+        }
+      });
+      shouldSnapToBottomRef.current = false;
+      return;
+    }
+
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
@@ -615,7 +634,7 @@ export default function MessageArea({
       </div>
 
       {/* Messages */}
-      <div className="scroll-area min-h-0 flex-1">
+      <div ref={messagesScrollRef} className="scroll-area min-h-0 flex-1">
         {isLoading ? (
           <div className="flex items-center justify-center py-8">
             <div className="h-6 w-6 animate-spin rounded-full border-2 border-gray-600 border-t-[#5865f2]" />
