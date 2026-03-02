@@ -47,7 +47,7 @@ export default function PushNotificationManager({ channels = [] }: PushNotificat
     if (registeredRef.current) return true;
 
     try {
-      if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
+      if (!("serviceWorker" in navigator) || !("PushManager" in window)) return false;
 
       const vapidRes = await fetch("/api/push/vapid");
       if (!vapidRes.ok) {
