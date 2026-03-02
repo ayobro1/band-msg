@@ -2,45 +2,47 @@
 
 <style>
   :global(:root) {
-    --bg-base: #07101f;
-    --bg-surface: rgba(13, 22, 42, 0.78);
-    --bg-surface-hover: rgba(20, 33, 61, 0.82);
-    --bg-input: rgba(8, 16, 34, 0.7);
-    --border: rgba(148, 163, 184, 0.15);
-    --border-focus: #3b82f6;
-    --accent: #3b82f6;
-    --accent-hover: #2563eb;
-    --accent-glow: rgba(59, 130, 246, 0.25);
-    --text-primary: #f1f5f9;
-    --text-secondary: #94a3b8;
-    --text-muted: #64748b;
-    --radius-lg: 18px;
-    --radius-md: 12px;
-    --radius-sm: 8px;
-    --shadow-lg: 0 24px 64px rgba(2, 6, 23, 0.5);
-    --shadow-sm: 0 2px 12px rgba(2, 6, 23, 0.3);
+    --sidebar-bg: #2b2d31;
+    --sidebar-channel-bg: #1e1f22;
+    --main-bg: #313338;
+    --input-bg: #383a40;
+    --surface: #2b2d31;
+    --surface-raised: #383a40;
+    --border: rgba(255,255,255,0.06);
+    --accent: #5865f2;
+    --accent-hover: #4752c4;
+    --green: #23a55a;
+    --red: #f23f43;
+    --yellow: #f0b132;
+    --text-1: #f2f3f5;
+    --text-2: #b5bac1;
+    --text-3: #80848e;
+    --text-muted: #6d6f78;
+    --msg-hover: rgba(4,4,5,0.07);
+    --radius: 4px;
+    --radius-lg: 8px;
   }
 
   :global(body) {
     margin: 0;
-    font-family: "Inter", system-ui, -apple-system, sans-serif;
-    background:
-      radial-gradient(ellipse 1400px 700px at 15% -5%, #0f2044 0%, transparent 55%),
-      radial-gradient(ellipse 900px 600px at 85% 5%, #1a1060 0%, transparent 55%),
-      radial-gradient(ellipse 600px 400px at 50% 100%, #0c1a30 0%, transparent 60%),
-      var(--bg-base);
-    color: var(--text-primary);
+    font-family: "Inter", "gg sans", system-ui, -apple-system, sans-serif;
+    background: var(--main-bg);
+    color: var(--text-2);
     min-height: 100vh;
-    line-height: 1.55;
+    line-height: 1.375;
+    -webkit-font-smoothing: antialiased;
   }
 
-  :global(*) {
-    box-sizing: border-box;
-  }
+  :global(*) { box-sizing: border-box; }
 
-  :global(button),
-  :global(input),
-  :global(textarea) {
-    font: inherit;
+  :global(button), :global(input), :global(textarea) { font: inherit; }
+
+  :global(::-webkit-scrollbar) { width: 8px; }
+  :global(::-webkit-scrollbar-track) { background: transparent; }
+  :global(::-webkit-scrollbar-thumb) {
+    background: #1a1b1e;
+    border-radius: 4px;
+    border: 2px solid transparent;
+    background-clip: content-box;
   }
 </style>
