@@ -22,15 +22,16 @@ export const register = mutation({
       return { ok: false, code: 409, error: "Username already exists" };
     }
 
-    const count = await ctx.db.query("users").collect();
-    const first = count.length === 0;
+    const users = await ctx.db.query("users").collect();
+    const hasApprovedAdmin = users.some((user: any) => user.role === "admin" && user.status === "approved");
+    const bootstrapAdmin = !hasApprovedAdmin;
 
     const userId = await ctx.db.insert("users", {
       username,
       passwordHash: args.passwordHash,
       passwordSalt: args.passwordSalt,
-      role: first ? "admin" : "member",
-      status: first ? "approved" : "pending",
+      role: bootstrapAdmin ? "admin" : "member",
+      status: bootstrapAdmin ? "approved" : "pending",
       createdAt: Date.now()
     });
 

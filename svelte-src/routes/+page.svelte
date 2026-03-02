@@ -18,9 +18,23 @@
   let newMessage = "";
   let newChannel = "";
   let newChannelDescription = "";
-  let error = "";
+  let toastMessage = "";
+  let toastType: "error" | "success" = "error";
+  let toastTimeout: ReturnType<typeof setTimeout> | null = null;
 
   $: isAuthenticated = !!me;
+
+  function showToast(message: string, type: "error" | "success" = "error") {
+    toastMessage = message;
+    toastType = type;
+    if (toastTimeout) {
+      clearTimeout(toastTimeout);
+    }
+    toastTimeout = setTimeout(() => {
+      toastMessage = "";
+      toastTimeout = null;
+    }, 4500);
+  }
 
   function getCookie(name: string): string {
     if (typeof document === "undefined") return "";
@@ -73,7 +87,6 @@
   }
 
   async function register() {
-    error = "";
     const res = await apiPost("/api/auth/register", {
       username: registerUsername,
       password: registerPassword
@@ -81,17 +94,16 @@
 
     if (!res.ok) {
       const body = await res.json().catch(() => ({ error: "Registration failed" }));
-      error = body.error;
+      showToast(body.error || "Registration failed", "error");
       return;
     }
 
     registerUsername = "";
     registerPassword = "";
-    error = "Registered successfully. First user is auto-approved admin.";
+    showToast("Registered successfully.", "success");
   }
 
   async function login() {
-    error = "";
     const res = await apiPost("/api/auth/login", {
       username: loginUsername,
       password: loginPassword
@@ -99,7 +111,7 @@
 
     if (!res.ok) {
       const body = await res.json().catch(() => ({ error: "Login failed" }));
-      error = body.error;
+      showToast(body.error || "Login failed", "error");
       return;
     }
 
@@ -135,11 +147,12 @@
     });
     if (!res.ok) {
       const body = await res.json().catch(() => ({ error: "Create channel failed" }));
-      error = body.error;
+      showToast(body.error || "Create channel failed", "error");
       return;
     }
     newChannel = "";
     newChannelDescription = "";
+    showToast("Channel created.", "success");
     await refreshChannels();
   }
 
@@ -159,10 +172,6 @@
 </script>
 
 <main class="discord-app">
-  {#if error}
-    <section class="error-banner" role="alert">{error}</section>
-  {/if}
-
   {#if !isAuthenticated}
     <section class="auth-shell">
       <article class="auth-card">
@@ -261,6 +270,12 @@
       </section>
     </section>
   {/if}
+
+  {#if toastMessage}
+    <section class="toast" class:error={toastType === "error"} class:success={toastType === "success"} role="status">
+      {toastMessage}
+    </section>
+  {/if}
 </main>
 
 <style>
@@ -272,12 +287,26 @@
     background: #313338;
   }
 
-  .error-banner {
-    background: #da373c;
-    color: #fff;
+  .toast {
+    position: fixed;
+    right: 1rem;
+    bottom: 1rem;
+    z-index: 30;
+    min-width: min(360px, calc(100vw - 2rem));
+    max-width: 420px;
+    padding: 0.7rem 0.85rem;
     border-radius: 8px;
-    padding: 0.65rem 0.85rem;
+    color: #fff;
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
     font-weight: 600;
+  }
+
+  .toast.error {
+    background: #da373c;
+  }
+
+  .toast.success {
+    background: #2d7d46;
   }
 
   .auth-shell {
