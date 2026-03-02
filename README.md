@@ -25,8 +25,10 @@ npm install
 2. Configure environment values in `.env.local` (copy from `.env.local.example`):
 
 ```bash
-CONVEX_URL=...
-AUTH_COOKIE_SECURE=auto
+cp .env.local.example .env.local
+# Then set CONVEX_URL to your Convex deployment URL
+CONVEX_URL=https://your-deployment.convex.cloud
+AUTH_COOKIE_SECURE=false   # use false for local HTTP dev
 ```
 
 3. Start Convex dev backend (in one terminal):
@@ -65,12 +67,19 @@ npm run dev
 
 ## Deployment (Vercel)
 
-1. Import the repository in Vercel.
-2. Set environment variables:
-   - `CONVEX_URL`
-   - `AUTH_COOKIE_SECURE=true`
-3. Build command: `npm run build`
-4. Output handled by SvelteKit adapter-vercel.
+1. Run `npx convex deploy` to get your **Convex deployment URL**.
+2. Import this repository in [vercel.com](https://vercel.com).
+3. In your Vercel project go to **Settings → Environment Variables** and add:
+
+| Variable | Value | Notes |
+|---|---|---|
+| `CONVEX_URL` | `https://your-deployment.convex.cloud` | **Required.** From Convex dashboard or `npx convex deploy`. |
+| `AUTH_COOKIE_SECURE` | `true` | **Required.** Enforces `Secure` cookie flag in production. |
+
+> `NODE_ENV` and `VERCEL` are set automatically by Vercel — do **not** add them manually.
+
+4. Build command: `npm run build` (auto-detected by Vercel).
+5. Output directory is handled by the SvelteKit Vercel adapter — no manual config needed.
 
 ## Security
 

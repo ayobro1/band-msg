@@ -299,7 +299,7 @@
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
             <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/>
           </svg>
-          Sign out
+          <span class="sign-out-label">Sign out</span>
         </button>
       </div>
     {/if}
@@ -349,7 +349,7 @@
           </div>
           <input class="input" bind:value={loginUsername} placeholder="Username" autocomplete="username" />
           <input class="input" bind:value={loginPassword} type="password" placeholder="Password" autocomplete="current-password"
-            on:keydown={(e) => e.key === "Enter" && login()} />
+            on:keydown={(e) => { if (e.key === "Enter") { e.preventDefault(); login(); } }} />
           <button class="btn btn-primary" on:click={login}>Sign in</button>
         </article>
 
@@ -367,7 +367,7 @@
           </div>
           <input class="input" bind:value={registerUsername} placeholder="Username" autocomplete="username" />
           <input class="input" bind:value={registerPassword} type="password" placeholder="Password (12+ chars)" autocomplete="new-password"
-            on:keydown={(e) => e.key === "Enter" && register()} />
+            on:keydown={(e) => { if (e.key === "Enter") { e.preventDefault(); register(); } }} />
           <button class="btn btn-primary" on:click={register}>Create account</button>
         </article>
       </div>
@@ -536,7 +536,7 @@
             bind:this={composerEl}
             placeholder={selectedChannelId ? `Message #${selectedChannelName}` : "Select a channel to chat"}
             disabled={!selectedChannelId}
-            on:keydown={(e) => e.key === "Enter" && !e.shiftKey && sendMessage()}
+            on:keydown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
           />
           <button
             class="btn btn-send"
@@ -561,6 +561,7 @@
     display: flex;
     flex-direction: column;
     height: 100vh;
+    height: 100svh; /* accounts for mobile browser chrome */
     overflow: hidden;
   }
 
@@ -590,6 +591,8 @@
     display: flex;
     align-items: center;
     gap: 0.75rem;
+    flex-shrink: 0; /* hamburger and brand container never get clipped */
+    min-width: 0;
   }
 
   .hamburger {
@@ -632,6 +635,9 @@
     font-size: 0.95rem;
     color: var(--text-primary);
     line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .brand-channel {
@@ -639,6 +645,9 @@
     font-size: 0.74rem;
     color: var(--text-muted);
     line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .user-chip {
@@ -649,6 +658,9 @@
     border: 1px solid var(--border);
     border-radius: 999px;
     padding: 0.3rem 0.5rem 0.3rem 0.4rem;
+    flex-shrink: 1;
+    min-width: 0;
+    overflow: hidden;
   }
 
   .chip-info {
@@ -1322,6 +1334,9 @@
 
   @media (max-width: 699px) {
     .hamburger { display: flex; }
+
+    /* Hide "Sign out" label on narrow screens — icon alone is clear enough */
+    .sign-out-label { display: none; }
 
     .auth-grid {
       grid-template-columns: 1fr;
