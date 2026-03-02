@@ -90,12 +90,34 @@ export const listMessages = query({
     const messages = await Promise.all(
       rows.map(async (row) => {
         const author = await ctx.db.get(row.userId);
+
+        // aggregate reactions: emoji → { count, byMe }
+        const reactionRows = await ctx.db
+          .query("reactions")
+          .withIndex("by_message", (q: any) => q.eq("messageId", row._id))
+          .collect();
+
+        const map = new Map<string, { count: number; byMe: boolean }>();
+        for (const r of reactionRows) {
+          const cur = map.get(r.emoji) ?? { count: 0, byMe: false };
+          map.set(r.emoji, { count: cur.count + 1, byMe: cur.byMe || r.userId === user._id });
+        }
+        const reactions = Array.from(map.entries()).map(([emoji, d]) => ({
+          emoji, count: d.count, byMe: d.byMe
+        }));
+
         return {
           id: row._id,
-          content: row.content,
+          content: row.deleted ? "" : row.content,
+          deleted: !!row.deleted,
           channelId: row.channelId,
           createdAt: row.createdAt,
-          author: author?.username ?? "unknown"
+          author: author?.username ?? "unknown",
+          isMe: row.userId === user._id,
+          replyToId: row.replyToId ?? null,
+          replyToContent: row.replyToContent ?? null,
+          replyToAuthor: row.replyToAuthor ?? null,
+          reactions
         };
       })
     );
@@ -108,7 +130,10 @@ export const sendMessage = mutation({
   args: {
     sessionToken: v.string(),
     channelId: v.id("channels"),
-    content: v.string()
+    content: v.string(),
+    replyToId: v.optional(v.id("messages")),
+    replyToContent: v.optional(v.string()),
+    replyToAuthor: v.optional(v.string())
   },
   handler: async (ctx, args) => {
     const user = await getUserFromSession(ctx, args.sessionToken);
@@ -119,13 +144,76 @@ export const sendMessage = mutation({
       return { ok: false, code: 400, error: "Message must be 1-4000 chars" };
     }
 
-    const messageId = await ctx.db.insert("messages", {
+    const data: any = {
       channelId: args.channelId,
       userId: user._id,
       content,
       createdAt: Date.now()
-    });
+    };
+    if (args.replyToId) {
+      data.replyToId = args.replyToId;
+      data.replyToContent = (args.replyToContent ?? "").slice(0, 200);
+      data.replyToAuthor = args.replyToAuthor ?? "";
+    }
 
+    const messageId = await ctx.db.insert("messages", data);
     return { ok: true, messageId };
+  }
+});
+
+export const deleteMessage = mutation({
+  args: {
+    sessionToken: v.string(),
+    messageId: v.id("messages")
+  },
+  handler: async (ctx, args) => {
+    const user = await getUserFromSession(ctx, args.sessionToken);
+    if (!user) return { ok: false, code: 401, error: "Unauthorized" };
+
+    const msg = await ctx.db.get(args.messageId);
+    if (!msg) return { ok: false, code: 404, error: "Message not found" };
+    if (msg.userId !== user._id && user.role !== "admin") {
+      return { ok: false, code: 403, error: "Forbidden" };
+    }
+
+    await ctx.db.patch(args.messageId, { deleted: true, content: "" });
+    return { ok: true };
+  }
+});
+
+export const toggleReaction = mutation({
+  args: {
+    sessionToken: v.string(),
+    messageId: v.id("messages"),
+    emoji: v.string()
+  },
+  handler: async (ctx, args) => {
+    const user = await getUserFromSession(ctx, args.sessionToken);
+    if (!user) return { ok: false, code: 401, error: "Unauthorized" };
+
+    const ALLOWED = ["👍","❤️","😂","😮","😢","😡","🔥","👏","🎉","🤔","😍","💯","✅","👀","🙌","😅","💀","🤣","🥳","💪"];
+    if (!ALLOWED.includes(args.emoji)) {
+      return { ok: false, code: 400, error: "Invalid emoji" };
+    }
+
+    const existing = await ctx.db
+      .query("reactions")
+      .withIndex("by_message_user_emoji", (q: any) =>
+        q.eq("messageId", args.messageId).eq("userId", user._id).eq("emoji", args.emoji)
+      )
+      .unique();
+
+    if (existing) {
+      await ctx.db.delete(existing._id);
+    } else {
+      await ctx.db.insert("reactions", {
+        messageId: args.messageId,
+        userId: user._id,
+        emoji: args.emoji,
+        createdAt: Date.now()
+      });
+    }
+
+    return { ok: true };
   }
 });

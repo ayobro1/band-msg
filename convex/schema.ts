@@ -33,8 +33,20 @@ export default defineSchema({
     channelId: v.id("channels"),
     userId: v.id("users"),
     content: v.string(),
-    createdAt: v.number()
+    createdAt: v.number(),
+    deleted: v.optional(v.boolean()),
+    replyToId: v.optional(v.id("messages")),
+    replyToContent: v.optional(v.string()),
+    replyToAuthor: v.optional(v.string())
   })
     .index("by_channel", ["channelId"])
-    .index("by_channel_created", ["channelId", "createdAt"])
+    .index("by_channel_created", ["channelId", "createdAt"]),
+  reactions: defineTable({
+    messageId: v.id("messages"),
+    userId: v.id("users"),
+    emoji: v.string(),
+    createdAt: v.number()
+  })
+    .index("by_message", ["messageId"])
+    .index("by_message_user_emoji", ["messageId", "userId", "emoji"])
 });
