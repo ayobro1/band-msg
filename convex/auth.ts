@@ -57,7 +57,7 @@ export const login = mutation({
   },
   handler: async (ctx, args) => {
     const username = args.username.trim().toLowerCase();
-    const user = await ctx.db
+    let user = await ctx.db
       .query("users")
       .withIndex("by_username", (q) => q.eq("username", username))
       .unique();
@@ -67,7 +67,17 @@ export const login = mutation({
     }
 
     if (user.status !== "approved") {
-      return { ok: false, code: 403, error: "Account pending approval" };
+      const users = await ctx.db.query("users").collect();
+      const hasApprovedAdmin = users.some((existingUser: any) => {
+        return existingUser.role === "admin" && existingUser.status === "approved";
+      });
+
+      if (!hasApprovedAdmin) {
+        await ctx.db.patch(user._id, { role: "admin", status: "approved" });
+        user = (await ctx.db.get(user._id)) ?? user;
+      } else {
+        return { ok: false, code: 403, error: "Account pending approval" };
+      }
     }
 
     await ctx.db.insert("sessions", {
