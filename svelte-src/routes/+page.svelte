@@ -273,7 +273,8 @@
 <style>
   .app-shell {
     width: min(1100px, 94vw);
-    margin: 2rem auto;
+    margin: clamp(0.75rem, 2.5vh, 2rem) auto;
+    padding-bottom: 2.5rem;
     display: grid;
     gap: 1rem;
   }

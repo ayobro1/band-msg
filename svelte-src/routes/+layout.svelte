@@ -1,6 +1,11 @@
 <slot />
 
 <style>
+  :global(html) {
+    height: 100%;
+    overflow-y: auto;
+  }
+
   :global(body) {
     margin: 0;
     font-family: Inter, system-ui, -apple-system, sans-serif;
@@ -11,6 +16,8 @@
     color: #e5e7eb;
     min-height: 100vh;
     line-height: 1.5;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
   :global(*) {
