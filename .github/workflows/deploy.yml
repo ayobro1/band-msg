@@ -1,384 +1,90 @@
-name: Auto Deploy
+name: Deploy to Vercel
+
 on:
   push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
+    branches: [main]
   workflow_dispatch:
-    inputs:
-      deploy_ref:
-        description: 'Branch, tag, or commit SHA to deploy (for rollback/manual deploy)'
-        required: true
-        default: 'main'
 
 permissions:
   contents: read
 
 concurrency:
-  group: production-deploy
-  cancel-in-progress: false
+  group: vercel-production
+  cancel-in-progress: true
 
 jobs:
-  quality:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
-
-      - name: Install Dependencies
-        run: bun install
-
-      - name: Static Code Analysis
-        run: bun run static-analysis
-
-      - name: Build Validation
-        run: bun run build
-
   deploy:
-    needs: quality
-    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch'
-    runs-on: self-hosted
-    timeout-minutes: 20
-    environment: production
+    runs-on: ubuntu-latest
     env:
-      PM2_HOME: /home/deploy/.pm2
-      CLOUDFLARE_TUNNEL_TOKEN: ${{ secrets.CLOUDFLARE_TUNNEL_TOKEN }}
-      CLOUDFLARE_HOSTNAME: lazzycal.com
-      DEPLOY_REF: ${{ github.event.inputs.deploy_ref || github.sha }}
-      SMOKE_URL: http://127.0.0.1:3000
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+
+      # App secrets stored in GitHub Actions secrets.
+      # Add/remove names here to match what your app expects.
+      CONVEX_DEPLOYMENT: ${{ secrets.CONVEX_DEPLOYMENT }}
+      CONVEX_URL: ${{ secrets.CONVEX_URL }}
+      CONVEX_SITE_URL: ${{ secrets.CONVEX_SITE_URL }}
+      JWT_SECRET: ${{ secrets.JWT_SECRET }}
+      SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
+      CSRF_SECRET: ${{ secrets.CSRF_SECRET }}
+      GIPHY_API_KEY: ${{ secrets.GIPHY_API_KEY }}
       VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
       VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
       VAPID_SUBJECT: ${{ secrets.VAPID_SUBJECT }}
-      GIPHY_API_KEY: ${{ secrets.GIPHY_API_KEY }}
-      JWT_SECRET: ${{ secrets.JWT_SECRET }}
-      AUTH_COOKIE_SECURE: ${{ secrets.AUTH_COOKIE_SECURE }}
+
     steps:
-      - name: Checkout Code
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Bun
-        run: |
-          export BUN_INSTALL="$HOME/.bun"
-          NEED_INSTALL=false
-          if ! "$BUN_INSTALL/bin/bun" --version &>/dev/null; then
-            NEED_INSTALL=true
-          fi
-          if [ "$NEED_INSTALL" = true ]; then
-            curl -fsSL https://github.com/oven-sh/bun/releases/latest/download/bun-linux-x64-baseline.zip -o /tmp/bun.zip
-            python3 -c "import zipfile; zipfile.ZipFile('/tmp/bun.zip').extractall('/tmp/bun-extract')"
-            mkdir -p "$BUN_INSTALL/bin"
-            mv /tmp/bun-extract/bun-linux-x64-baseline/bun "$BUN_INSTALL/bin/bun"
-            chmod +x "$BUN_INSTALL/bin/bun"
-            rm -rf /tmp/bun.zip /tmp/bun-extract
-          fi
-          echo "$BUN_INSTALL/bin" >> "$GITHUB_PATH"
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
 
-      - name: Setup Node.js
-        run: |
-          NODE_VERSION="20.19.0"
-          NODE_DIR="$HOME/.local/node"
-          if ! "$NODE_DIR/bin/node" --version &>/dev/null 2>&1; then
-            echo "Installing Node.js $NODE_VERSION..."
-            curl -fsSL "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.xz" -o /tmp/node.tar.xz
-            mkdir -p "$NODE_DIR"
-            tar -xJf /tmp/node.tar.xz -C "$NODE_DIR" --strip-components=1
-            rm -f /tmp/node.tar.xz
-          fi
-          echo "$NODE_DIR/bin" >> "$GITHUB_PATH"
+      - name: Install dependencies
+        run: npm ci
 
-      - name: Ensure Native Build Tools
-        run: |
-          MISSING=""
-          command -v gcc    &>/dev/null || MISSING="$MISSING gcc"
-          command -v make   &>/dev/null || MISSING="$MISSING make"
-          command -v python3 &>/dev/null || MISSING="$MISSING python3"
-          if [ -n "$MISSING" ]; then
-            echo "Missing tools:$MISSING – installing build-essential and python3..."
-            sudo apt-get update -qq
-            sudo apt-get install -y -qq build-essential python3
-          else
-            echo "Native build tools already present."
-          fi
+      - name: Type check
+        run: npm run check
 
-      - name: Build and Start
+      - name: Install Vercel CLI
+        run: npm i -g vercel@latest
+
+      - name: Pull Vercel project settings
+        run: vercel pull --yes --environment=production --token "$VERCEL_TOKEN"
+
+      - name: Sync GitHub secrets to Vercel env
+        shell: bash
         run: |
           set -euo pipefail
 
-          APP_DIR="/home/deploy/band-msg"
-          REPO_URL="https://github.com/ayobro1/band-msg.git"
-          DEPLOY_REF="${DEPLOY_REF:-main}"
+          sync_secret() {
+            local name="$1"
+            local value="$2"
 
-          # Export secrets so they're available inside the heredoc subshell
-          export VAPID_PUBLIC_KEY VAPID_PRIVATE_KEY VAPID_SUBJECT
-          export GIPHY_API_KEY
-          export JWT_SECRET AUTH_COOKIE_SECURE
-          export CLOUDFLARE_TUNNEL_TOKEN
-          export DEPLOY_REF
+            if [[ -z "${value}" ]]; then
+              echo "Skipping ${name} (empty)"
+              return 0
+            fi
 
-          bash -s <<'DEPLOY_SCRIPT'
-          set -euo pipefail
-
-          APP_DIR="/home/deploy/band-msg"
-          REPO_URL="https://github.com/ayobro1/band-msg.git"
-          DEPLOY_REF="${DEPLOY_REF:-main}"
-
-          echo "Deploying ref as deploy user: $DEPLOY_REF"
-
-          # Cleanup legacy websocket tunnel process from pre-SSE deployments
-          pm2 stop band-msg-ws-cloudflared || true
-          pm2 delete band-msg-ws-cloudflared || true
-
-          pm2_count_by_name() {
-            local process_name="$1"
-            pm2 jlist | node -e '
-              const fs = require("fs");
-              const targetName = process.argv[1];
-              const input = fs.readFileSync(0, "utf8");
-              let list = [];
-              try {
-                list = JSON.parse(input);
-              } catch {
-                process.stdout.write("0");
-                process.exit(0);
-              }
-              const count = list.filter((proc) => proc && proc.name === targetName).length;
-              process.stdout.write(String(count));
-            ' "$process_name"
+            # Remove current value if present (ignore if missing), then add fresh value.
+            vercel env rm "${name}" production --yes --token "$VERCEL_TOKEN" >/dev/null 2>&1 || true
+            printf '%s' "${value}" | vercel env add "${name}" production --token "$VERCEL_TOKEN" >/dev/null
+            echo "Synced ${name}"
           }
 
-          # 1. Sync Code
-          if [ -d "$APP_DIR/.git" ]; then
-            cd "$APP_DIR"
-            git fetch --all --tags --prune
-            if git rev-parse --verify --quiet "origin/$DEPLOY_REF" >/dev/null; then
-              git reset --hard "origin/$DEPLOY_REF"
-            else
-              git reset --hard "$DEPLOY_REF"
-            fi
-          else
-            rm -rf "$APP_DIR"
-            git clone "$REPO_URL" "$APP_DIR"
-            cd "$APP_DIR"
-            git fetch --all --tags --prune
-            if git rev-parse --verify --quiet "origin/$DEPLOY_REF" >/dev/null; then
-              git checkout -f "origin/$DEPLOY_REF"
-            else
-              git checkout -f "$DEPLOY_REF"
-            fi
-          fi
+          sync_secret CONVEX_DEPLOYMENT "$CONVEX_DEPLOYMENT"
+          sync_secret CONVEX_URL "$CONVEX_URL"
+          sync_secret CONVEX_SITE_URL "$CONVEX_SITE_URL"
+          sync_secret JWT_SECRET "$JWT_SECRET"
+          sync_secret SESSION_SECRET "$SESSION_SECRET"
+          sync_secret CSRF_SECRET "$CSRF_SECRET"
+          sync_secret GIPHY_API_KEY "$GIPHY_API_KEY"
+          sync_secret VAPID_PUBLIC_KEY "$VAPID_PUBLIC_KEY"
+          sync_secret VAPID_PRIVATE_KEY "$VAPID_PRIVATE_KEY"
+          sync_secret VAPID_SUBJECT "$VAPID_SUBJECT"
 
-          # 2. Install and Build
-          bun install
-
-          # 3. Write .env.local from GitHub secrets
-          ENV_FILE="$APP_DIR/.env.local"
-          echo "# Auto-generated by deploy workflow – $(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$ENV_FILE"
-          echo "JWT_SECRET=${JWT_SECRET:-$(openssl rand -base64 32)}" >> "$ENV_FILE"
-          echo "AUTH_COOKIE_SECURE=${AUTH_COOKIE_SECURE:-auto}" >> "$ENV_FILE"
-          echo "DATABASE_PATH=./data/band-chat.db" >> "$ENV_FILE"
-          echo "UPLOADS_PATH=./data/uploads" >> "$ENV_FILE"
-
-          # VAPID keys for push notifications
-          # Priority: GitHub secrets > persisted file > auto-generate
-          VAPID_KEY_FILE="$APP_DIR/data/.vapid-keys"
-          mkdir -p "$APP_DIR/data"
-
-          if [ -n "${VAPID_PUBLIC_KEY:-}" ] && [ -n "${VAPID_PRIVATE_KEY:-}" ]; then
-            echo "VAPID_PUBLIC_KEY=$VAPID_PUBLIC_KEY" >> "$ENV_FILE"
-            echo "VAPID_PRIVATE_KEY=$VAPID_PRIVATE_KEY" >> "$ENV_FILE"
-            echo "VAPID_SUBJECT=${VAPID_SUBJECT:-mailto:admin@lazzycal.com}" >> "$ENV_FILE"
-            # Persist to file so they survive even if secrets are removed
-            printf '%s\n%s\n' "$VAPID_PUBLIC_KEY" "$VAPID_PRIVATE_KEY" > "$VAPID_KEY_FILE"
-            chmod 600 "$VAPID_KEY_FILE"
-            echo "Push notification keys configured from secrets (also persisted to data/.vapid-keys)."
-          elif [ -f "$VAPID_KEY_FILE" ]; then
-            # Read previously generated keys from persistent file
-            VAPID_PUB=$(sed -n '1p' "$VAPID_KEY_FILE")
-            VAPID_PRV=$(sed -n '2p' "$VAPID_KEY_FILE")
-            if [ -n "$VAPID_PUB" ] && [ -n "$VAPID_PRV" ]; then
-              echo "VAPID_PUBLIC_KEY=$VAPID_PUB" >> "$ENV_FILE"
-              echo "VAPID_PRIVATE_KEY=$VAPID_PRV" >> "$ENV_FILE"
-              echo "VAPID_SUBJECT=${VAPID_SUBJECT:-mailto:admin@lazzycal.com}" >> "$ENV_FILE"
-              echo "Push notification keys restored from data/.vapid-keys."
-            fi
-          else
-            # Auto-generate VAPID keys and persist them
-            echo "No VAPID keys found – generating a new pair..."
-            VAPID_KEYS=$(bunx --bun web-push generate-vapid-keys --json 2>/dev/null || true)
-            if [ -n "$VAPID_KEYS" ]; then
-              VAPID_PUB=$(echo "$VAPID_KEYS" | node -e 'const d=require("fs").readFileSync(0,"utf8");const j=JSON.parse(d);process.stdout.write(j.publicKey)')
-              VAPID_PRV=$(echo "$VAPID_KEYS" | node -e 'const d=require("fs").readFileSync(0,"utf8");const j=JSON.parse(d);process.stdout.write(j.privateKey)')
-              echo "VAPID_PUBLIC_KEY=$VAPID_PUB" >> "$ENV_FILE"
-              echo "VAPID_PRIVATE_KEY=$VAPID_PRV" >> "$ENV_FILE"
-              echo "VAPID_SUBJECT=${VAPID_SUBJECT:-mailto:admin@lazzycal.com}" >> "$ENV_FILE"
-              # Persist so next deploy reuses the same keys
-              printf '%s\n%s\n' "$VAPID_PUB" "$VAPID_PRV" > "$VAPID_KEY_FILE"
-              chmod 600 "$VAPID_KEY_FILE"
-              echo "Auto-generated VAPID keys written and persisted to data/.vapid-keys."
-            else
-              echo "Could not generate VAPID keys – push notifications will be disabled."
-            fi
-          fi
-
-          # Giphy
-          if [ -n "${GIPHY_API_KEY:-}" ]; then
-            echo "GIPHY_API_KEY=$GIPHY_API_KEY" >> "$ENV_FILE"
-            echo "Giphy API key configured."
-          else
-            echo "GIPHY_API_KEY not set – GIF picker will be disabled."
-          fi
-
-          chmod 600 "$ENV_FILE"
-          echo ".env.local written successfully."
-
-          bun run build
-
-          # 4. Start App via PM2
-          pm2 stop band-msg || true
-          pm2 delete band-msg || true
-          NODE_ENV=production pm2 start bun --name "band-msg" --cwd "$APP_DIR" -- server.ts
-
-          BAND_MSG_COUNT="$(pm2_count_by_name "band-msg")"
-          if [ "$BAND_MSG_COUNT" != "1" ]; then
-            echo "Expected exactly one band-msg process, found $BAND_MSG_COUNT"
-            pm2 status
-            exit 1
-          fi
-
-          # Wait up to 15 seconds for band-msg to stabilise (not errored/stopped)
-          echo "Waiting for band-msg to stabilise..."
-          STABLE=false
-          for _i in $(seq 1 15); do
-            BAND_STATUS="$(pm2 jlist | node -e '
-              const input = require("fs").readFileSync(0, "utf8");
-              let list = [];
-              try { list = JSON.parse(input); } catch { process.stdout.write("unknown"); process.exit(0); }
-              const p = list.find((x) => x && x.name === "band-msg");
-              process.stdout.write(p ? p.pm2_env.status : "missing");
-            ')"
-            if [ "$BAND_STATUS" = "online" ]; then
-              STABLE=true
-              break
-            fi
-            if [ "$BAND_STATUS" = "errored" ] || [ "$BAND_STATUS" = "stopped" ]; then
-              echo "band-msg entered '$BAND_STATUS' state after startup"
-              pm2 logs band-msg --lines 50 --nostream || true
-              pm2 status
-              exit 1
-            fi
-            sleep 1
-          done
-          if [ "$STABLE" != "true" ]; then
-            echo "band-msg did not reach 'online' state within 15 seconds"
-            pm2 logs band-msg --lines 50 --nostream || true
-            pm2 status
-            exit 1
-          fi
-          echo "band-msg is online."
-
-          # 5. Handle Cloudflared (System Service Mode)
-          if [ -z "${CLOUDFLARE_TUNNEL_TOKEN:-}" ]; then
-            echo "CLOUDFLARE_TUNNEL_TOKEN is missing."
-            exit 1
-          fi
-
-          if sudo -n true >/dev/null 2>&1; then
-            echo "Passwordless sudo detected. Using cloudflared system service mode."
-
-            if ! command -v cloudflared >/dev/null 2>&1; then
-              echo "Installing cloudflared via .deb package..."
-              curl -L --output cloudflared.deb https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
-              sudo -n dpkg -i cloudflared.deb
-            fi
-
-            # Stop PM2 tunnel processes to avoid conflicts with service mode
-            pm2 stop band-msg-cloudflared || true
-            pm2 delete band-msg-cloudflared || true
-            pm2 stop band-msg-ws-cloudflared || true
-            pm2 delete band-msg-ws-cloudflared || true
-
-            CLOUDFLARED_PM2_COUNT="$(pm2_count_by_name "band-msg-cloudflared")"
-            if [ "$CLOUDFLARED_PM2_COUNT" != "0" ]; then
-              echo "Expected zero PM2 cloudflared processes in service mode, found $CLOUDFLARED_PM2_COUNT"
-              pm2 status
-              exit 1
-            fi
-
-            # Main tunnel (Next.js on port 3000)
-            sudo -n cloudflared service uninstall || true
-            sudo -n cloudflared service install "$CLOUDFLARE_TUNNEL_TOKEN"
-            sudo -n systemctl daemon-reload
-            sudo -n systemctl restart cloudflared
-            sudo -n systemctl is-active --quiet cloudflared
-
-          else
-            echo "No passwordless sudo available. Falling back to PM2 named tunnel mode."
-
-            mkdir -p "$HOME/.local/bin"
-            CLOUDFLARED_BIN="$HOME/.local/bin/cloudflared"
-
-            if [ ! -x "$CLOUDFLARED_BIN" ]; then
-              echo "Installing cloudflared binary to $CLOUDFLARED_BIN"
-              curl -fsSL "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64" -o "$CLOUDFLARED_BIN"
-              chmod +x "$CLOUDFLARED_BIN"
-            fi
-
-            # Main tunnel
-            pm2 stop band-msg-cloudflared || true
-            pm2 delete band-msg-cloudflared || true
-            pm2 stop band-msg-ws-cloudflared || true
-            pm2 delete band-msg-ws-cloudflared || true
-            pm2 start "$CLOUDFLARED_BIN" --name "band-msg-cloudflared" -- tunnel run --token "$CLOUDFLARE_TUNNEL_TOKEN"
-            if ! pm2 describe band-msg-cloudflared >/dev/null 2>&1; then
-              echo "Cloudflared PM2 process was not created."
-              exit 1
-            fi
-
-            CLOUDFLARED_PM2_COUNT="$(pm2_count_by_name "band-msg-cloudflared")"
-            if [ "$CLOUDFLARED_PM2_COUNT" != "1" ]; then
-              echo "Expected exactly one PM2 cloudflared process, found $CLOUDFLARED_PM2_COUNT"
-              pm2 status
-              exit 1
-            fi
-
-          fi
-
-          # 6. Save PM2 process list (survives server reboots)
-          pm2 save
-
-          echo "Deployment complete. Checking status..."
-          pm2 status
-          if sudo -n true >/dev/null 2>&1; then
-            sudo -n systemctl status cloudflared --no-pager
-          else
-            pm2 logs band-msg-cloudflared --lines 20 --nostream
-          fi
-          DEPLOY_SCRIPT
-
-      - name: Smoke Check
-        run: |
-          set -euo pipefail
-          SMOKE_URL="${SMOKE_URL:-http://127.0.0.1:3000}"
-          echo "Running smoke checks against $SMOKE_URL"
-
-          ATTEMPTS=20
-          SLEEP_SECONDS=3
-          for i in $(seq 1 "$ATTEMPTS"); do
-            if curl -fsS "$SMOKE_URL" >/dev/null 2>&1; then
-              echo "Smoke check passed on attempt $i"
-              exit 0
-            fi
-            echo "Attempt $i/$ATTEMPTS failed; retrying in ${SLEEP_SECONDS}s..."
-            sleep "$SLEEP_SECONDS"
-          done
-
-          echo "Smoke check failed after $ATTEMPTS attempts."
-          pm2 logs band-msg --lines 50 --nostream || true
-          pm2 status || true
-          exit 1
+      - name: Deploy to Vercel (production)
+        run: vercel deploy --prod --yes --token "$VERCEL_TOKEN"

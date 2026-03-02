@@ -1,129 +1,88 @@
-# Band Chat
+# Band Chat (SvelteKit + Convex Rewrite)
 
-A Discord-style real-time chat application for bands, built with Next.js, Bun, and Tailwind CSS.
+This repository has been migrated to a **SvelteKit + Convex + Vercel** architecture.
 
-## Features
+- UI and server routes: `svelte-src/**`
+- Convex backend: `convex/**`
+- Migration notes: `MIGRATION_MAP.md`
+- Security review: `SECURITY_AUDIT.md`
 
-- **Discord-like layout** — Three-column design with server sidebar, channel list, message area, and online members panel
-- **Username system** — Welcome modal with display name persistence via localStorage, color-coded avatars per user
-- **Real-time messaging** — Instant message delivery via Server-Sent Events (SSE)
-- **Channel management** — Create custom channels with names and descriptions via an in-app modal
-- **Message grouping** — Consecutive messages from the same user are compacted, just like Discord
-- **Typing indicators** — See when other users are typing with animated dots
-- **Online members list** — Collapsible right sidebar showing active users with presence indicators
-- **Smart timestamps** — "Today at 3:45 PM" / "Yesterday at 10:00 AM" formatting
-- **Channel descriptions** — Topics shown in the channel header
-- **Loading & empty states** — Spinners, welcome messages, and helpful prompts
-- **Polished UI** — Custom scrollbars, hover effects, and a dark theme matching Discord's aesthetic
-- **Built-in backend + SQLite** — Next.js API routes with persistent local SQLite storage (`better-sqlite3`)
-- **JWT authentication** — Stateless token-based auth with HTTP-only cookies
-- **Admin approvals** — First registered user becomes admin; subsequent accounts require admin approval
-- **Mobile PWA support** — Installable web app manifest, service worker caching, and offline fallback page
+## Stack
 
-## Getting Started
+- SvelteKit 2
+- Svelte 5
+- Convex (database + backend functions)
+- Vercel adapter for deployment
 
-### Prerequisites
+## Quick Start
 
-- [Bun](https://bun.sh) v1.0+
-
-### Self-Hosted Runner Prerequisites
-
-The `deploy` job runs on your own server. Before the first deploy, ensure the following are installed:
+1. Install dependencies:
 
 ```bash
-# SQLite native addon compilation tools (required by better-sqlite3)
-sudo apt-get install -y build-essential python3
-
-# Process manager
-npm install -g pm2
-
-# Version control
-sudo apt-get install -y git
+npm install
 ```
 
-The deploy workflow will automatically install `build-essential` and `python3` if they are missing, provided the runner has passwordless `sudo` configured (required for automated deployment).
-
-### 1. Install dependencies
+2. Configure environment values in `.env.local` (copy from `.env.local.example`):
 
 ```bash
-bun install
+CONVEX_URL=...
+AUTH_COOKIE_SECURE=auto
 ```
 
-### 2. Run the development server
+3. Start Convex dev backend (in one terminal):
 
 ```bash
-bun run dev
+npm run convex:dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) to see the app.
+4. Start SvelteKit app (in another terminal):
 
-Register an account to get started, then sign in. Non-admin accounts require admin approval before access. The app comes with three default channels (`general`, `setlists`, `practice`) and you can create more.
-
-## Authentication & Admin
-
-- Sign-in is required for all chat APIs and real-time message streams.
-- The **first registered user** automatically becomes admin and is auto-approved.
-- All subsequent registrations are created as pending and must be approved by the admin in-app.
-- Authentication uses JWT tokens stored in an HTTP-only cookie.
-- User/channel/message data is stored in SQLite (via `better-sqlite3`) and persists across restarts.
-- Real-time events are delivered over SSE via `/api/messages/stream`.
-
-### Configuration
-
-- JWT secret: set `JWT_SECRET` in your environment (auto-generated during CI deploy if unset).
-- Database location: set `DATABASE_PATH` (default: `./data/band-chat.db`).
-- Cookie security: set `AUTH_COOKIE_SECURE` to `auto` (default), `true`, or `false`.
-- HTTPS enforcement: production redirects HTTP to HTTPS by default; set `FORCE_HTTPS=false` only for temporary troubleshooting.
-- For local network HTTP testing (e.g., `http://10.x.x.x:3000`), set `AUTH_COOKIE_SECURE=false`.
-
-### Sign-in Security
-
-- Login has username-scoped throttling plus IP-scoped rate limiting to reduce brute-force attempts.
-- Failed login responses include a small uniform delay to make credential stuffing harder.
-- Session cookie is `HttpOnly`, `Secure` (on HTTPS), `SameSite=Strict`, and high priority.
-- In production, login is blocked if `JWT_SECRET` is not configured.
-
-## CI/CD
-
-- On pull requests and pushes to `main`, GitHub Actions runs static code analysis (`eslint` + `tsc --noEmit`) and production build validation.
-- Deployment on the self-hosted runner only starts after all quality checks pass.
-- You can run manual deploys/rollbacks from Actions using **Run workflow** and setting `deploy_ref` to a branch, tag, or commit SHA.
-- Deploys are serialized with a production concurrency lock, and a post-deploy smoke check (`http://127.0.0.1:3000`) must pass.
-
-### Cloudflared Forwarding (`lazzycal.com`)
-
-- Deploy job starts `cloudflared` only after successful install/build/start.
-- Add GitHub secret: `CLOUDFLARE_TUNNEL_TOKEN`.
-- In Cloudflare Tunnel, configure ingress/DNS so `lazzycal.com` points to `http://localhost:3000` on your VM tunnel.
-
-## Data Persistence (SQLite)
-
-- Default DB: `./data/band-chat.db` (change with `DATABASE_PATH`).
-- Backup DB: `bun run backup:db`
-- Restore DB: `bun run restore:db -- ./backups/your-backup-file.db`
-
-## Project Structure
-
+```bash
+npm run dev
 ```
-src/
-  app/
-    api/
-      channels/route.ts          # GET/POST channels
-      messages/route.ts           # GET/POST messages, PATCH typing
-      messages/stream/route.ts    # SSE real-time stream
-      users/route.ts              # GET/POST active users
-    layout.tsx                    # Root layout with dark theme
-    page.tsx                      # Main chat page with layout and state
-    globals.css                   # Global styles, scrollbars, animations
-  components/
-    ChannelList.tsx               # Channel sidebar with create button
-    CreateChannelModal.tsx        # Modal for creating new channels
-    MemberList.tsx                # Online members sidebar
-    MessageArea.tsx               # Message display, input, typing indicators
-    UsernameModal.tsx             # Welcome modal for setting display name
-  lib/
-    store.ts                      # SQLite-backed store + pub/sub
-    db.ts                         # SQLite schema/bootstrap
-    types.ts                      # TypeScript interfaces
-    utils.ts                      # Avatar colors, timestamp formatting
-```
+
+## API Surface (Current Rewrite Scope)
+
+- `POST /api/auth/register`
+- `POST /api/auth/login`
+- `POST /api/auth/logout`
+- `GET /api/auth/me`
+- `GET /api/channels`
+- `POST /api/channels`
+- `GET /api/messages?channelId=...`
+- `POST /api/messages`
+- `GET /api/admin/users`
+- `POST /api/admin/users/approve`
+- `POST /api/admin/users/promote`
+- `POST /api/admin/users/demote`
+
+## Security Hardening Included
+
+- Explicit origin checks for mutating `/api/*` requests
+- CSRF token cookie + `x-csrf-token` validation for authenticated mutations
+- Convex-backed login and registration rate limits
+- Admin-only user moderation endpoints
+
+## Deployment (Vercel)
+
+1. Import the repository in Vercel.
+2. Set environment variables:
+   - `CONVEX_URL`
+   - `AUTH_COOKIE_SECURE=true`
+3. Build command: `npm run build`
+4. Output handled by SvelteKit adapter-vercel.
+
+## Security
+
+The detailed intensive audit is in `SECURITY_AUDIT.md`.
+
+High-priority items found in the legacy implementation include:
+
+- JWT fallback secret risk
+- Upload hardening gaps
+- Missing explicit CSRF strategy on cookie-authenticated mutations
+- Proxy header trust weaknesses for rate limiting
+
+## Legacy Code Note
+
+Legacy Next/Bun runtime files were removed from the repository during migration.
