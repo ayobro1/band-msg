@@ -33,7 +33,7 @@ export async function sendPushNotifications(
     // Filter by notification preferences
     const subscriptions = allSubscriptions.filter((sub) => {
       if (!channelId) return true;
-      return shouldNotifyUser(sub.username, channelId);
+      return shouldNotifyUser(sub.username, channelId, messageContent);
     });
 
     const body = messageContent
@@ -64,6 +64,12 @@ export async function sendPushNotifications(
           const statusCode = (err as { statusCode?: number })?.statusCode;
           if (statusCode === 410 || statusCode === 404) {
             staleEndpoints.push(sub.endpoint);
+          } else {
+            console.error("Push send failed", {
+              endpoint: sub.endpoint,
+              username: sub.username,
+              statusCode,
+            });
           }
         }
       })

@@ -43,21 +43,33 @@ export default function PushNotificationManager({ channels = [] }: PushNotificat
       .catch(() => {});
   }, []);
 
-  const registerPush = useCallback(async () => {
-    if (registeredRef.current) return;
-    registeredRef.current = true;
+  const registerPush = useCallback(async (): Promise<boolean> => {
+    if (registeredRef.current) return true;
 
     try {
       if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
 
       const vapidRes = await fetch("/api/push/vapid");
-      if (!vapidRes.ok) return;
+      if (!vapidRes.ok) {
+        registeredRef.current = false;
+        return false;
+      }
       const { publicKey } = await vapidRes.json();
-      if (!publicKey) return;
+      if (!publicKey) {
+        registeredRef.current = false;
+        return false;
+      }
 
-      const permission = await Notification.requestPermission();
+      const currentPermission = typeof Notification !== "undefined" ? Notification.permission : "default";
+      const permission =
+        currentPermission === "granted"
+          ? "granted"
+          : await Notification.requestPermission();
       setPermissionState(permission);
-      if (permission !== "granted") return;
+      if (permission !== "granted") {
+        registeredRef.current = false;
+        return false;
+      }
 
       const registration = await navigator.serviceWorker.ready;
       let subscription = await registration.pushManager.getSubscription();
@@ -71,19 +83,41 @@ export default function PushNotificationManager({ channels = [] }: PushNotificat
       }
 
       const subJson = subscription.toJSON();
-      await fetch("/api/push/subscribe", {
+      const saveRes = await fetch("/api/push/subscribe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ endpoint: subJson.endpoint, keys: subJson.keys }),
       });
+      if (!saveRes.ok) {
+        registeredRef.current = false;
+        return false;
+      }
+
+      registeredRef.current = true;
+      return true;
     } catch (error) {
+      registeredRef.current = false;
       console.error("Push registration failed:", error);
+      return false;
     }
   }, []);
 
   useEffect(() => {
-    const timer = setTimeout(registerPush, 3000);
-    return () => clearTimeout(timer);
+    const timer = setTimeout(() => {
+      void registerPush();
+    }, 1200);
+
+    const onFocus = () => {
+      if (!registeredRef.current) {
+        void registerPush();
+      }
+    };
+
+    window.addEventListener("focus", onFocus);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener("focus", onFocus);
+    };
   }, [registerPush]);
 
   const handleToggleEnabled = useCallback(async (enabled: boolean) => {
