@@ -110,6 +110,7 @@ export const listMessages = query({
           id: row._id,
           content: row.deleted ? "" : row.content,
           deleted: !!row.deleted,
+          editedAt: row.editedAt ?? null,
           channelId: row.channelId,
           createdAt: row.createdAt,
           author: author?.username ?? "unknown",
@@ -161,7 +162,32 @@ export const sendMessage = mutation({
   }
 });
 
-export const deleteMessage = mutation({
+export const editMessage = mutation({
+  args: {
+    sessionToken: v.string(),
+    messageId: v.id("messages"),
+    content: v.string()
+  },
+  handler: async (ctx, args) => {
+    const user = await getUserFromSession(ctx, args.sessionToken);
+    if (!user) return { ok: false, code: 401, error: "Unauthorized" };
+
+    const msg = await ctx.db.get(args.messageId);
+    if (!msg) return { ok: false, code: 404, error: "Message not found" };
+    if (msg.userId !== user._id) return { ok: false, code: 403, error: "You can only edit your own messages" };
+    if (msg.deleted) return { ok: false, code: 400, error: "Cannot edit a deleted message" };
+
+    const content = args.content.trim();
+    if (content.length === 0 || content.length > 4000) {
+      return { ok: false, code: 400, error: "Message must be 1–4000 characters" };
+    }
+
+    await ctx.db.patch(args.messageId, { content, editedAt: Date.now() });
+    return { ok: true };
+  }
+});
+
+
   args: {
     sessionToken: v.string(),
     messageId: v.id("messages")

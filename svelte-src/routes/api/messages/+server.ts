@@ -63,6 +63,33 @@ export const POST = async ({ locals, request }: any) => {
   return toJson({ id: result.messageId }, 201);
 };
 
+export const PATCH = async ({ locals, request }: any) => {
+  if (!locals.sessionToken) {
+    return toJson({ error: "unauthorized" }, 401);
+  }
+
+  const body = await request.json().catch(() => null);
+  const messageId = typeof body?.messageId === "string" ? body.messageId : "";
+  const content = typeof body?.content === "string" ? body.content : "";
+
+  if (!messageId || !content) {
+    return toJson({ error: "messageId and content are required" }, 400);
+  }
+
+  const convex = getConvexClient();
+  const result = await convex.mutation("chat:editMessage" as any, {
+    sessionToken: locals.sessionToken,
+    messageId,
+    content
+  });
+
+  if (!result.ok) {
+    return toJson({ error: result.error }, result.code ?? 400);
+  }
+
+  return toJson({ ok: true });
+};
+
 export const DELETE = async ({ locals, request }: any) => {
   if (!locals.sessionToken) {
     return toJson({ error: "unauthorized" }, 401);

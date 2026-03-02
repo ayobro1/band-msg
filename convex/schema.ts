@@ -34,6 +34,7 @@ export default defineSchema({
     userId: v.id("users"),
     content: v.string(),
     createdAt: v.number(),
+    editedAt: v.optional(v.number()),
     deleted: v.optional(v.boolean()),
     replyToId: v.optional(v.id("messages")),
     replyToContent: v.optional(v.string()),

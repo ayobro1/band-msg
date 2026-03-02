@@ -206,7 +206,32 @@ async function getApprovedAdminBySession(ctx: any, sessionToken: string) {
   return user;
 }
 
-export const listPendingUsers = query({
+export const listApprovedUsers = query({
+  args: { sessionToken: v.string() },
+  handler: async (ctx, args) => {
+    const session = await ctx.db
+      .query("sessions")
+      .withIndex("by_token", (q) => q.eq("token", args.sessionToken))
+      .unique();
+    if (!session || session.expiresAt <= Date.now()) {
+      return { ok: false, code: 401, error: "Unauthorized" };
+    }
+    const viewer = await ctx.db.get(session.userId);
+    if (!viewer || viewer.status !== "approved") {
+      return { ok: false, code: 401, error: "Unauthorized" };
+    }
+
+    const users = await ctx.db.query("users").collect();
+    return {
+      ok: true,
+      members: users
+        .filter((u: any) => u.status === "approved")
+        .map((u: any) => ({ username: u.username, role: u.role }))
+    };
+  }
+});
+
+
   args: { sessionToken: v.string() },
   handler: async (ctx, args) => {
     const admin = await getApprovedAdminBySession(ctx, args.sessionToken);
