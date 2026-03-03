@@ -11,6 +11,13 @@ function resolveSecureCookie(): boolean {
   return process.env.NODE_ENV === "production";
 }
 
+function resolveSameSiteCookie(): "strict" | "lax" | "none" {
+  const mode = (process.env.AUTH_COOKIE_SAME_SITE ?? "lax").toLowerCase();
+  if (mode === "strict") return "strict";
+  if (mode === "none") return "none";
+  return "lax";
+}
+
 export function getSessionToken(cookies: any): string | null {
   return cookies.get(SESSION_COOKIE) ?? null;
 }
@@ -31,7 +38,7 @@ export function setCsrfCookie(cookies: any, token: string): void {
   cookies.set(CSRF_COOKIE, token, {
     httpOnly: false,
     secure: resolveSecureCookie(),
-    sameSite: "strict",
+    sameSite: resolveSameSiteCookie(),
     path: "/",
     maxAge: SESSION_TTL_MS / 1000
   });
@@ -45,7 +52,7 @@ export function setSessionCookie(cookies: any, token: string): void {
   cookies.set(SESSION_COOKIE, token, {
     httpOnly: true,
     secure: resolveSecureCookie(),
-    sameSite: "strict",
+    sameSite: resolveSameSiteCookie(),
     path: "/",
     maxAge: SESSION_TTL_MS / 1000
   });
@@ -56,7 +63,7 @@ export function clearSessionCookie(cookies: any): void {
     path: "/",
     httpOnly: true,
     secure: resolveSecureCookie(),
-    sameSite: "strict"
+    sameSite: resolveSameSiteCookie()
   });
 }
 
