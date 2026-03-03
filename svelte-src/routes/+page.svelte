@@ -48,8 +48,39 @@
   let showInviteModal = false;
   let showEventCreate = false;
   let showMemberList = false;
+  let showChannelSidebar = false; // mobile drawer
   let selectedMessageForReaction = "";
   let messageContainer: HTMLElement | null = null;
+
+  // Emoji search
+  let emojiSearchQuery = "";
+
+  // Band Tools state
+  type SetlistItem = { id: string; title: string; key: string; duration: string };
+  type EquipmentItem = { id: string; name: string; checkedBy: string | null };
+  let showBandTools = false;
+  let bandToolsView: "setlist" | "equipment" = "setlist";
+  let setlist: SetlistItem[] = [
+    { id: "1", title: "Highway to Hell", key: "A", duration: "3:28" },
+    { id: "2", title: "Enter Sandman", key: "Em", duration: "5:31" },
+    { id: "3", title: "Wonderwall", key: "F#m", duration: "4:18" },
+    { id: "4", title: "Black Dog", key: "A", duration: "4:55" },
+    { id: "5", title: "Don't Stop Me Now", key: "F", duration: "3:29" },
+  ];
+  let equipmentList: EquipmentItem[] = [
+    { id: "1", name: "Amps", checkedBy: null },
+    { id: "2", name: "Drum Rug", checkedBy: null },
+    { id: "3", name: "Cables", checkedBy: null },
+    { id: "4", name: "DI Boxes", checkedBy: null },
+    { id: "5", name: "Mic Stands", checkedBy: null },
+    { id: "6", name: "Drum Kit", checkedBy: null },
+    { id: "7", name: "PA System", checkedBy: null },
+  ];
+  let newSetlistTitle = "";
+  let newSetlistKey = "";
+  let newSetlistDuration = "";
+  let dragOverId = "";
+  let dragSourceId = "";
 
   // GIF picker state
   type GifItem = { id: string; title: string; url: string; preview: string; width: number; height: number };
@@ -85,6 +116,20 @@
 
   $: isAuthenticated = !!me;
   $: myPresence = members.find(m => m.username === me?.username)?.presenceStatus || 'online';
+  $: filteredEmojis = emojiSearchQuery
+    ? REACTION_ICONS.filter(e => e.label.toLowerCase().includes(emojiSearchQuery.toLowerCase()))
+    : REACTION_ICONS;
+  $: nextEvent = events.filter(e => e.startsAt > Date.now()).sort((a, b) => a.startsAt - b.startsAt)[0] ?? null;
+  $: rehearsalCountdown = (() => {
+    if (!nextEvent) return null;
+    const diff = nextEvent.startsAt - Date.now();
+    const days = Math.floor(diff / 86400000);
+    const hrs = Math.floor((diff % 86400000) / 3600000);
+    const mins = Math.floor((diff % 3600000) / 60000);
+    if (days > 0) return `${days}d ${hrs}h`;
+    if (hrs > 0) return `${hrs}h ${mins}m`;
+    return `${mins}m`;
+  })();
 
   function showToast(message: string, type: "error" | "success" = "error") {
     toastMessage = message;
@@ -724,6 +769,80 @@
     contextMenuMessageId = "";
   }
 
+  function closeEmojiPicker() {
+    showEmojiPicker = false;
+    reactionPickerTab = "emoji";
+    reactionGifSearch = "";
+    reactionGifResults = [];
+    emojiSearchQuery = "";
+  }
+
+  function closeSidebars() {
+    showChannelSidebar = false;
+    showMemberList = false;
+  }
+
+  function toggleMemberList() {
+    showMemberList = !showMemberList;
+    if (showMemberList) {
+      showCalendar = false;
+      showChannelSidebar = false;
+    }
+  }
+
+  function toggleChannelSidebar() {
+    showChannelSidebar = !showChannelSidebar;
+    if (showChannelSidebar) showMemberList = false;
+  }
+
+  // Audio file detection
+  function isAudioMessage(content: string): { isAudio: boolean; url: string; name: string } {
+    const match = content.match(/^(https?:\/\/\S+\.(mp3|wav|ogg|flac|aac|m4a))$/i);
+    if (match) return { isAudio: true, url: match[1], name: match[1].split('/').pop() || 'audio' };
+    return { isAudio: false, url: '', name: '' };
+  }
+
+  // Setlist drag-and-drop
+  function onDragStart(id: string) {
+    dragSourceId = id;
+  }
+  function onDragOver(e: DragEvent, id: string) {
+    e.preventDefault();
+    dragOverId = id;
+  }
+  function onDrop(targetId: string) {
+    if (!dragSourceId || dragSourceId === targetId) { dragOverId = ""; return; }
+    const srcIdx = setlist.findIndex(s => s.id === dragSourceId);
+    const tgtIdx = setlist.findIndex(s => s.id === targetId);
+    const updated = [...setlist];
+    const [item] = updated.splice(srcIdx, 1);
+    updated.splice(tgtIdx, 0, item);
+    setlist = updated;
+    dragSourceId = "";
+    dragOverId = "";
+  }
+  function addSetlistItem() {
+    if (!newSetlistTitle.trim()) return;
+    setlist = [...setlist, {
+      id: String(Date.now()),
+      title: newSetlistTitle.trim(),
+      key: newSetlistKey.trim() || "?",
+      duration: newSetlistDuration.trim() || "0:00"
+    }];
+    newSetlistTitle = "";
+    newSetlistKey = "";
+    newSetlistDuration = "";
+  }
+  function removeSetlistItem(id: string) {
+    setlist = setlist.filter(s => s.id !== id);
+  }
+  function toggleEquipment(id: string) {
+    equipmentList = equipmentList.map(item => {
+      if (item.id !== id) return item;
+      return { ...item, checkedBy: item.checkedBy ? null : (me?.username ?? "unknown") };
+    });
+  }
+
   let refreshInterval: ReturnType<typeof setInterval> | null = null;
 
   onMount(async () => {
@@ -796,6 +915,17 @@
     </section>
   {:else}
     <section class="chat-shell">
+      <!-- Mobile overlay backdrop -->
+      {#if showChannelSidebar || showMemberList}
+        <div
+          class="sidebar-overlay"
+          role="button"
+          tabindex="0"
+          on:click={closeSidebars}
+          on:keydown={(e) => (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') && closeSidebars()}
+        ></div>
+      {/if}
+
       <!-- Server Rail -->
       <aside class="server-rail">
         {#each servers as server}
@@ -812,14 +942,19 @@
       </aside>
 
       <!-- Channel Sidebar -->
-      <aside class="channel-sidebar">
+      <aside class="channel-sidebar" class:open={showChannelSidebar}>
         <header class="sidebar-header">
           <h2>{servers.find(s => s.id === selectedServerId)?.name || "Band Chat"}</h2>
-          {#if selectedServerId}
-            <button class="icon-btn" on:click={() => createInvite(selectedServerId)} title="Create Invite">
-              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          <div class="sidebar-header-actions">
+            {#if selectedServerId}
+              <button class="icon-btn" on:click={() => createInvite(selectedServerId)} title="Create Invite">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              </button>
+            {/if}
+            <button class="icon-btn mobile-close-btn" on:click={() => showChannelSidebar = false} title="Close">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             </button>
-          {/if}
+          </div>
         </header>
 
         {#if me?.role === "admin"}
@@ -832,16 +967,31 @@
         {/if}
 
         <div class="channels-wrap">
+          {#if rehearsalCountdown && nextEvent}
+            <div class="rehearsal-countdown">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              <span>Next: <strong>{nextEvent.title}</strong> in <strong>{rehearsalCountdown}</strong></span>
+            </div>
+          {/if}
           <p class="section-title">Text Channels</p>
           <div class="channel-list">
             {#if channels.length === 0}
               <p class="empty-state">No channels yet.</p>
             {/if}
             {#each channels as channel}
-              <button class="channel-link" class:active={channel.id === selectedChannelId} on:click={() => selectChannel(channel)}>
+              <button class="channel-link" class:active={channel.id === selectedChannelId && !showBandTools} on:click={() => { selectChannel(channel); showBandTools = false; showChannelSidebar = false; }}>
                 <span>#{channel.name}</span>
               </button>
             {/each}
+          </div>
+          <p class="section-title" style="margin-top:1rem">Band Tools</p>
+          <div class="channel-list">
+            <button class="channel-link" class:active={showBandTools && bandToolsView === 'setlist'} on:click={() => { showBandTools = true; bandToolsView = 'setlist'; showChannelSidebar = false; }}>
+              <span>🎵 Setlist</span>
+            </button>
+            <button class="channel-link" class:active={showBandTools && bandToolsView === 'equipment'} on:click={() => { showBandTools = true; bandToolsView = 'equipment'; showChannelSidebar = false; }}>
+              <span>🎸 Equipment</span>
+            </button>
           </div>
         </div>
 
@@ -863,9 +1013,20 @@
       <!-- Main Chat Area -->
       <section class="chat-main">
         <header class="chat-header">
-          <h3>{selectedChannelName ? `#${selectedChannelName}` : "Select a channel"}</h3>
+          <div class="chat-header-left">
+            <button class="icon-btn hamburger-btn" on:click={toggleChannelSidebar} title="Channels">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+            </button>
+            <h3>
+              {#if showBandTools}
+                {bandToolsView === 'setlist' ? '🎵 Setlist' : '🎸 Equipment Checklist'}
+              {:else}
+                {selectedChannelName ? `#${selectedChannelName}` : "Select a channel"}
+              {/if}
+            </h3>
+          </div>
           <div class="chat-header-actions">
-            <button class="icon-btn" class:active={showMemberList} on:click={() => { showMemberList = !showMemberList; if (showMemberList) showCalendar = false; }} title="Member List"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></button>
+            <button class="icon-btn" class:active={showMemberList} on:click={toggleMemberList} title="Member List"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></button>
           </div>
         </header>
 
@@ -876,6 +1037,67 @@
           </div>
         {/if}
 
+        <!-- Band Tools View -->
+        {#if showBandTools}
+          <div class="band-tools-view">
+            {#if bandToolsView === 'setlist'}
+              <div class="band-tools-content">
+                <p class="section-title" style="margin-bottom:1rem">Song Order — drag to reorder</p>
+                <ul class="setlist-list">
+                  {#each setlist as song, i (song.id)}
+                    <li
+                      class="setlist-item"
+                      class:drag-over={dragOverId === song.id}
+                      draggable="true"
+                      on:dragstart={() => onDragStart(song.id)}
+                      on:dragover={(e) => onDragOver(e, song.id)}
+                      on:drop={() => onDrop(song.id)}
+                      on:dragend={() => { dragOverId = ""; dragSourceId = ""; }}
+                    >
+                      <span class="setlist-num">{i + 1}</span>
+                      <svg class="drag-handle" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="8" y1="18" x2="16" y2="18"/></svg>
+                      <span class="setlist-title">{song.title}</span>
+                      <span class="setlist-badge key">{song.key}</span>
+                      <span class="setlist-badge duration">{song.duration}</span>
+                      <button class="icon-btn setlist-remove" on:click={() => removeSetlistItem(song.id)} title="Remove">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                      </button>
+                    </li>
+                  {/each}
+                </ul>
+                <div class="setlist-add-form">
+                  <input class="field" bind:value={newSetlistTitle} placeholder="Song title" on:keydown={(e) => e.key === 'Enter' && addSetlistItem()} />
+                  <input class="field setlist-short" bind:value={newSetlistKey} placeholder="Key (e.g. Am)" />
+                  <input class="field setlist-short" bind:value={newSetlistDuration} placeholder="0:00" />
+                  <button class="primary-btn" on:click={addSetlistItem}>Add</button>
+                </div>
+              </div>
+            {:else}
+              <div class="band-tools-content">
+                <p class="section-title" style="margin-bottom:1rem">Equipment Checklist</p>
+                <ul class="equipment-list">
+                  {#each equipmentList as item (item.id)}
+                    <li class="equipment-item" class:checked={!!item.checkedBy}>
+                      <label class="equipment-label">
+                        <input
+                          type="checkbox"
+                          checked={!!item.checkedBy}
+                          on:change={() => toggleEquipment(item.id)}
+                        />
+                        <span class="equipment-name">{item.name}</span>
+                      </label>
+                      {#if item.checkedBy}
+                        <span class="equipment-checker">✓ {item.checkedBy}</span>
+                      {:else}
+                        <span class="equipment-unchecked">—</span>
+                      {/if}
+                    </li>
+                  {/each}
+                </ul>
+              </div>
+            {/if}
+          </div>
+        {:else}
         <div class="messages-scroll" bind:this={messageContainer}>
           {#if isLoadingMessages}
             <!-- Skeleton Loading States -->
@@ -909,6 +1131,17 @@
                   {#if isGifMessage(msg.content).isGif}
                     <div class="gif-message">
                       <img src={isGifMessage(msg.content).url} alt="GIF" loading="lazy" />
+                    </div>
+                  {:else if isAudioMessage(msg.content).isAudio}
+                    <div class="audio-player">
+                      <div class="audio-player-icon">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M12 3v10.55A4 4 0 1 0 14 17V7h4V3h-6z"/></svg>
+                      </div>
+                      <div class="audio-player-body">
+                        <span class="audio-player-name">{isAudioMessage(msg.content).name}</span>
+                        <!-- svelte-ignore a11y-media-has-caption -->
+                        <audio controls src={isAudioMessage(msg.content).url} class="audio-element"></audio>
+                      </div>
                     </div>
                   {:else}
                     <p class="message-text">{@html parseMarkdown(msg.content)}</p>
@@ -956,6 +1189,7 @@
             </div>
           {/if}
         </div>
+        {/if}
 
         <footer class="composer">
           <div class="composer-input-row">
@@ -1010,50 +1244,49 @@
         </aside>
       {/if}
 
-      <!-- Member List Sidebar -->
-      {#if showMemberList}
-        <aside class="member-sidebar">
-          <header class="sidebar-header">
-            <h2>Members</h2>
-            <button class="icon-btn" on:click={() => showMemberList = false} title="Close"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
-          </header>
-          <div class="member-list-content">
-            {#each ['online', 'idle', 'dnd', 'offline'] as status}
-              {@const statusMembers = members.filter(m => m.presenceStatus === status)}
-              {#if statusMembers.length > 0}
-                <p class="section-title">{status === 'dnd' ? 'Do Not Disturb' : status.charAt(0).toUpperCase() + status.slice(1)} — {statusMembers.length}</p>
-                {#each statusMembers as member}
-                  <div class="member-item">
-                    <div class="member-avatar-wrap">
-                      <div class="avatar small">{member.username.slice(0, 1).toUpperCase()}</div>
-                      <span class="presence-dot {member.presenceStatus}"></span>
-                    </div>
-                    <div class="member-info">
-                      <span class="member-name" class:admin={member.role === 'admin'}>{member.username}</span>
-                      {#if member.role === 'admin'}
-                        <span class="member-role-badge">Admin</span>
-                      {/if}
-                    </div>
+      <!-- Member List Sidebar (always in DOM for smooth transition) -->
+      <aside class="member-sidebar" class:open={showMemberList}>
+        <header class="sidebar-header">
+          <h2>Members</h2>
+          <button class="icon-btn" on:click={() => showMemberList = false} title="Close"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+        </header>
+        <div class="member-list-content">
+          {#each ['online', 'idle', 'dnd', 'offline'] as status}
+            {@const statusMembers = members.filter(m => m.presenceStatus === status)}
+            {#if statusMembers.length > 0}
+              <p class="section-title">{status === 'dnd' ? 'Do Not Disturb' : status.charAt(0).toUpperCase() + status.slice(1)} — {statusMembers.length}</p>
+              {#each statusMembers as member}
+                <div class="member-item">
+                  <div class="member-avatar-wrap">
+                    <div class="avatar small">{member.username.slice(0, 1).toUpperCase()}</div>
+                    <span class="presence-dot {member.presenceStatus}"></span>
                   </div>
-                {/each}
-              {/if}
-            {/each}
-            {#if members.length === 0}
-              <p class="empty-state">No members found.</p>
+                  <div class="member-info">
+                    <span class="member-name" class:admin={member.role === 'admin'}>{member.username}</span>
+                    {#if member.role === 'admin'}
+                      <span class="member-role-badge">Admin</span>
+                    {/if}
+                  </div>
+                </div>
+              {/each}
             {/if}
-          </div>
-        </aside>
-      {/if}
+          {/each}
+          {#if members.length === 0}
+            <p class="empty-state">No members found.</p>
+          {/if}
+        </div>
+      </aside>
     </section>
   {/if}
 
   <!-- Modals -->
   {#if showEmojiPicker && selectedMessageForReaction}
-    <div class="modal-backdrop" role="button" tabindex="0" on:click={() => { showEmojiPicker = false; reactionPickerTab = "emoji"; reactionGifSearch = ""; reactionGifResults = []; }} on:keydown={(e) => e.key === 'Escape' && (showEmojiPicker = false)}>
-      <div class="modal reaction-picker" role="dialog" tabindex="-1" on:click|stopPropagation on:keydown|stopPropagation>
+    <div class="modal-backdrop bottom-sheet-backdrop" role="button" tabindex="0" on:click={closeEmojiPicker} on:keydown={(e) => e.key === 'Escape' && closeEmojiPicker()}>
+      <div class="modal reaction-picker bottom-sheet" role="dialog" tabindex="-1" on:click|stopPropagation on:keydown|stopPropagation>
+        <div class="bottom-sheet-handle"></div>
         <div class="reaction-picker-header">
           <h3>Add Reaction</h3>
-          <button class="picker-close-btn" title="Close" on:click={() => { showEmojiPicker = false; reactionPickerTab = "emoji"; reactionGifSearch = ""; reactionGifResults = []; }}>
+          <button class="picker-close-btn" title="Close" on:click={closeEmojiPicker}>
             <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           </button>
         </div>
@@ -1069,12 +1302,18 @@
         </div>
 
         {#if reactionPickerTab === "emoji"}
+          <div class="emoji-search-bar">
+            <input class="field" bind:value={emojiSearchQuery} placeholder="Search emoji..." />
+          </div>
           <div class="emoji-grid">
-            {#each REACTION_ICONS as icon}
-              <button class="emoji-btn" on:click={() => addReaction(selectedMessageForReaction, icon.id)} title={icon.label}>
+            {#each filteredEmojis as icon}
+              <button class="emoji-btn" on:click={() => { addReaction(selectedMessageForReaction, icon.id); closeEmojiPicker(); }} title={icon.label}>
                 {@html icon.svg}
               </button>
             {/each}
+            {#if filteredEmojis.length === 0}
+              <p class="empty-state" style="grid-column:1/-1;padding:.5rem">No emoji found.</p>
+            {/if}
           </div>
         {:else}
           <div class="gif-search-container">
@@ -1276,18 +1515,25 @@
     gap: 0;
     border-radius: 10px;
     overflow: hidden;
+    position: relative;
   }
 
   .chat-shell:has(.calendar-sidebar) {
     grid-template-columns: 72px 280px minmax(0, 1fr) 320px;
   }
 
-  .chat-shell:has(.member-sidebar) {
+  /* Member sidebar is always in DOM but uses transform; don't affect grid columns based on open state */
+  .chat-shell:has(.member-sidebar.open):not(:has(.calendar-sidebar)) {
     grid-template-columns: 72px 280px minmax(0, 1fr) 240px;
   }
 
-  .chat-shell:has(.calendar-sidebar):has(.member-sidebar) {
+  .chat-shell:has(.calendar-sidebar):has(.member-sidebar.open) {
     grid-template-columns: 72px 280px minmax(0, 1fr) 240px;
+  }
+
+  /* Sidebar overlay for mobile dimming */
+  .sidebar-overlay {
+    display: none;
   }
 
   /* Server Rail */
@@ -1345,6 +1591,17 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: 0.5rem;
+  }
+
+  .sidebar-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+  }
+
+  .mobile-close-btn {
+    display: none;
   }
 
   .admin-create {
@@ -1367,8 +1624,9 @@
     min-height: 0;
     padding: 0.75rem;
     display: grid;
-    grid-template-rows: auto 1fr;
     gap: 0.45rem;
+    overflow-y: auto;
+    align-content: start;
   }
 
   .channel-list {
@@ -1426,7 +1684,7 @@
   .chat-main {
     background: #313338;
     display: grid;
-    grid-template-rows: auto 1fr auto;
+    grid-template-rows: auto auto 1fr auto;
     min-height: 0;
   }
 
@@ -1437,6 +1695,26 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
+  }
+
+  .chat-header-left {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    min-width: 0;
+  }
+
+  .chat-header-left h3 {
+    margin: 0;
+    color: #f2f3f5;
+    font-size: 1rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .hamburger-btn {
+    display: none;
   }
 
   .chat-header-actions {
@@ -1942,6 +2220,14 @@
     display: grid;
     grid-template-rows: auto 1fr;
     min-height: 0;
+    overflow: hidden;
+    /* Hidden by default via 0 width on desktop */
+    width: 0;
+    transition: width 0.25s ease;
+  }
+
+  .member-sidebar.open {
+    width: 240px;
   }
 
   .member-list-content {
@@ -2141,15 +2427,21 @@
 
   .emoji-grid {
     display: grid;
-    grid-template-columns: repeat(5, 1fr);
+    grid-template-columns: repeat(6, 1fr);
     gap: 0.4rem;
+    overflow-y: auto;
+    max-height: 280px;
+  }
+
+  .emoji-search-bar {
+    margin-bottom: 0.6rem;
   }
 
   .emoji-btn {
     background: #1e1f22;
     border: 1px solid transparent;
     border-radius: 10px;
-    padding: 0.65rem;
+    padding: 0.75rem;
     cursor: pointer;
     transition: all 0.15s;
     color: #b5bac1;
@@ -2159,8 +2451,8 @@
   }
 
   .emoji-btn :global(svg) {
-    width: 26px;
-    height: 26px;
+    width: 30px;
+    height: 30px;
   }
 
   .emoji-btn:hover {
@@ -2283,16 +2575,280 @@
     font-size: 0.88rem;
   }
 
+  /* Rehearsal Countdown Widget */
+  .rehearsal-countdown {
+    background: #2a2d3a;
+    border: 1px solid #5865f2;
+    border-radius: 8px;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.8rem;
+    color: #b5bac1;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .rehearsal-countdown strong {
+    color: #f2f3f5;
+  }
+
+  /* Band Tools */
+  .band-tools-view {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1.25rem;
+  }
+
+  .band-tools-content {
+    max-width: 640px;
+  }
+
+  /* Setlist */
+  .setlist-list {
+    list-style: none;
+    margin: 0 0 1rem;
+    padding: 0;
+    display: grid;
+    gap: 0.4rem;
+  }
+
+  .setlist-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: #2b2d31;
+    border: 1px solid #232428;
+    border-radius: 8px;
+    padding: 0.6rem 0.75rem;
+    cursor: grab;
+    transition: background 0.15s, box-shadow 0.15s;
+  }
+
+  .setlist-item:active { cursor: grabbing; }
+
+  .setlist-item.drag-over {
+    box-shadow: 0 0 0 2px #5865f2;
+    background: #313447;
+  }
+
+  .setlist-num {
+    color: #949ba4;
+    font-size: 0.8rem;
+    font-weight: 700;
+    min-width: 1.4rem;
+    text-align: right;
+  }
+
+  .drag-handle {
+    flex-shrink: 0;
+    color: #4e5058;
+  }
+
+  .setlist-title {
+    flex: 1;
+    font-weight: 500;
+    color: #dbdee1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .setlist-badge {
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    flex-shrink: 0;
+  }
+
+  .setlist-badge.key {
+    background: #3c4270;
+    color: #b5bef6;
+  }
+
+  .setlist-badge.duration {
+    background: #1e1f22;
+    color: #949ba4;
+  }
+
+  .setlist-remove {
+    padding: 0.25rem;
+    opacity: 0.5;
+    transition: opacity 0.15s;
+  }
+
+  .setlist-remove:hover {
+    opacity: 1;
+    color: #da373c;
+  }
+
+  .setlist-add-form {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  .setlist-add-form .field {
+    flex: 1;
+    min-width: 120px;
+  }
+
+  .setlist-short {
+    flex: 0 0 80px !important;
+    min-width: 0 !important;
+  }
+
+  /* Equipment Checklist */
+  .equipment-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 0.3rem;
+  }
+
+  .equipment-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #2b2d31;
+    border: 1px solid #232428;
+    border-radius: 8px;
+    padding: 0.65rem 0.9rem;
+    transition: background 0.15s;
+  }
+
+  .equipment-item.checked {
+    background: #1e3a2a;
+    border-color: #2d7d46;
+  }
+
+  .equipment-label {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    cursor: pointer;
+    flex: 1;
+  }
+
+  .equipment-label input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    accent-color: #5865f2;
+  }
+
+  .equipment-name {
+    font-weight: 500;
+    color: #dbdee1;
+  }
+
+  .equipment-checker {
+    font-size: 0.8rem;
+    color: #3ba55d;
+    font-weight: 600;
+    flex-shrink: 0;
+    margin-left: 0.5rem;
+  }
+
+  .equipment-unchecked {
+    font-size: 0.8rem;
+    color: #4e5058;
+    flex-shrink: 0;
+    margin-left: 0.5rem;
+  }
+
+  /* Audio Player */
+  .audio-player {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    background: #2b2d31;
+    border: 1px solid #232428;
+    border-radius: 10px;
+    padding: 0.65rem 0.9rem;
+    margin-top: 0.25rem;
+    max-width: 400px;
+  }
+
+  .audio-player-icon {
+    color: #5865f2;
+    flex-shrink: 0;
+  }
+
+  .audio-player-body {
+    display: grid;
+    gap: 0.35rem;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .audio-player-name {
+    font-size: 0.82rem;
+    color: #b5bac1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .audio-element {
+    width: 100%;
+    height: 32px;
+    accent-color: #5865f2;
+  }
+
+  /* Bottom Sheet (Reaction Picker) */
+  .bottom-sheet-backdrop {
+    align-items: flex-end;
+    padding: 0;
+  }
+
+  .bottom-sheet {
+    border-radius: 20px 20px 0 0;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    max-height: 55vh;
+    padding: 0.5rem 1.25rem 1.25rem;
+    animation: slide-up 0.25s ease;
+  }
+
+  .bottom-sheet-handle {
+    width: 40px;
+    height: 4px;
+    background: #4e5058;
+    border-radius: 2px;
+    margin: 0.5rem auto 1rem;
+  }
+
+  @keyframes slide-up {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+  }
+
   /* Responsive */
   @media (max-width: 1200px) {
     .chat-shell,
     .chat-shell:has(.calendar-sidebar),
     .chat-shell:has(.member-sidebar),
-    .chat-shell:has(.calendar-sidebar):has(.member-sidebar) {
+    .chat-shell:has(.member-sidebar.open),
+    .chat-shell:has(.calendar-sidebar):has(.member-sidebar),
+    .chat-shell:has(.calendar-sidebar):has(.member-sidebar.open) {
       grid-template-columns: 72px 280px minmax(0, 1fr);
     }
 
-    .calendar-sidebar,
+    .calendar-sidebar {
+      position: fixed;
+      right: 0;
+      top: 0;
+      bottom: 0;
+      z-index: 50;
+      box-shadow: -4px 0 12px rgba(0, 0, 0, 0.3);
+      width: 320px;
+    }
+
     .member-sidebar {
       position: fixed;
       right: 0;
@@ -2300,14 +2856,13 @@
       bottom: 0;
       z-index: 50;
       box-shadow: -4px 0 12px rgba(0, 0, 0, 0.3);
+      transform: translateX(100%);
+      transition: transform 0.28s ease, width 0s;
+      width: 240px !important;
     }
 
-    .calendar-sidebar {
-      width: 320px;
-    }
-
-    .member-sidebar {
-      width: 240px;
+    .member-sidebar.open {
+      transform: translateX(0);
     }
   }
 
@@ -2319,22 +2874,78 @@
     .chat-shell,
     .chat-shell:has(.calendar-sidebar),
     .chat-shell:has(.member-sidebar),
-    .chat-shell:has(.calendar-sidebar):has(.member-sidebar) {
+    .chat-shell:has(.member-sidebar.open),
+    .chat-shell:has(.calendar-sidebar):has(.member-sidebar),
+    .chat-shell:has(.calendar-sidebar):has(.member-sidebar.open) {
       grid-template-columns: 1fr;
-      min-height: auto;
+      min-height: 100vh;
+      min-height: 100dvh;
     }
 
     .server-rail {
       display: none;
     }
 
+    /* Hamburger visible on mobile */
+    .hamburger-btn {
+      display: flex;
+    }
+
+    /* Mobile close button visible on mobile */
+    .mobile-close-btn {
+      display: flex;
+    }
+
+    /* Channel sidebar: mobile drawer from left */
     .channel-sidebar {
-      border-right: 0;
-      border-bottom: 1px solid #232428;
+      position: fixed;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 280px;
+      z-index: 60;
+      transform: translateX(-100%);
+      transition: transform 0.28s ease;
+      border-right: 1px solid #232428;
+    }
+
+    .channel-sidebar.open {
+      transform: translateX(0);
+    }
+
+    /* Member sidebar: mobile drawer from right */
+    .member-sidebar {
+      position: fixed;
+      right: 0;
+      top: 0;
+      bottom: 0;
+      width: 260px !important;
+      z-index: 60;
+      transform: translateX(100%);
+      transition: transform 0.28s ease, width 0s;
+    }
+
+    .member-sidebar.open {
+      transform: translateX(0);
+    }
+
+    /* Semi-transparent overlay when any drawer is open */
+    .sidebar-overlay {
+      display: block;
+      position: fixed;
+      inset: 0;
+      z-index: 55;
+      background: rgba(0, 0, 0, 0.6);
+      animation: fade-in 0.2s ease;
+    }
+
+    @keyframes fade-in {
+      from { opacity: 0; }
+      to { opacity: 1; }
     }
 
     .messages-scroll {
-      min-height: 42vh;
+      min-height: 0;
     }
 
     .emoji-grid {
