@@ -713,6 +713,30 @@ export async function sendMessage(args: {
   return { ok: true, value: { messageId: id } };
 }
 
+export async function deleteMessage(args: {
+  sessionToken: string;
+  messageId: string;
+}): Promise<Result<{ deleted: true }>> {
+  const user = await getUserBySession(args.sessionToken);
+  if (!user) {
+    return { ok: false, code: 401, error: "Unauthorized" };
+  }
+
+  const rows = await sql`SELECT id, user_id FROM messages WHERE id = ${args.messageId} LIMIT 1`;
+  if (!rows[0]) {
+    return { ok: false, code: 404, error: "Message not found" };
+  }
+
+  const msg = rows[0] as any;
+  if (msg.user_id !== user.id && user.role !== "admin") {
+    return { ok: false, code: 403, error: "You can only unsend your own messages" };
+  }
+
+  await sql`DELETE FROM messages WHERE id = ${args.messageId}`;
+
+  return { ok: true, value: { deleted: true } };
+}
+
 export async function listPendingUsers(sessionToken: string): Promise<Result<Array<{ id: string; username: string; role: string; status: string; createdAt: number }>>> {
   const adminResult = await requireAdmin(sessionToken);
   if (adminResult.ok === false) {

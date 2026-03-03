@@ -1,4 +1,4 @@
-import { listMessages, sendMessage } from "$lib/server/db";
+import { listMessages, sendMessage, deleteMessage } from "$lib/server/db";
 
 const toJson = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -52,4 +52,28 @@ export const POST = async ({ locals, request }: any) => {
   }
 
   return toJson({ id: result.value.messageId }, 201);
+};
+
+export const DELETE = async ({ locals, request }: any) => {
+  if (!locals.sessionToken) {
+    return toJson({ error: "unauthorized" }, 401);
+  }
+
+  const body = await request.json().catch(() => null);
+  const messageId = typeof body?.messageId === "string" ? body.messageId : "";
+
+  if (!messageId) {
+    return toJson({ error: "messageId is required" }, 400);
+  }
+
+  const result = await deleteMessage({
+    sessionToken: locals.sessionToken,
+    messageId
+  });
+
+  if (result.ok === false) {
+    return toJson({ error: result.error }, result.code ?? 400);
+  }
+
+  return toJson({ deleted: true });
 };

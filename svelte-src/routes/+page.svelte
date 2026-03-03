@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, onDestroy } from "svelte";
-  import { parseMarkdown, QUICK_EMOJIS } from "$lib/markdown";
+  import { parseMarkdown, QUICK_EMOJIS, REACTION_ICONS, type ReactionDef } from "$lib/markdown";
 
   type User = { username: string; role: "admin" | "member"; status: "approved" | "pending" };
   type Server = { id: string; name: string; description: string; iconUrl?: string };
@@ -53,6 +53,15 @@
   let isLoadingMessages = false;
   let connectionStatus: "connected" | "reconnecting" = "connected";
   let failedPollCount = 0;
+
+  // Long-press state for reactions
+  let longPressTimer: ReturnType<typeof setTimeout> | null = null;
+
+  // Context menu state (for unsend)
+  let contextMenuMessageId = "";
+  let contextMenuAuthor = "";
+  let contextMenuX = 0;
+  let contextMenuY = 0;
 
   // New event form
   let newEventTitle = "";
@@ -510,6 +519,61 @@
     showEmojiPicker = true;
   }
 
+  function getReactionIcon(id: string): ReactionDef | undefined {
+    return REACTION_ICONS.find(r => r.id === id);
+  }
+
+  async function unsendMessage(messageId: string) {
+    const csrf = getCookie("band_chat_csrf");
+    const headers: Record<string, string> = {
+      "content-type": "application/json",
+      "x-csrf-token": csrf
+    };
+    if (headerSessionToken) {
+      headers.authorization = `Bearer ${headerSessionToken}`;
+    }
+    const deleteRes = await fetch("/api/messages", {
+      method: "DELETE",
+      credentials: "same-origin",
+      headers,
+      body: JSON.stringify({ messageId })
+    });
+    if (!deleteRes.ok) {
+      showToast(await readApiError(deleteRes, "Failed to unsend"), "error");
+      return;
+    }
+    showToast("Message unsent.", "success");
+    contextMenuMessageId = "";
+    await refreshMessages();
+  }
+
+  function handleMessagePointerDown(event: PointerEvent, messageId: string) {
+    longPressTimer = setTimeout(() => {
+      selectedMessageForReaction = messageId;
+      showEmojiPicker = true;
+      longPressTimer = null;
+    }, 500);
+  }
+
+  function handleMessagePointerUp() {
+    if (longPressTimer) {
+      clearTimeout(longPressTimer);
+      longPressTimer = null;
+    }
+  }
+
+  function handleMessageContextMenu(event: MouseEvent, messageId: string, author: string) {
+    event.preventDefault();
+    contextMenuMessageId = messageId;
+    contextMenuAuthor = author;
+    contextMenuX = event.clientX;
+    contextMenuY = event.clientY;
+  }
+
+  function closeContextMenu() {
+    contextMenuMessageId = "";
+  }
+
   let refreshInterval: ReturnType<typeof setInterval> | null = null;
 
   onMount(async () => {
@@ -543,6 +607,9 @@
     }
     if (toastTimeout) {
       clearTimeout(toastTimeout);
+    }
+    if (longPressTimer) {
+      clearTimeout(longPressTimer);
     }
   });
 </script>
@@ -592,7 +659,7 @@
           </button>
         {/each}
         <button class="server-pill add-server" on:click={() => showServerCreate = true} title="Create Server">+</button>
-        <button class="server-pill add-server" on:click={() => showInviteModal = true} title="Join Server">🔗</button>
+        <button class="server-pill add-server" on:click={() => showInviteModal = true} title="Join Server"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></button>
       </aside>
 
       <!-- Channel Sidebar -->
@@ -601,7 +668,7 @@
           <h2>{servers.find(s => s.id === selectedServerId)?.name || "Band Chat"}</h2>
           {#if selectedServerId}
             <button class="icon-btn" on:click={() => createInvite(selectedServerId)} title="Create Invite">
-              ➕
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             </button>
           {/if}
         </header>
@@ -638,8 +705,8 @@
             </div>
           </div>
           <div class="footer-actions">
-            <button class="icon-btn" on:click={() => { showCalendar = !showCalendar; if (showCalendar) showMemberList = false; }} title="Calendar">📅</button>
-            <button class="icon-btn" on:click={logout} title="Logout">🚪</button>
+            <button class="icon-btn" on:click={() => { showCalendar = !showCalendar; if (showCalendar) showMemberList = false; }} title="Calendar"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></button>
+            <button class="icon-btn" on:click={logout} title="Logout"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></button>
           </div>
         </footer>
       </aside>
@@ -649,7 +716,7 @@
         <header class="chat-header">
           <h3>{selectedChannelName ? `#${selectedChannelName}` : "Select a channel"}</h3>
           <div class="chat-header-actions">
-            <button class="icon-btn" class:active={showMemberList} on:click={() => { showMemberList = !showMemberList; if (showMemberList) showCalendar = false; }} title="Member List">👥</button>
+            <button class="icon-btn" class:active={showMemberList} on:click={() => { showMemberList = !showMemberList; if (showMemberList) showCalendar = false; }} title="Member List"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></button>
           </div>
         </header>
 
@@ -677,19 +744,25 @@
             <p class="empty-state">No messages yet. Start the conversation!</p>
           {:else}
             {#each messages as msg}
-              <article class="message-row">
+              <article
+                class="message-row"
+                on:pointerdown={(e) => handleMessagePointerDown(e, msg.id)}
+                on:pointerup={handleMessagePointerUp}
+                on:pointerleave={handleMessagePointerUp}
+                on:contextmenu={(e) => handleMessageContextMenu(e, msg.id, msg.author)}
+              >
                 <div class="avatar">{msg.author.slice(0, 1).toUpperCase()}</div>
                 <div class="message-content">
                   <div class="message-head">
                     <strong>{msg.author}</strong>
-                    <span>{new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+                    <span class="msg-time">{new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
                   </div>
                   <p class="message-text">{@html parseMarkdown(msg.content)}</p>
                   
-                  <!-- Reactions -->
                   {#if msg.reactions && msg.reactions.length > 0}
                     <div class="reactions">
                       {#each msg.reactions as reaction}
+                        {@const icon = getReactionIcon(reaction.emoji)}
                         <button 
                           class="reaction-badge"
                           class:own-reaction={reaction.users.includes(me?.username || '')}
@@ -702,14 +775,11 @@
                           }}
                           title={reaction.users.join(', ')}
                         >
-                          <span class="emoji">{reaction.emoji}</span>
+                          <span class="reaction-icon">{#if icon}{@html icon.svg}{:else}{reaction.emoji}{/if}</span>
                           <span class="count">{reaction.count}</span>
                         </button>
                       {/each}
-                      <button class="reaction-add" on:click={() => openEmojiPicker(msg.id)}>➕</button>
                     </div>
-                  {:else}
-                    <button class="reaction-add-first" on:click={() => openEmojiPicker(msg.id)}>Add Reaction</button>
                   {/if}
                 </div>
               </article>
@@ -742,7 +812,7 @@
         <aside class="calendar-sidebar">
           <header class="sidebar-header">
             <h2>Calendar</h2>
-            <button class="icon-btn" on:click={() => showCalendar = false}>✕</button>
+            <button class="icon-btn" on:click={() => showCalendar = false} title="Close"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
           </header>
           
           <div class="calendar-content">
@@ -758,9 +828,9 @@
                   <div class="event-header">
                     <strong>{event.title}</strong>
                   </div>
-                  <p class="event-time">📅 {formatEventTime(event.startsAt)}</p>
+                  <p class="event-time"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> {formatEventTime(event.startsAt)}</p>
                   {#if event.location}
-                    <p class="event-location">📍 {event.location}</p>
+                    <p class="event-location"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg> {event.location}</p>
                   {/if}
                   {#if event.description}
                     <p class="event-desc">{event.description}</p>
@@ -777,7 +847,7 @@
         <aside class="member-sidebar">
           <header class="sidebar-header">
             <h2>Members</h2>
-            <button class="icon-btn" on:click={() => showMemberList = false}>✕</button>
+            <button class="icon-btn" on:click={() => showMemberList = false} title="Close"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
           </header>
           <div class="member-list-content">
             {#each ['online', 'idle', 'dnd', 'offline'] as status}
@@ -813,14 +883,26 @@
   {#if showEmojiPicker && selectedMessageForReaction}
     <div class="modal-backdrop" role="button" tabindex="0" on:click={() => showEmojiPicker = false} on:keydown={(e) => e.key === 'Escape' && (showEmojiPicker = false)}>
       <div class="modal emoji-picker" role="dialog" tabindex="-1" on:click|stopPropagation on:keydown|stopPropagation>
-        <h3>Pick an emoji</h3>
+        <h3>React</h3>
         <div class="emoji-grid">
-          {#each QUICK_EMOJIS as emoji}
-            <button class="emoji-btn" on:click={() => addReaction(selectedMessageForReaction, emoji)}>
-              {emoji}
+          {#each REACTION_ICONS as icon}
+            <button class="emoji-btn" on:click={() => addReaction(selectedMessageForReaction, icon.id)} title={icon.label}>
+              {@html icon.svg}
             </button>
           {/each}
         </div>
+      </div>
+    </div>
+  {/if}
+
+  <!-- Context Menu (Unsend) -->
+  {#if contextMenuMessageId}
+    <div class="context-backdrop" role="button" tabindex="0" on:click={closeContextMenu} on:keydown={(e) => e.key === 'Escape' && closeContextMenu()}>
+      <div class="context-menu" role="menu" tabindex="-1" style="left:{contextMenuX}px;top:{contextMenuY}px" on:click|stopPropagation on:keydown|stopPropagation>
+        {#if contextMenuAuthor === me?.username || me?.role === 'admin'}
+          <button class="context-item danger" on:click={() => unsendMessage(contextMenuMessageId)}>Unsend Message</button>
+        {/if}
+        <button class="context-item" on:click={() => { openEmojiPicker(contextMenuMessageId); closeContextMenu(); }}>Add Reaction</button>
       </div>
     </div>
   {/if}
@@ -1237,6 +1319,19 @@
     display: grid;
     grid-template-columns: 40px minmax(0, 1fr);
     gap: 0.75rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 6px;
+    transition: background 0.12s;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  .message-row:hover {
+    background: rgba(255, 255, 255, 0.03);
+  }
+
+  .message-row:hover .msg-time {
+    opacity: 1;
   }
 
   .avatar {
@@ -1265,9 +1360,11 @@
     font-size: 0.95rem;
   }
 
-  .message-head span {
+  .message-head .msg-time {
     color: #949ba4;
     font-size: 0.72rem;
+    opacity: 0;
+    transition: opacity 0.15s;
   }
 
   .message-content :global(p.message-text) {
@@ -1351,8 +1448,21 @@
     border-color: #5865f2;
   }
 
-  .reaction-badge .emoji {
-    font-size: 1rem;
+  .reaction-badge .reaction-icon {
+    display: flex;
+    align-items: center;
+    width: 16px;
+    height: 16px;
+    color: #b5bac1;
+  }
+
+  .reaction-badge .reaction-icon :global(svg) {
+    width: 16px;
+    height: 16px;
+  }
+
+  .reaction-badge.own-reaction .reaction-icon {
+    color: #8b9cf7;
   }
 
   .reaction-badge .count {
@@ -1360,26 +1470,50 @@
     color: #b5bac1;
   }
 
-  .reaction-add,
-  .reaction-add-first {
+  /* Context Menu */
+  .context-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+  }
+
+  .context-menu {
+    position: fixed;
+    background: #1e1f22;
+    border: 1px solid #2b2d31;
+    border-radius: 6px;
+    padding: 0.3rem;
+    min-width: 160px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    z-index: 201;
+  }
+
+  .context-item {
+    display: block;
+    width: 100%;
     background: transparent;
-    border: 1px solid #1e1f22;
-    border-radius: 8px;
-    padding: 0.2rem 0.5rem;
-    cursor: pointer;
-    font-size: 0.75rem;
-    color: #949ba4;
-    transition: all 0.15s;
-  }
-
-  .reaction-add-first {
-    margin-top: 0.4rem;
-  }
-
-  .reaction-add:hover,
-  .reaction-add-first:hover {
-    background: #404249;
+    border: none;
     color: #dbdee1;
+    text-align: left;
+    padding: 0.5rem 0.7rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.875rem;
+    font-family: inherit;
+  }
+
+  .context-item:hover {
+    background: #5865f2;
+    color: #fff;
+  }
+
+  .context-item.danger {
+    color: #f23f43;
+  }
+
+  .context-item.danger:hover {
+    background: #f23f43;
+    color: #fff;
   }
 
   /* Typing Indicator */
@@ -1650,12 +1784,12 @@
 
   /* Emoji Picker */
   .emoji-picker {
-    min-width: min(360px, 90vw);
+    min-width: min(320px, 90vw);
   }
 
   .emoji-grid {
     display: grid;
-    grid-template-columns: repeat(8, 1fr);
+    grid-template-columns: repeat(5, 1fr);
     gap: 0.4rem;
   }
 
@@ -1663,15 +1797,24 @@
     background: transparent;
     border: 1px solid #232428;
     border-radius: 8px;
-    padding: 0.6rem;
-    font-size: 1.5rem;
+    padding: 0.7rem;
     cursor: pointer;
     transition: all 0.15s;
+    color: #b5bac1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .emoji-btn :global(svg) {
+    width: 24px;
+    height: 24px;
   }
 
   .emoji-btn:hover {
     background: #404249;
     transform: scale(1.1);
+    color: #f2f3f5;
   }
 
   /* Utility */
@@ -1736,7 +1879,7 @@
     }
 
     .emoji-grid {
-      grid-template-columns: repeat(6, 1fr);
+      grid-template-columns: repeat(5, 1fr);
     }
   }
 </style>
