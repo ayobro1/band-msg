@@ -250,29 +250,179 @@ async function ensureDb(): Promise<void> {
       await sql`CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions (user_id)`;
       await sql`CREATE INDEX IF NOT EXISTS idx_rate_limits_reset_at ON rate_limits (reset_at)`;
       await sql`CREATE INDEX IF NOT EXISTS idx_channels_created_at ON channels (created_at)`;
-      await sql`CREATE INDEX IF NOT EXISTS idx_channels_server ON channels (server_id)`;
       await sql`CREATE INDEX IF NOT EXISTS idx_messages_channel_created ON messages (channel_id, created_at)`;
       await sql`CREATE INDEX IF NOT EXISTS idx_users_status_role ON users (status, role)`;
       await sql`CREATE INDEX IF NOT EXISTS idx_server_members_server ON server_members (server_id)`;
       await sql`CREATE INDEX IF NOT EXISTS idx_server_members_user ON server_members (user_id)`;
       await sql`CREATE INDEX IF NOT EXISTS idx_message_reactions_message ON message_reactions (message_id)`;
       await sql`CREATE INDEX IF NOT EXISTS idx_typing_indicators_channel ON typing_indicators (channel_id)`;
-      await sql`CREATE INDEX IF NOT EXISTS idx_invites_server ON invites (server_id)`;
-      await sql`CREATE INDEX IF NOT EXISTS idx_calendar_events_server ON calendar_events (server_id)`;
       await sql`CREATE INDEX IF NOT EXISTS idx_calendar_events_starts ON calendar_events (starts_at)`;
+      
+      // Helper function to check if column exists
+      const columnExists = async (table: string, column: string): Promise<boolean> => {
+        try {
+          const result = await sql`
+            SELECT EXISTS (
+              SELECT 1 
+              FROM information_schema.columns 
+              WHERE table_name = ${table} 
+              AND column_name = ${column}
+            ) as exists
+          `;
+          return result[0]?.exists || false;
+        } catch (e) {
+          return false;
+        }
+      };
+      
+      // Migration: Add presence columns to users if they don't exist
+      if (!(await columnExists('users', 'presence_status'))) {
+        await sql`
+          ALTER TABLE users 
+          ADD COLUMN presence_status TEXT DEFAULT 'offline'
+        `;
+        await sql`
+          ALTER TABLE users
+          ADD CONSTRAINT users_presence_status_check 
+          CHECK (presence_status IN ('online', 'idle', 'dnd', 'offline'))
+        `;
+      }
+
+      if (!(await columnExists('users', 'custom_status'))) {
+        await sql`ALTER TABLE users ADD COLUMN custom_status TEXT`;
+      }
+
+      if (!(await columnExists('users', 'last_seen_at'))) {
+        await sql`ALTER TABLE users ADD COLUMN last_seen_at BIGINT`;
+      }
+      
+      // Migration: Add server_id column to channels if it doesn't exist
+      if (!(await columnExists('channels', 'server_id'))) {
+        await sql`
+          ALTER TABLE channels 
+          ADD COLUMN server_id TEXT
+        `;
+      }
+
+      // Migration: Add channel_type column to channels if it doesn't exist
+      if (!(await columnExists('channels', 'channel_type'))) {
+        await sql`
+          ALTER TABLE channels 
+          ADD COLUMN channel_type TEXT DEFAULT 'text'
+        `;
+        await sql`
+          ALTER TABLE channels
+          ADD CONSTRAINT channels_channel_type_check 
+          CHECK (channel_type IN ('text', 'voice', 'private', 'announcement'))
+        `;
+      }
+
+      // Migration: Add category column to channels if it doesn't exist
+      if (!(await columnExists('channels', 'category'))) {
+        await sql`ALTER TABLE channels ADD COLUMN category TEXT`;
+      }
+
+      // Migration: Add is_private column to channels if it doesn't exist
+      if (!(await columnExists('channels', 'is_private'))) {
+        await sql`ALTER TABLE channels ADD COLUMN is_private BOOLEAN DEFAULT false`;
+      }
+
+      // Migration: Add server_id column to invites if it doesn't exist
+      if (!(await columnExists('invites', 'server_id'))) {
+        await sql`ALTER TABLE invites ADD COLUMN server_id TEXT`;
+      }
+
+      // Migration: Add server_id column to calendar_events if it doesn't exist
+      if (!(await columnExists('calendar_events', 'server_id'))) {
+        await sql`ALTER TABLE calendar_events ADD COLUMN server_id TEXT`;
+      }
       
       // Create default server for migration
       const serverRows = await sql`SELECT id FROM servers LIMIT 1`;
       if (serverRows.length === 0) {
-        const defaultServerId = crypto.randomUUID();
-        await sql`
-          INSERT INTO servers (id, name, description, owner_id, created_at)
-          SELECT ${defaultServerId}, 'Band Chat', 'Default server', id, ${Date.now()}
-          FROM users WHERE role = 'admin' AND status = 'approved' LIMIT 1
+        // Get first approved admin or create system server
+        const adminRows = await sql`
+          SELECT id FROM users 
+          WHERE role = 'admin' AND status = 'approved' 
+          LIMIT 1
         `;
+        
+        const defaultServerId = crypto.randomUUID();
+        if (adminRows.length > 0) {
+          await sql`
+            INSERT INTO servers (id, name, description, owner_id, created_at)
+            VALUES (${defaultServerId}, 'Band Chat', 'Default server', ${adminRows[0].id}, ${Date.now()})
+          `;
+        } else {
+          // No admin yet, use first user or leave owner_id null temporarily
+          const userRows = await sql`SELECT id FROM users LIMIT 1`;
+          if (userRows.length > 0) {
+            await sql`
+              INSERT INTO servers (id, name, description, owner_id, created_at)
+              VALUES (${defaultServerId}, 'Band Chat', 'Default server', ${userRows[0].id}, ${Date.now()})
+            `;
+          }
+        }
         
         // Migrate existing channels to default server
         await sql`UPDATE channels SET server_id = ${defaultServerId} WHERE server_id IS NULL`;
+        
+        // Migrate existing invites to default server
+        await sql`UPDATE invites SET server_id = ${defaultServerId} WHERE server_id IS NULL`;
+        
+        // Migrate existing calendar events to default server
+        await sql`UPDATE calendar_events SET server_id = ${defaultServerId} WHERE server_id IS NULL`;
+        
+        // Add foreign key constraint if it doesn't exist
+        try {
+          await sql`
+            ALTER TABLE channels
+            ADD CONSTRAINT channels_server_id_fkey 
+            FOREIGN KEY (server_id) REFERENCES servers(id) ON DELETE CASCADE
+          `;
+        } catch (e) {
+          // Constraint might already exist, ignore error
+        }
+      } else {
+        // Migrate any channels without server_id to first server
+        const firstServer = serverRows[0];
+        await sql`UPDATE channels SET server_id = ${firstServer.id} WHERE server_id IS NULL`;
+        
+        // Migrate any invites without server_id to first server
+        await sql`UPDATE invites SET server_id = ${firstServer.id} WHERE server_id IS NULL`;
+        
+        // Migrate any calendar events without server_id to first server
+        await sql`UPDATE calendar_events SET server_id = ${firstServer.id} WHERE server_id IS NULL`;
+        
+        // Try to add foreign key constraint
+        try {
+          await sql`
+            ALTER TABLE channels
+            ADD CONSTRAINT channels_server_id_fkey 
+            FOREIGN KEY (server_id) REFERENCES servers(id) ON DELETE CASCADE
+          `;
+        } catch (e) {
+          // Constraint might already exist, ignore error
+        }
+      }
+
+      // Create indices on server_id columns now that migrations are complete
+      try {
+        await sql`CREATE INDEX IF NOT EXISTS idx_channels_server ON channels (server_id)`;
+      } catch (e) {
+        // Index might already exist or column might not exist yet
+      }
+
+      try {
+        await sql`CREATE INDEX IF NOT EXISTS idx_invites_server ON invites (server_id)`;
+      } catch (e) {
+        // Index might already exist or column might not exist yet
+      }
+
+      try {
+        await sql`CREATE INDEX IF NOT EXISTS idx_calendar_events_server ON calendar_events (server_id)`;
+      } catch (e) {
+        // Index might already exist or column might not exist yet
       }
     })();
   }
