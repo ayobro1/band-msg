@@ -12,12 +12,20 @@ type Result<T> =
   | { ok: true; value: T }
   | { ok: false; code: number; error: string };
 
-const databaseUrl = process.env.DATABASE_URL;
-if (!databaseUrl) {
-  throw new Error("Missing DATABASE_URL environment variable");
+let sqlClient: ReturnType<typeof neon> | null = null;
+
+function getSqlClient() {
+  if (!sqlClient) {
+    const databaseUrl = process.env.DATABASE_URL;
+    if (!databaseUrl) {
+      throw new Error("Missing DATABASE_URL environment variable");
+    }
+    sqlClient = neon(databaseUrl);
+  }
+  return sqlClient;
 }
 
-const sql = neon(databaseUrl);
+const sql = (strings: TemplateStringsArray, ...params: any[]) => getSqlClient()(strings, ...params);
 let initPromise: Promise<void> | null = null;
 
 const USERNAME_PATTERN = /^[a-z0-9_-]{3,20}$/;
@@ -277,10 +285,11 @@ export async function listChannels(sessionToken: string): Promise<Result<Array<{
     FROM channels
     ORDER BY created_at ASC
   `;
+  const channelRows = rows as any[];
 
   return {
     ok: true,
-    value: rows.map((row) => ({
+    value: channelRows.map((row) => ({
       id: row.id,
       name: row.name,
       description: row.description
@@ -341,10 +350,11 @@ export async function listMessages(args: {
     ORDER BY m.created_at ASC
     LIMIT 200
   `;
+  const messageRows = rows as any[];
 
   return {
     ok: true,
-    value: rows.map((row) => ({
+    value: messageRows.map((row) => ({
       id: row.id,
       content: row.content,
       channelId: row.channel_id,
@@ -395,10 +405,11 @@ export async function listPendingUsers(sessionToken: string): Promise<Result<Arr
     WHERE status = 'pending'
     ORDER BY created_at ASC
   `;
+  const pendingRows = rows as any[];
 
   return {
     ok: true,
-    value: rows.map((row) => ({
+    value: pendingRows.map((row) => ({
       id: row.id,
       username: row.username,
       role: row.role,
