@@ -44,8 +44,7 @@
 
   :global(html) {
     height: 100%;
-    overflow-x: hidden;
-    overflow-y: auto;
+    overflow: hidden;
   }
 
   :global(body) {
@@ -55,11 +54,9 @@
     -moz-osx-font-smoothing: grayscale;
     background: var(--bg-root);
     color: var(--text-body);
-    min-height: 100vh;
+    height: 100%;
     line-height: 1.6;
-    overflow-x: hidden;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
+    overflow: hidden;
   }
 
   :global(*) {
