@@ -1,4 +1,4 @@
-import { getConvexClient } from "$lib/server/convex";
+import { createChannel, listChannels } from "$lib/server/db";
 
 const toJson = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -11,16 +11,13 @@ export const GET = async ({ locals }: any) => {
     return toJson({ error: "unauthorized" }, 401);
   }
 
-  const convex = getConvexClient();
-  const result = await convex.query("chat:listChannels" as any, {
-    sessionToken: locals.sessionToken
-  });
+  const result = await listChannels(locals.sessionToken);
 
-  if (!result.ok) {
+  if (result.ok === false) {
     return toJson({ error: result.error }, result.code ?? 400);
   }
 
-  return toJson(result.channels);
+  return toJson(result.value);
 };
 
 export const POST = async ({ locals, request }: any) => {
@@ -36,16 +33,15 @@ export const POST = async ({ locals, request }: any) => {
     return toJson({ error: "name is required" }, 400);
   }
 
-  const convex = getConvexClient();
-  const result = await convex.mutation("chat:createChannel" as any, {
+  const result = await createChannel({
     sessionToken: locals.sessionToken,
     name,
     description
   });
 
-  if (!result.ok) {
+  if (result.ok === false) {
     return toJson({ error: result.error }, result.code ?? 400);
   }
 
-  return toJson({ id: result.channelId }, 201);
+  return toJson({ id: result.value.channelId }, 201);
 };

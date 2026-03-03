@@ -1,4 +1,4 @@
-import { getConvexClient } from "$lib/server/convex";
+import { listPendingUsers } from "$lib/server/db";
 
 const toJson = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -11,14 +11,11 @@ export const GET = async ({ locals }: any) => {
     return toJson({ error: "unauthorized" }, 401);
   }
 
-  const convex = getConvexClient();
-  const result = await convex.query("auth:listPendingUsers" as any, {
-    sessionToken: locals.sessionToken
-  });
+  const result = await listPendingUsers(locals.sessionToken);
 
-  if (!result.ok) {
+  if (result.ok === false) {
     return toJson({ error: result.error }, result.code ?? 403);
   }
 
-  return toJson(result.users);
+  return toJson(result.value);
 };

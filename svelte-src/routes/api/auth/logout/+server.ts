@@ -1,5 +1,5 @@
 import { clearSessionCookie, getSessionToken } from "$lib/server/auth";
-import { getConvexClient } from "$lib/server/convex";
+import { logoutSession } from "$lib/server/db";
 
 const toJson = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -10,8 +10,7 @@ const toJson = (body: unknown, status = 200) =>
 export const POST = async ({ cookies }: any) => {
   const sessionToken = getSessionToken(cookies);
   if (sessionToken) {
-    const convex = getConvexClient();
-    await convex.mutation("auth:logout" as any, { sessionToken });
+    await logoutSession(sessionToken);
   }
 
   clearSessionCookie(cookies);

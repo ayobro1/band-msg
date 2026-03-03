@@ -1,4 +1,4 @@
-import { getConvexClient } from "$lib/server/convex";
+import { consumeRateLimit, registerUser } from "$lib/server/db";
 import { hashPassword } from "$lib/server/auth";
 import { getClientIp } from "$lib/server/request";
 
@@ -21,21 +21,16 @@ export const POST = async ({ request }: any) => {
   }
 
   const { salt, hash } = await hashPassword(password);
-  const convex = getConvexClient();
   const ip = getClientIp(request);
   const key = `register:${ip}:${username.trim().toLowerCase()}`;
 
-  const limit = await convex.mutation("auth:consumeRateLimit" as any, {
-    key,
-    maxAttempts: REGISTER_MAX_ATTEMPTS,
-    windowMs: RATE_LIMIT_WINDOW_MS
-  });
+  const limit = await consumeRateLimit(key, REGISTER_MAX_ATTEMPTS, RATE_LIMIT_WINDOW_MS);
 
   if (!limit.allowed) {
     return toJson({ error: "Too many registration attempts, try again later" }, 429);
   }
 
-  const result = await convex.mutation("auth:register" as any, {
+  const result = await registerUser({
     username,
     passwordHash: hash,
     passwordSalt: salt
@@ -45,5 +40,5 @@ export const POST = async ({ request }: any) => {
     return toJson({ error: result.error }, result.code ?? 400);
   }
 
-  return toJson(result.user, 201);
+  return toJson(result.value, 201);
 };

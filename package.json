@@ -8,13 +8,12 @@
     "build": "vite build",
     "preview": "vite preview",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
-    "convex:dev": "convex dev",
-    "convex:deploy": "convex deploy"
+    "db:setup": "node -e \"import('./svelte-src/lib/server/db.ts').then(()=>console.log('Neon schema ready')).catch((e)=>{console.error(e);process.exit(1);})\""
   },
   "dependencies": {
+    "@neondatabase/serverless": "^1.0.1",
     "@sveltejs/adapter-vercel": "^5.9.1",
     "@sveltejs/kit": "^2.46.3",
-    "convex": "^1.24.0",
     "svelte": "^5.39.6"
   },
   "devDependencies": {

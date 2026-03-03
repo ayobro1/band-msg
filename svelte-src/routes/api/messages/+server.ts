@@ -1,4 +1,4 @@
-import { getConvexClient } from "$lib/server/convex";
+import { listMessages, sendMessage } from "$lib/server/db";
 
 const toJson = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -16,17 +16,16 @@ export const GET = async ({ locals, url }: any) => {
     return toJson({ error: "channelId is required" }, 400);
   }
 
-  const convex = getConvexClient();
-  const result = await convex.query("chat:listMessages" as any, {
+  const result = await listMessages({
     sessionToken: locals.sessionToken,
     channelId
   });
 
-  if (!result.ok) {
+  if (result.ok === false) {
     return toJson({ error: result.error }, result.code ?? 400);
   }
 
-  return toJson(result.messages);
+  return toJson(result.value);
 };
 
 export const POST = async ({ locals, request }: any) => {
@@ -42,16 +41,15 @@ export const POST = async ({ locals, request }: any) => {
     return toJson({ error: "channelId and content are required" }, 400);
   }
 
-  const convex = getConvexClient();
-  const result = await convex.mutation("chat:sendMessage" as any, {
+  const result = await sendMessage({
     sessionToken: locals.sessionToken,
     channelId,
     content
   });
 
-  if (!result.ok) {
+  if (result.ok === false) {
     return toJson({ error: result.error }, result.code ?? 400);
   }
 
-  return toJson({ id: result.messageId }, 201);
+  return toJson({ id: result.value.messageId }, 201);
 };

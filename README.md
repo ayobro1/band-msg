@@ -1,9 +1,9 @@
-# Band Chat (SvelteKit + Convex Rewrite)
+# Band Chat (SvelteKit + Neon Rewrite)
 
-This repository has been migrated to a **SvelteKit + Convex + Vercel** architecture.
+This repository has been migrated to a **SvelteKit + Neon + Vercel** architecture.
 
 - UI and server routes: `svelte-src/**`
-- Convex backend: `convex/**`
+- Neon data layer: `svelte-src/lib/server/db.ts`
 - Migration notes: `MIGRATION_MAP.md`
 - Security review: `SECURITY_AUDIT.md`
 
@@ -11,7 +11,7 @@ This repository has been migrated to a **SvelteKit + Convex + Vercel** architect
 
 - SvelteKit 2
 - Svelte 5
-- Convex (database + backend functions)
+- Neon Postgres (`@neondatabase/serverless`)
 - Vercel adapter for deployment
 
 ## Quick Start
@@ -25,17 +25,17 @@ npm install
 2. Configure environment values in `.env.local` (copy from `.env.local.example`):
 
 ```bash
-CONVEX_URL=...
+DATABASE_URL=...
 AUTH_COOKIE_SECURE=auto
 ```
 
-3. Start Convex dev backend (in one terminal):
+3. Ensure Neon schema exists:
 
 ```bash
-npm run convex:dev
+npm run db:setup
 ```
 
-4. Start SvelteKit app (in another terminal):
+4. Start SvelteKit app:
 
 ```bash
 npm run dev
@@ -60,14 +60,14 @@ npm run dev
 
 - Explicit origin checks for mutating `/api/*` requests
 - CSRF token cookie + `x-csrf-token` validation for authenticated mutations
-- Convex-backed login and registration rate limits
+- Neon-backed login and registration rate limits
 - Admin-only user moderation endpoints
 
 ## Deployment (Vercel)
 
 1. Import the repository in Vercel.
 2. Set environment variables:
-   - `CONVEX_URL`
+   - `DATABASE_URL`
    - `AUTH_COOKIE_SECURE=true`
 3. Build command: `npm run build`
 4. Output handled by SvelteKit adapter-vercel.

@@ -1,4 +1,4 @@
-import { getConvexClient } from "$lib/server/convex";
+import { demoteUser } from "$lib/server/db";
 
 const toJson = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -17,13 +17,12 @@ export const POST = async ({ locals, request }: any) => {
     return toJson({ error: "username is required" }, 400);
   }
 
-  const convex = getConvexClient();
-  const result = await convex.mutation("auth:demoteUser" as any, {
+  const result = await demoteUser({
     sessionToken: locals.sessionToken,
     username
   });
 
-  if (!result.ok) {
+  if (result.ok === false) {
     return toJson({ error: result.error }, result.code ?? 403);
   }
 

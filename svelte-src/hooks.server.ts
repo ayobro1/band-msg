@@ -3,7 +3,7 @@ import {
   getCsrfToken,
   getSessionToken,
   setCsrfCookie
-} from "$lib/server/auth";
+} from "./lib/server/auth";
 
 const MUTATING_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 

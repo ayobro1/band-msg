@@ -1,4 +1,4 @@
-import { getConvexClient } from "$lib/server/convex";
+import { getUserBySession } from "$lib/server/db";
 
 const toJson = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -11,10 +11,7 @@ export const GET = async ({ locals }: any) => {
     return toJson({ error: "unauthorized" }, 401);
   }
 
-  const convex = getConvexClient();
-  const user = await convex.query("auth:me" as any, {
-    sessionToken: locals.sessionToken
-  });
+  const user = await getUserBySession(locals.sessionToken);
 
   if (!user) {
     return toJson({ error: "unauthorized" }, 401);
