@@ -62,6 +62,7 @@
   let newEventEndsAt = "";
 
   $: isAuthenticated = !!me;
+  $: myPresence = members.find(m => m.username === me?.username)?.presenceStatus || 'online';
 
   function showToast(message: string, type: "error" | "success" = "error") {
     toastMessage = message;
@@ -186,7 +187,13 @@
     
     try {
       const res = await apiGet(`/api/messages?channelId=${encodeURIComponent(selectedChannelId)}`);
-      if (!res.ok) return;
+      if (!res.ok) {
+        failedPollCount++;
+        if (failedPollCount >= 2) {
+          connectionStatus = "reconnecting";
+        }
+        return;
+      }
       const msgs = await res.json();
       
       // Load reactions for each message
@@ -624,14 +631,14 @@
 
         <footer class="user-footer">
           <div class="user-footer-info">
-            <span class="presence-dot online"></span>
+            <span class="presence-dot {myPresence}"></span>
             <div>
               <strong>{me?.username}</strong>
               <p>{me?.role}</p>
             </div>
           </div>
           <div class="footer-actions">
-            <button class="icon-btn" on:click={() => showCalendar = !showCalendar} title="Calendar">📅</button>
+            <button class="icon-btn" on:click={() => { showCalendar = !showCalendar; if (showCalendar) showMemberList = false; }} title="Calendar">📅</button>
             <button class="icon-btn" on:click={logout} title="Logout">🚪</button>
           </div>
         </footer>
@@ -642,7 +649,7 @@
         <header class="chat-header">
           <h3>{selectedChannelName ? `#${selectedChannelName}` : "Select a channel"}</h3>
           <div class="chat-header-actions">
-            <button class="icon-btn" class:active={showMemberList} on:click={() => showMemberList = !showMemberList} title="Member List">👥</button>
+            <button class="icon-btn" class:active={showMemberList} on:click={() => { showMemberList = !showMemberList; if (showMemberList) showCalendar = false; }} title="Member List">👥</button>
           </div>
         </header>
 
