@@ -2015,7 +2015,7 @@
     display: none;
     gap: 0.25rem;
     position: absolute;
-    top: -0.5rem;
+    top: 0.25rem;
     right: 0.5rem;
     background: var(--bg-elevated);
     border: 1px solid var(--border);
@@ -2023,7 +2023,6 @@
     padding: 0.2rem;
     box-shadow: 0 4px 12px rgba(0,0,0,0.3);
     z-index: 2;
-    pointer-events: none;
   }
 
   .message-row:hover .quick-reactions,
