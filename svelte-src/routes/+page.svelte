@@ -49,8 +49,13 @@
   let showEventCreate = false;
   let showMemberList = false;
   let showChannelSidebar = false; // mobile drawer
+  let showAdminPanel = false;
   let selectedMessageForReaction = "";
   let messageContainer: HTMLElement | null = null;
+
+  // Admin panel state
+  type PendingUser = { id: string; username: string; role: string; status: string; createdAt: number };
+  let pendingUsers: PendingUser[] = [];
 
   // Emoji search
   let emojiSearchQuery = "";
@@ -660,6 +665,33 @@
     showToast("Invite link copied to clipboard!", "success");
   }
 
+  async function refreshPendingUsers() {
+    if (me?.role !== "admin") return;
+    const res = await apiGet("/api/admin/users");
+    if (!res.ok) return;
+    pendingUsers = await res.json();
+  }
+
+  async function approveUser(username: string) {
+    const res = await apiPost("/api/admin/users/approve", { username });
+    if (!res.ok) {
+      showToast(await readApiError(res, "Failed to approve user"), "error");
+      return;
+    }
+    showToast(`${username} approved!`, "success");
+    await refreshPendingUsers();
+  }
+
+  async function rejectPendingUser(username: string) {
+    const res = await apiPost("/api/admin/users/demote", { username });
+    if (!res.ok) {
+      showToast(await readApiError(res, "Failed to reject user"), "error");
+      return;
+    }
+    showToast(`${username} rejected.`, "success");
+    await refreshPendingUsers();
+  }
+
   async function createEvent() {
     if (!newEventTitle.trim() || !newEventStartsAt || !newEventEndsAt) return;
     
@@ -841,6 +873,7 @@
     await refreshServers();
     await refreshChannels();
     await refreshMembers();
+    await refreshPendingUsers();
     
     // Set up refresh intervals
     refreshInterval = setInterval(async () => {
@@ -1006,6 +1039,12 @@
             </div>
           </div>
           <div class="footer-actions">
+            {#if me?.role === "admin"}
+              <button class="icon-btn" class:has-badge={pendingUsers.length > 0} on:click={() => { showAdminPanel = true; refreshPendingUsers(); }} title="Admin Panel">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4.354a4 4 0 1 1 0 5.292M15 21H3v-1a6 6 0 0 1 12 0v1zm0 0h6v-1a6 6 0 0 0-9-5.197"/></svg>
+                {#if pendingUsers.length > 0}<span class="badge-dot"></span>{/if}
+              </button>
+            {/if}
             <button class="icon-btn" on:click={() => { showCalendar = !showCalendar; if (showCalendar) showMemberList = false; }} title="Calendar"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></button>
             <button class="icon-btn" on:click={logout} title="Logout"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></button>
           </div>
@@ -1427,6 +1466,39 @@
         <div class="modal-actions">
           <button class="ghost-btn" on:click={() => showEventCreate = false}>Cancel</button>
           <button class="primary-btn" on:click={createEvent}>Create</button>
+        </div>
+      </div>
+    </div>
+  {/if}
+
+  {#if showAdminPanel}
+    <div class="modal-backdrop" role="button" tabindex="0" on:click={() => showAdminPanel = false} on:keydown={(e) => e.key === 'Escape' && (showAdminPanel = false)}>
+      <div class="modal admin-panel-modal" role="dialog" tabindex="-1" on:click|stopPropagation on:keydown|stopPropagation>
+        <h3>Admin Panel</h3>
+        <p>Manage pending account requests</p>
+        {#if pendingUsers.length === 0}
+          <div class="admin-empty">
+            <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="var(--text-muted)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><polyline points="17 11 19 13 23 9"/></svg>
+            <p>No pending requests</p>
+          </div>
+        {:else}
+          <div class="pending-users-list">
+            {#each pendingUsers as user}
+              <div class="pending-user-row">
+                <div class="pending-user-info">
+                  <span class="pending-user-name">{user.username}</span>
+                  <span class="pending-user-date">Registered {new Date(user.createdAt).toLocaleDateString()}</span>
+                </div>
+                <div class="pending-user-actions">
+                  <button class="primary-btn small" on:click={() => approveUser(user.username)}>Approve</button>
+                  <button class="ghost-btn small danger-text" on:click={() => rejectPendingUser(user.username)}>Deny</button>
+                </div>
+              </div>
+            {/each}
+          </div>
+        {/if}
+        <div class="modal-actions">
+          <button class="ghost-btn" on:click={() => showAdminPanel = false}>Close</button>
         </div>
       </div>
     </div>
@@ -2536,6 +2608,95 @@
     gap: 0.6rem;
     justify-content: flex-end;
     margin-top: 0.5rem;
+  }
+
+  /* ===== ADMIN PANEL ===== */
+  .admin-panel-modal {
+    max-height: 80vh;
+    overflow-y: auto;
+  }
+
+  .admin-empty {
+    display: grid;
+    place-items: center;
+    gap: 0.5rem;
+    padding: 1.5rem 0;
+    color: var(--text-muted);
+    font-size: 0.875rem;
+  }
+
+  .admin-empty p {
+    margin: 0;
+    color: var(--text-muted);
+  }
+
+  .pending-users-list {
+    display: grid;
+    gap: 0.5rem;
+  }
+
+  .pending-user-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    background: var(--bg-elevated);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-subtle);
+  }
+
+  .pending-user-info {
+    display: grid;
+    gap: 0.125rem;
+    min-width: 0;
+  }
+
+  .pending-user-name {
+    font-weight: 600;
+    color: var(--text-primary);
+    font-size: 0.875rem;
+  }
+
+  .pending-user-date {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+  }
+
+  .pending-user-actions {
+    display: flex;
+    gap: 0.375rem;
+    flex-shrink: 0;
+  }
+
+  .primary-btn.small,
+  .ghost-btn.small {
+    padding: 0.375rem 0.75rem;
+    font-size: 0.75rem;
+  }
+
+  .danger-text {
+    color: var(--error);
+  }
+
+  .danger-text:hover {
+    background: var(--error-subtle);
+    color: var(--error);
+  }
+
+  .badge-dot {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    width: 8px;
+    height: 8px;
+    background: var(--error);
+    border-radius: 50%;
+    border: 2px solid var(--bg-surface);
+  }
+
+  .icon-btn.has-badge {
+    position: relative;
   }
 
   /* ===== REACTION / GIF PICKER ===== */

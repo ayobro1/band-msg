@@ -999,32 +999,6 @@ export async function cleanOldTypingIndicators(): Promise<void> {
 
 // ============ SERVERS/GUILDS ============
 
-export async function createServer(args: {
-  sessionToken: string;
-  name: string;
-  description?: string;
-}): Promise<Result<{ serverId: string }>> {
-  const user = await getUserBySession(args.sessionToken);
-  if (!user) {
-    return { ok: false, code: 401, error: "Unauthorized" };
-  }
-
-  const serverId = crypto.randomUUID();
-  const memberId = crypto.randomUUID();
-
-  await sql`
-    INSERT INTO servers (id, name, description, owner_id, created_at)
-    VALUES (${serverId}, ${args.name}, ${args.description || ''}, ${user.id}, ${Date.now()})
-  `;
-
-  await sql`
-    INSERT INTO server_members (id, server_id, user_id, joined_at)
-    VALUES (${memberId}, ${serverId}, ${user.id}, ${Date.now()})
-  `;
-
-  return { ok: true, value: { serverId } };
-}
-
 export async function listServers(sessionToken: string): Promise<Result<Array<{ id: string; name: string; description: string; iconUrl?: string }>>> {
   const user = await getUserBySession(sessionToken);
   if (!user) {
