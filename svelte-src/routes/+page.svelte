@@ -33,8 +33,7 @@
   let newMessage = "";
   let newChannel = "";
   let newChannelDescription = "";
-  let newServerName = "";
-  let newServerDescription = "";
+
   let inviteCode = "";
   let isLoggingIn = false;
   let authMode: "login" | "register" = "login";
@@ -45,7 +44,7 @@
   let typingTimeout: ReturnType<typeof setTimeout> | null = null;
   let showEmojiPicker = false;
   let showCalendar = false;
-  let showServerCreate = false;
+
   let showInviteModal = false;
   let showEventCreate = false;
   let showMemberList = false;
@@ -449,23 +448,6 @@
     newChannelDescription = "";
     showToast("Channel created.", "success");
     await refreshChannels();
-  }
-
-  async function createServer() {
-    if (!newServerName.trim()) return;
-    const res = await apiPost("/api/servers", {
-      name: newServerName,
-      description: newServerDescription
-    });
-    if (!res.ok) {
-      showToast(await readApiError(res, "Create server failed"), "error");
-      return;
-    }
-    newServerName = "";
-    newServerDescription = "";
-    showServerCreate = false;
-    showToast("Server created.", "success");
-    await refreshServers();
   }
 
   async function selectServer(server: Server) {
@@ -1460,9 +1442,11 @@
 <style>
   /* ===== BASE ===== */
   .discord-app {
+    width: 100%;
     height: 100vh;
     height: 100dvh;
     display: grid;
+    grid-template-rows: minmax(0, 1fr);
     gap: 0;
     background: var(--bg-root);
     color: var(--text-body);
@@ -1512,8 +1496,7 @@
   /* ===== AUTH ===== */
   .auth-shell {
     width: 100%;
-    height: 100vh;
-    height: 100dvh;
+    height: 100%;
     display: grid;
     place-items: center;
     padding: 2rem 1rem;
@@ -1617,10 +1600,10 @@
 
   /* ===== CHAT SHELL ===== */
   .chat-shell {
-    height: 100vh;
-    height: 100dvh;
+    height: 100%;
     display: grid;
     grid-template-columns: 64px 260px minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
     gap: 0;
     overflow: hidden;
     position: relative;
@@ -1836,6 +1819,7 @@
 
   /* ===== MAIN CHAT AREA ===== */
   .chat-main {
+    height: 100%;
     background: var(--bg-root);
     display: grid;
     grid-template-rows: auto 1fr auto;
@@ -3086,8 +3070,7 @@
     .chat-shell:has(.calendar-sidebar):has(.member-sidebar),
     .chat-shell:has(.calendar-sidebar):has(.member-sidebar.open) {
       grid-template-columns: 1fr;
-      height: 100vh;
-      height: 100dvh;
+      height: 100%;
     }
 
     .server-rail {
