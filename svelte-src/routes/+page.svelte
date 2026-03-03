@@ -769,6 +769,32 @@
     contextMenuMessageId = "";
   }
 
+  function closeEmojiPicker() {
+    showEmojiPicker = false;
+    reactionPickerTab = "emoji";
+    reactionGifSearch = "";
+    reactionGifResults = [];
+    emojiSearchQuery = "";
+  }
+
+  function closeSidebars() {
+    showChannelSidebar = false;
+    showMemberList = false;
+  }
+
+  function toggleMemberList() {
+    showMemberList = !showMemberList;
+    if (showMemberList) {
+      showCalendar = false;
+      showChannelSidebar = false;
+    }
+  }
+
+  function toggleChannelSidebar() {
+    showChannelSidebar = !showChannelSidebar;
+    if (showChannelSidebar) showMemberList = false;
+  }
+
   // Audio file detection
   function isAudioMessage(content: string): { isAudio: boolean; url: string; name: string } {
     const match = content.match(/^(https?:\/\/\S+\.(mp3|wav|ogg|flac|aac|m4a))$/i);
@@ -895,8 +921,8 @@
           class="sidebar-overlay"
           role="button"
           tabindex="0"
-          on:click={() => { showChannelSidebar = false; showMemberList = false; }}
-          on:keydown={(e) => e.key === 'Escape' && (showChannelSidebar = false, showMemberList = false)}
+          on:click={closeSidebars}
+          on:keydown={(e) => (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') && closeSidebars()}
         ></div>
       {/if}
 
@@ -988,7 +1014,7 @@
       <section class="chat-main">
         <header class="chat-header">
           <div class="chat-header-left">
-            <button class="icon-btn hamburger-btn" on:click={() => { showChannelSidebar = !showChannelSidebar; if (showChannelSidebar) showMemberList = false; }} title="Channels">
+            <button class="icon-btn hamburger-btn" on:click={toggleChannelSidebar} title="Channels">
               <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
             </button>
             <h3>
@@ -1000,7 +1026,7 @@
             </h3>
           </div>
           <div class="chat-header-actions">
-            <button class="icon-btn" class:active={showMemberList} on:click={() => { showMemberList = !showMemberList; if (showMemberList) { showCalendar = false; showChannelSidebar = false; } }} title="Member List"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></button>
+            <button class="icon-btn" class:active={showMemberList} on:click={toggleMemberList} title="Member List"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></button>
           </div>
         </header>
 
@@ -1255,12 +1281,12 @@
 
   <!-- Modals -->
   {#if showEmojiPicker && selectedMessageForReaction}
-    <div class="modal-backdrop bottom-sheet-backdrop" role="button" tabindex="0" on:click={() => { showEmojiPicker = false; reactionPickerTab = "emoji"; reactionGifSearch = ""; reactionGifResults = []; emojiSearchQuery = ""; }} on:keydown={(e) => e.key === 'Escape' && (showEmojiPicker = false)}>
+    <div class="modal-backdrop bottom-sheet-backdrop" role="button" tabindex="0" on:click={closeEmojiPicker} on:keydown={(e) => e.key === 'Escape' && closeEmojiPicker()}>
       <div class="modal reaction-picker bottom-sheet" role="dialog" tabindex="-1" on:click|stopPropagation on:keydown|stopPropagation>
         <div class="bottom-sheet-handle"></div>
         <div class="reaction-picker-header">
           <h3>Add Reaction</h3>
-          <button class="picker-close-btn" title="Close" on:click={() => { showEmojiPicker = false; reactionPickerTab = "emoji"; reactionGifSearch = ""; reactionGifResults = []; emojiSearchQuery = ""; }}>
+          <button class="picker-close-btn" title="Close" on:click={closeEmojiPicker}>
             <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           </button>
         </div>
@@ -1281,7 +1307,7 @@
           </div>
           <div class="emoji-grid">
             {#each filteredEmojis as icon}
-              <button class="emoji-btn" on:click={() => { addReaction(selectedMessageForReaction, icon.id); emojiSearchQuery = ""; }} title={icon.label}>
+              <button class="emoji-btn" on:click={() => { addReaction(selectedMessageForReaction, icon.id); closeEmojiPicker(); }} title={icon.label}>
                 {@html icon.svg}
               </button>
             {/each}
@@ -2852,6 +2878,7 @@
     .chat-shell:has(.calendar-sidebar):has(.member-sidebar),
     .chat-shell:has(.calendar-sidebar):has(.member-sidebar.open) {
       grid-template-columns: 1fr;
+      min-height: 100vh;
       min-height: 100dvh;
     }
 
