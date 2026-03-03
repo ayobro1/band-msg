@@ -67,6 +67,18 @@
     });
   }
 
+  async function apiGet(path: string) {
+    const headers: Record<string, string> = {};
+    if (headerSessionToken) {
+      headers.authorization = `Bearer ${headerSessionToken}`;
+    }
+
+    return fetch(path, {
+      credentials: "same-origin",
+      headers
+    });
+  }
+
   async function readApiError(res: Response, fallback: string): Promise<string> {
     try {
       const contentType = res.headers.get("content-type") || "";
@@ -87,26 +99,23 @@
     return `${fallback} (${res.status})`;
   }
 
-  async function refreshMe() {
-    const headers: Record<string, string> = {};
-    if (headerSessionToken) {
-      headers.authorization = `Bearer ${headerSessionToken}`;
-    }
-
-    const res = await fetch("/api/auth/me", {
-      credentials: "same-origin",
-      headers
-    });
+  async function refreshMe(): Promise<{ ok: boolean; error?: string; status?: number }> {
+    const res = await apiGet("/api/auth/me");
     if (!res.ok) {
       me = null;
-      return;
+      return {
+        ok: false,
+        status: res.status,
+        error: await readApiError(res, "Auth check failed")
+      };
     }
     me = await res.json();
+    return { ok: true };
   }
 
   async function refreshChannels() {
     if (!me) return;
-    const res = await fetch("/api/channels");
+    const res = await apiGet("/api/channels");
     if (!res.ok) return;
     channels = await res.json();
     if (!selectedChannelId && channels.length > 0) {
@@ -118,7 +127,7 @@
 
   async function refreshMessages() {
     if (!selectedChannelId) return;
-    const res = await fetch(`/api/messages?channelId=${encodeURIComponent(selectedChannelId)}`);
+    const res = await apiGet(`/api/messages?channelId=${encodeURIComponent(selectedChannelId)}`);
     if (!res.ok) return;
     messages = await res.json();
   }
@@ -158,10 +167,10 @@
       const body = await res.json().catch(() => null);
       headerSessionToken = typeof body?.sessionToken === "string" ? body.sessionToken : "";
 
-      await refreshMe();
-      if (!me) {
+      const authState = await refreshMe();
+      if (!authState.ok || !me) {
         loginPassword = attemptedPassword;
-        showToast("Signed in response received, but session cookie was not saved. Check AUTH_COOKIE_SECURE and browser cookies.", "error");
+        showToast(authState.error || "Signed in response received, but session was not established.", "error");
         return;
       }
 
