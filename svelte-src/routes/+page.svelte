@@ -1460,13 +1460,14 @@
 <style>
   /* ===== BASE ===== */
   .discord-app {
-    min-height: 100vh;
-    min-height: 100dvh;
+    height: 100vh;
+    height: 100dvh;
     display: grid;
     gap: 0;
     background: var(--bg-root);
     color: var(--text-body);
     font-size: 0.875rem;
+    overflow: hidden;
   }
 
   /* ===== TOAST ===== */
@@ -1511,11 +1512,12 @@
   /* ===== AUTH ===== */
   .auth-shell {
     width: 100%;
-    min-height: 100vh;
-    min-height: 100dvh;
+    height: 100vh;
+    height: 100dvh;
     display: grid;
     place-items: center;
     padding: 2rem 1rem;
+    overflow-y: auto;
     animation: auth-fade-in 0.5s ease-out;
   }
 
@@ -1648,6 +1650,8 @@
     align-content: start;
     justify-content: center;
     gap: 0.5rem;
+    overflow-y: auto;
+    overflow-x: hidden;
   }
 
   .server-pill {
@@ -1834,8 +1838,9 @@
   .chat-main {
     background: var(--bg-root);
     display: grid;
-    grid-template-rows: auto auto 1fr auto;
+    grid-template-rows: auto 1fr auto;
     min-height: 0;
+    position: relative;
   }
 
   .chat-header {
@@ -1874,6 +1879,11 @@
 
   /* ===== RECONNECTING ===== */
   .reconnecting-bar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 5;
     background: var(--warning);
     color: var(--bg-root);
     text-align: center;
@@ -1967,6 +1977,7 @@
     gap: 1rem;
     align-content: start;
     scroll-behavior: smooth;
+    min-height: 0;
   }
 
   .message-row {
@@ -2790,9 +2801,9 @@
 
   /* ===== BAND TOOLS ===== */
   .band-tools-view {
-    flex: 1;
     overflow-y: auto;
     padding: 1.25rem;
+    min-height: 0;
   }
 
   .band-tools-content {
@@ -3136,10 +3147,6 @@
     @keyframes fade-in {
       from { opacity: 0; }
       to { opacity: 1; }
-    }
-
-    .messages-scroll {
-      min-height: 0;
     }
 
     .emoji-grid {
