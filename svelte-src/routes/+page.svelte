@@ -19,6 +19,7 @@
   let newChannel = "";
   let newChannelDescription = "";
   let isLoggingIn = false;
+  let headerSessionToken = "";
   let toastMessage = "";
   let toastType: "error" | "success" = "error";
   let toastTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -49,13 +50,19 @@
 
   async function apiPost(path: string, payload: Record<string, unknown>) {
     const csrf = getCookie("band_chat_csrf");
+    const headers: Record<string, string> = {
+      "content-type": "application/json",
+      "x-csrf-token": csrf
+    };
+
+    if (headerSessionToken) {
+      headers.authorization = `Bearer ${headerSessionToken}`;
+    }
+
     return fetch(path, {
       method: "POST",
       credentials: "same-origin",
-      headers: {
-        "content-type": "application/json",
-        "x-csrf-token": csrf
-      },
+      headers,
       body: JSON.stringify(payload)
     });
   }
@@ -81,7 +88,15 @@
   }
 
   async function refreshMe() {
-    const res = await fetch("/api/auth/me", { credentials: "same-origin" });
+    const headers: Record<string, string> = {};
+    if (headerSessionToken) {
+      headers.authorization = `Bearer ${headerSessionToken}`;
+    }
+
+    const res = await fetch("/api/auth/me", {
+      credentials: "same-origin",
+      headers
+    });
     if (!res.ok) {
       me = null;
       return;
@@ -140,6 +155,9 @@
         return;
       }
 
+      const body = await res.json().catch(() => null);
+      headerSessionToken = typeof body?.sessionToken === "string" ? body.sessionToken : "";
+
       await refreshMe();
       if (!me) {
         loginPassword = attemptedPassword;
@@ -149,6 +167,10 @@
 
       loginPassword = "";
       await refreshChannels();
+      if (headerSessionToken) {
+        showToast("Signed in using header-session fallback (cookies blocked by browser).", "success");
+        return;
+      }
       showToast("Signed in.", "success");
     } finally {
       isLoggingIn = false;
@@ -157,6 +179,7 @@
 
   async function logout() {
     await apiPost("/api/auth/logout", {});
+    headerSessionToken = "";
     me = null;
     channels = [];
     messages = [];

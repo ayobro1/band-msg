@@ -62,7 +62,10 @@ export const POST = async ({ request, cookies }: any) => {
     await clearRateLimit(userKey);
 
     setSessionCookie(cookies, sessionToken);
-    return toJson(result.value);
+    return toJson({
+      ...result.value,
+      sessionToken
+    });
   } catch (error: any) {
     const expose = process.env.AUTH_DEBUG === "true";
     return toJson(

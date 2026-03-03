@@ -18,8 +18,21 @@ function isCsrfExemptPath(pathname: string): boolean {
   return pathname === "/api/auth/login" || pathname === "/api/auth/register";
 }
 
+function getBearerSessionToken(request: Request): string | null {
+  const value = request.headers.get("authorization") || "";
+  if (!value.toLowerCase().startsWith("bearer ")) return null;
+  const token = value.slice(7).trim();
+  return token || null;
+}
+
 export const handle = async ({ event, resolve }: any) => {
-  event.locals.sessionToken = getSessionToken(event.cookies);
+  const cookieSessionToken = getSessionToken(event.cookies);
+  const headerSessionToken = getBearerSessionToken(event.request);
+  const usingHeaderSession = !cookieSessionToken && !!headerSessionToken;
+
+  event.locals.sessionToken = cookieSessionToken ?? headerSessionToken;
+  event.locals.sessionFromHeader = usingHeaderSession;
+
   const csrfToken = getCsrfToken(event.cookies) ?? createCsrfToken();
   event.locals.csrfToken = csrfToken;
   if (!getCsrfToken(event.cookies)) {
@@ -35,7 +48,7 @@ export const handle = async ({ event, resolve }: any) => {
       });
     }
 
-    if (event.locals.sessionToken && !isCsrfExemptPath(event.url.pathname)) {
+    if (event.locals.sessionToken && !usingHeaderSession && !isCsrfExemptPath(event.url.pathname)) {
       const tokenHeader = event.request.headers.get("x-csrf-token");
       const cookieToken = getCsrfToken(event.cookies);
       if (!tokenHeader || !cookieToken || tokenHeader !== cookieToken) {
