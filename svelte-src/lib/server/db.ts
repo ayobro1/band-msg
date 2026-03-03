@@ -648,6 +648,24 @@ export async function createChannel(args: {
   }
 }
 
+export async function deleteChannel(args: {
+  sessionToken: string;
+  channelId: string;
+}): Promise<Result<{ ok: true }>> {
+  const adminResult = await requireAdmin(args.sessionToken);
+  if (adminResult.ok === false) {
+    return adminResult;
+  }
+
+  const rows = await sql`SELECT id FROM channels WHERE id = ${args.channelId} LIMIT 1`;
+  if (!rows[0]) {
+    return { ok: false, code: 404, error: "Channel not found" };
+  }
+
+  await sql`DELETE FROM channels WHERE id = ${args.channelId}`;
+  return { ok: true, value: { ok: true } };
+}
+
 export async function listMessages(args: {
   sessionToken: string;
   channelId: string;

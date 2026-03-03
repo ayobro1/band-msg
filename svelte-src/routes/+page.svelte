@@ -60,33 +60,6 @@
   // Emoji search
   let emojiSearchQuery = "";
 
-  // Band Tools state
-  type SetlistItem = { id: string; title: string; key: string; duration: string };
-  type EquipmentItem = { id: string; name: string; checkedBy: string | null };
-  let showBandTools = false;
-  let bandToolsView: "setlist" | "equipment" = "setlist";
-  let setlist: SetlistItem[] = [
-    { id: "1", title: "Highway to Hell", key: "A", duration: "3:28" },
-    { id: "2", title: "Enter Sandman", key: "Em", duration: "5:31" },
-    { id: "3", title: "Wonderwall", key: "F#m", duration: "4:18" },
-    { id: "4", title: "Black Dog", key: "A", duration: "4:55" },
-    { id: "5", title: "Don't Stop Me Now", key: "F", duration: "3:29" },
-  ];
-  let equipmentList: EquipmentItem[] = [
-    { id: "1", name: "Amps", checkedBy: null },
-    { id: "2", name: "Drum Rug", checkedBy: null },
-    { id: "3", name: "Cables", checkedBy: null },
-    { id: "4", name: "DI Boxes", checkedBy: null },
-    { id: "5", name: "Mic Stands", checkedBy: null },
-    { id: "6", name: "Drum Kit", checkedBy: null },
-    { id: "7", name: "PA System", checkedBy: null },
-  ];
-  let newSetlistTitle = "";
-  let newSetlistKey = "";
-  let newSetlistDuration = "";
-  let dragOverId = "";
-  let dragSourceId = "";
-
   // GIF picker state
   type GifItem = { id: string; title: string; url: string; preview: string; width: number; height: number };
   let showGifPicker = false;
@@ -455,6 +428,22 @@
     await refreshChannels();
   }
 
+  async function confirmDeleteChannel(channelId: string, channelName: string) {
+    if (!confirm(`Delete #${channelName}? This will permanently remove the channel and all its messages.`)) return;
+    const res = await apiPost("/api/channels/delete", { channelId });
+    if (!res.ok) {
+      showToast(await readApiError(res, "Failed to delete channel"), "error");
+      return;
+    }
+    showToast(`#${channelName} deleted.`, "success");
+    if (selectedChannelId === channelId) {
+      selectedChannelId = "";
+      selectedChannelName = "";
+      messages = [];
+    }
+    await refreshChannels();
+  }
+
   async function selectServer(server: Server) {
     selectedServerId = server.id;
     selectedChannelId = "";
@@ -802,7 +791,6 @@
     if (showMemberList) {
       showCalendar = false;
       showChannelSidebar = false;
-      showBandTools = false;
     }
   }
 
@@ -819,7 +807,6 @@
     if (showCalendar) {
       showMemberList = false;
       showChannelSidebar = false;
-      showBandTools = false;
     }
   }
 
@@ -828,47 +815,6 @@
     const match = content.match(/^(https?:\/\/\S+\.(mp3|wav|ogg|flac|aac|m4a))$/i);
     if (match) return { isAudio: true, url: match[1], name: match[1].split('/').pop() || 'audio' };
     return { isAudio: false, url: '', name: '' };
-  }
-
-  // Setlist drag-and-drop
-  function onDragStart(id: string) {
-    dragSourceId = id;
-  }
-  function onDragOver(e: DragEvent, id: string) {
-    e.preventDefault();
-    dragOverId = id;
-  }
-  function onDrop(targetId: string) {
-    if (!dragSourceId || dragSourceId === targetId) { dragOverId = ""; return; }
-    const srcIdx = setlist.findIndex(s => s.id === dragSourceId);
-    const tgtIdx = setlist.findIndex(s => s.id === targetId);
-    const updated = [...setlist];
-    const [item] = updated.splice(srcIdx, 1);
-    updated.splice(tgtIdx, 0, item);
-    setlist = updated;
-    dragSourceId = "";
-    dragOverId = "";
-  }
-  function addSetlistItem() {
-    if (!newSetlistTitle.trim()) return;
-    setlist = [...setlist, {
-      id: String(Date.now()),
-      title: newSetlistTitle.trim(),
-      key: newSetlistKey.trim() || "?",
-      duration: newSetlistDuration.trim() || "0:00"
-    }];
-    newSetlistTitle = "";
-    newSetlistKey = "";
-    newSetlistDuration = "";
-  }
-  function removeSetlistItem(id: string) {
-    setlist = setlist.filter(s => s.id !== id);
-  }
-  function toggleEquipment(id: string) {
-    equipmentList = equipmentList.map(item => {
-      if (item.id !== id) return item;
-      return { ...item, checkedBy: item.checkedBy ? null : (me?.username ?? "unknown") };
-    });
   }
 
   let refreshInterval: ReturnType<typeof setInterval> | null = null;
@@ -974,21 +920,6 @@
         ></div>
       {/if}
 
-      <!-- Server Rail -->
-      <aside class="server-rail">
-        {#each servers as server}
-          <button 
-            class="server-pill" 
-            class:active={server.id === selectedServerId}
-            on:click={() => selectServer(server)}
-            title={server.name}
-          >
-            {server.name.slice(0, 2).toUpperCase()}
-          </button>
-        {/each}
-        <button class="server-pill add-server" on:click={() => showInviteModal = true} title="Join Server"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></button>
-      </aside>
-
       <!-- Channel Sidebar -->
       <aside class="channel-sidebar" class:open={showChannelSidebar}>
         <header class="sidebar-header">
@@ -1027,19 +958,17 @@
               <p class="empty-state">No channels yet.</p>
             {/if}
             {#each channels as channel}
-              <button class="channel-link" class:active={channel.id === selectedChannelId && !showBandTools} on:click={() => { selectChannel(channel); showBandTools = false; showChannelSidebar = false; }}>
-                <span>#{channel.name}</span>
-              </button>
+              <div class="channel-link-row">
+                <button class="channel-link" class:active={channel.id === selectedChannelId} on:click={() => { selectChannel(channel); showChannelSidebar = false; }}>
+                  <span>#{channel.name}</span>
+                </button>
+                {#if me?.role === "admin"}
+                  <button class="channel-delete-btn" on:click={() => confirmDeleteChannel(channel.id, channel.name)} title="Delete channel">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                  </button>
+                {/if}
+              </div>
             {/each}
-          </div>
-          <p class="section-title" style="margin-top:1rem">Band Tools</p>
-          <div class="channel-list">
-            <button class="channel-link" class:active={showBandTools && bandToolsView === 'setlist'} on:click={() => { showBandTools = true; bandToolsView = 'setlist'; showChannelSidebar = false; }}>
-              <span>🎵 Setlist</span>
-            </button>
-            <button class="channel-link" class:active={showBandTools && bandToolsView === 'equipment'} on:click={() => { showBandTools = true; bandToolsView = 'equipment'; showChannelSidebar = false; }}>
-              <span>🎸 Equipment</span>
-            </button>
           </div>
         </div>
 
@@ -1072,11 +1001,7 @@
               <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
             </button>
             <h3>
-              {#if showBandTools}
-                {bandToolsView === 'setlist' ? '🎵 Setlist' : '🎸 Equipment Checklist'}
-              {:else}
-                {selectedChannelName ? `#${selectedChannelName}` : "Select a channel"}
-              {/if}
+              {selectedChannelName ? `#${selectedChannelName}` : "Select a channel"}
             </h3>
           </div>
           <div class="chat-header-actions">
@@ -1091,67 +1016,6 @@
           </div>
         {/if}
 
-        <!-- Band Tools View -->
-        {#if showBandTools}
-          <div class="band-tools-view">
-            {#if bandToolsView === 'setlist'}
-              <div class="band-tools-content">
-                <p class="section-title" style="margin-bottom:1rem">Song Order — drag to reorder</p>
-                <ul class="setlist-list">
-                  {#each setlist as song, i (song.id)}
-                    <li
-                      class="setlist-item"
-                      class:drag-over={dragOverId === song.id}
-                      draggable="true"
-                      on:dragstart={() => onDragStart(song.id)}
-                      on:dragover={(e) => onDragOver(e, song.id)}
-                      on:drop={() => onDrop(song.id)}
-                      on:dragend={() => { dragOverId = ""; dragSourceId = ""; }}
-                    >
-                      <span class="setlist-num">{i + 1}</span>
-                      <svg class="drag-handle" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="8" y1="18" x2="16" y2="18"/></svg>
-                      <span class="setlist-title">{song.title}</span>
-                      <span class="setlist-badge key">{song.key}</span>
-                      <span class="setlist-badge duration">{song.duration}</span>
-                      <button class="icon-btn setlist-remove" on:click={() => removeSetlistItem(song.id)} title="Remove">
-                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                      </button>
-                    </li>
-                  {/each}
-                </ul>
-                <div class="setlist-add-form">
-                  <input class="field" bind:value={newSetlistTitle} placeholder="Song title" on:keydown={(e) => e.key === 'Enter' && addSetlistItem()} />
-                  <input class="field setlist-short" bind:value={newSetlistKey} placeholder="Key (e.g. Am)" />
-                  <input class="field setlist-short" bind:value={newSetlistDuration} placeholder="0:00" />
-                  <button class="primary-btn" on:click={addSetlistItem}>Add</button>
-                </div>
-              </div>
-            {:else}
-              <div class="band-tools-content">
-                <p class="section-title" style="margin-bottom:1rem">Equipment Checklist</p>
-                <ul class="equipment-list">
-                  {#each equipmentList as item (item.id)}
-                    <li class="equipment-item" class:checked={!!item.checkedBy}>
-                      <label class="equipment-label">
-                        <input
-                          type="checkbox"
-                          checked={!!item.checkedBy}
-                          on:change={() => toggleEquipment(item.id)}
-                        />
-                        <span class="equipment-name">{item.name}</span>
-                      </label>
-                      {#if item.checkedBy}
-                        <span class="equipment-checker">✓ {item.checkedBy}</span>
-                      {:else}
-                        <span class="equipment-unchecked">—</span>
-                      {/if}
-                    </li>
-                  {/each}
-                </ul>
-              </div>
-            {/if}
-          </div>
-        {:else}
         <div class="messages-scroll" bind:this={messageContainer}>
           {#if isLoadingMessages}
             <!-- Skeleton Loading States -->
@@ -1171,9 +1035,6 @@
             {#each messages as msg}
               <article
                 class="message-row"
-                on:pointerdown={(e) => handleMessagePointerDown(e, msg.id)}
-                on:pointerup={handleMessagePointerUp}
-                on:pointerleave={handleMessagePointerUp}
                 on:contextmenu={(e) => handleMessageContextMenu(e, msg.id, msg.author)}
               >
                 <div class="avatar">{msg.author.slice(0, 1).toUpperCase()}</div>
@@ -1183,8 +1044,9 @@
                     <span class="msg-time">{new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
                   </div>
                   {#if isGifMessage(msg.content).isGif}
-                    <div class="gif-message">
-                      <img src={isGifMessage(msg.content).url} alt="GIF" loading="lazy" />
+                    <!-- svelte-ignore a11y-no-static-element-interactions -->
+                    <div class="gif-message" on:contextmenu|preventDefault>
+                      <img src={isGifMessage(msg.content).url} alt="GIF" loading="lazy" draggable="false" />
                     </div>
                   {:else if isAudioMessage(msg.content).isAudio}
                     <div class="audio-player">
@@ -1200,7 +1062,19 @@
                   {:else}
                     <p class="message-text">{@html parseMarkdown(msg.content)}</p>
                   {/if}
-                  
+
+                  <!-- Quick Reactions -->
+                  <div class="quick-reactions">
+                    {#each REACTION_ICONS.slice(0, 5) as icon}
+                      <button class="quick-react-btn" on:click={() => addReaction(msg.id, icon.id)} title={icon.label}>
+                        {@html icon.svg}
+                      </button>
+                    {/each}
+                    <button class="quick-react-btn more-react-btn" on:click={() => { selectedMessageForReaction = msg.id; showEmojiPicker = true; }} title="More reactions">
+                      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    </button>
+                  </div>
+
                   {#if msg.reactions && msg.reactions.length > 0}
                     <div class="reactions">
                       {#each msg.reactions as reaction}
@@ -1243,7 +1117,6 @@
             </div>
           {/if}
         </div>
-        {/if}
 
         <footer class="composer">
           <div class="composer-input-row">
@@ -1546,6 +1419,10 @@
     color: var(--text-body);
     font-size: 0.875rem;
     overflow: hidden;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    padding-left: env(safe-area-inset-left, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
   }
 
   /* ===== TOAST ===== */
@@ -1696,7 +1573,7 @@
   .chat-shell {
     height: 100%;
     display: grid;
-    grid-template-columns: 64px 260px minmax(0, 1fr);
+    grid-template-columns: 260px minmax(0, 1fr);
     grid-template-rows: minmax(0, 1fr);
     gap: 0;
     overflow: hidden;
@@ -1704,77 +1581,11 @@
   }
 
   .chat-shell:has(.member-sidebar.open) {
-    grid-template-columns: 64px 260px minmax(0, 1fr) 240px;
+    grid-template-columns: 260px minmax(0, 1fr) 240px;
   }
 
   .sidebar-overlay {
     display: none;
-  }
-
-  /* ===== SERVER RAIL ===== */
-  .server-rail {
-    background: var(--bg-root);
-    padding: 0.75rem 0;
-    display: grid;
-    align-content: start;
-    justify-content: center;
-    gap: 0.5rem;
-    overflow-y: auto;
-    overflow-x: hidden;
-  }
-
-  .server-pill {
-    width: 42px;
-    height: 42px;
-    border-radius: var(--radius-lg);
-    background: var(--bg-elevated);
-    color: var(--text-secondary);
-    display: grid;
-    place-items: center;
-    font-weight: 700;
-    font-size: 0.75rem;
-    letter-spacing: 0.02em;
-    cursor: pointer;
-    border: none;
-    transition: border-radius 150ms ease-out, background 150ms ease-out, color 150ms ease-out;
-    position: relative;
-  }
-
-  .server-pill:hover {
-    border-radius: 12px;
-    background: var(--accent);
-    color: var(--text-primary);
-  }
-
-  .server-pill.active {
-    border-radius: 12px;
-    background: var(--accent);
-    color: var(--text-primary);
-  }
-
-  .server-pill.active::before {
-    content: '';
-    position: absolute;
-    left: -11px;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 3px;
-    height: 20px;
-    background: var(--text-primary);
-    border-radius: 0 2px 2px 0;
-  }
-
-  .server-pill.add-server {
-    background: transparent;
-    border: 1.5px dashed var(--border-hover);
-    color: var(--text-muted);
-    font-size: 1rem;
-  }
-
-  .server-pill.add-server:hover {
-    border-color: var(--accent);
-    color: var(--accent);
-    background: var(--accent-subtle);
   }
 
   /* ===== CHANNEL SIDEBAR ===== */
@@ -1873,6 +1684,42 @@
     background: var(--accent-subtle);
     color: var(--text-primary);
     border-left-color: var(--accent);
+  }
+
+  .channel-link-row {
+    display: flex;
+    align-items: center;
+    gap: 0;
+  }
+
+  .channel-link-row .channel-link {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .channel-delete-btn {
+    width: 28px;
+    height: 28px;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+    opacity: 0;
+    transition: all 150ms ease-out;
+    flex-shrink: 0;
+    padding: 0;
+  }
+
+  .channel-link-row:hover .channel-delete-btn {
+    opacity: 1;
+  }
+
+  .channel-delete-btn:hover {
+    background: var(--error-subtle);
+    color: var(--error);
   }
 
   .user-footer {
@@ -2160,6 +2007,60 @@
     color: var(--accent-text);
     padding: 0 0.2rem;
     border-radius: 3px;
+  }
+
+  /* ===== QUICK REACTIONS ===== */
+  .quick-reactions {
+    display: flex;
+    gap: 0.25rem;
+    margin-top: 0.35rem;
+    opacity: 0;
+    transition: opacity 150ms ease-out;
+    pointer-events: none;
+  }
+
+  .message-row:hover .quick-reactions,
+  .message-row:focus-within .quick-reactions {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  @media (hover: none) {
+    .quick-reactions {
+      opacity: 1;
+      pointer-events: auto;
+    }
+  }
+
+  .quick-react-btn {
+    width: 28px;
+    height: 28px;
+    border-radius: var(--radius-full);
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+    padding: 0;
+    transition: all 150ms ease-out;
+  }
+
+  .quick-react-btn:hover {
+    background: var(--bg-hover);
+    border-color: var(--border-hover);
+    color: var(--text-secondary);
+    transform: scale(1.15);
+  }
+
+  .quick-react-btn :global(svg) {
+    width: 14px;
+    height: 14px;
+  }
+
+  .more-react-btn {
+    background: transparent;
+    border-style: dashed;
   }
 
   /* ===== REACTIONS ===== */
@@ -2966,6 +2867,10 @@
     width: 100%;
     height: auto;
     border-radius: var(--radius-lg);
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+    pointer-events: none;
   }
 
   .gif-reaction-img {
@@ -3002,173 +2907,6 @@
 
   .rehearsal-countdown strong {
     color: var(--text-primary);
-  }
-
-  /* ===== BAND TOOLS ===== */
-  .band-tools-view {
-    overflow-y: auto;
-    padding: 1.25rem;
-    min-height: 0;
-  }
-
-  .band-tools-content {
-    max-width: 640px;
-  }
-
-  /* Setlist */
-  .setlist-list {
-    list-style: none;
-    margin: 0 0 1rem;
-    padding: 0;
-    display: grid;
-    gap: 0.35rem;
-  }
-
-  .setlist-item {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    background: var(--bg-elevated);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
-    padding: 0.625rem 0.75rem;
-    cursor: grab;
-    transition: background 150ms ease-out, box-shadow 150ms ease-out;
-  }
-
-  .setlist-item:active { cursor: grabbing; }
-
-  .setlist-item.drag-over {
-    box-shadow: 0 0 0 2px var(--accent);
-    background: var(--accent-subtle);
-  }
-
-  .setlist-num {
-    color: var(--text-muted);
-    font-size: 0.75rem;
-    font-weight: 700;
-    min-width: 1.4rem;
-    text-align: right;
-  }
-
-  .drag-handle {
-    flex-shrink: 0;
-    color: var(--text-muted);
-  }
-
-  .setlist-title {
-    flex: 1;
-    font-weight: 500;
-    color: var(--text-body);
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .setlist-badge {
-    font-size: 0.6875rem;
-    font-weight: 600;
-    padding: 0.15rem 0.4rem;
-    border-radius: var(--radius-sm);
-    flex-shrink: 0;
-  }
-
-  .setlist-badge.key {
-    background: var(--accent-subtle);
-    color: var(--accent-text);
-  }
-
-  .setlist-badge.duration {
-    background: var(--bg-inset);
-    color: var(--text-muted);
-  }
-
-  .setlist-remove {
-    padding: 0.25rem;
-    opacity: 0.4;
-    transition: opacity 150ms ease-out;
-  }
-
-  .setlist-remove:hover {
-    opacity: 1;
-    color: var(--error);
-  }
-
-  .setlist-add-form {
-    display: flex;
-    gap: 0.5rem;
-    flex-wrap: wrap;
-  }
-
-  .setlist-add-form .field {
-    flex: 1;
-    min-width: 120px;
-  }
-
-  .setlist-short {
-    flex: 0 0 80px !important;
-    min-width: 0 !important;
-  }
-
-  /* Equipment */
-  .equipment-list {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    display: grid;
-    gap: 0.3rem;
-  }
-
-  .equipment-item {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    background: var(--bg-elevated);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
-    padding: 0.65rem 0.9rem;
-    transition: background 150ms ease-out, border-color 150ms ease-out;
-  }
-
-  .equipment-item.checked {
-    background: var(--success-subtle);
-    border-color: var(--success);
-  }
-
-  .equipment-label {
-    display: flex;
-    align-items: center;
-    gap: 0.6rem;
-    cursor: pointer;
-    flex: 1;
-  }
-
-  .equipment-label input[type="checkbox"] {
-    width: 18px;
-    height: 18px;
-    cursor: pointer;
-    accent-color: var(--accent);
-  }
-
-  .equipment-name {
-    font-weight: 500;
-    color: var(--text-body);
-  }
-
-  .equipment-checker {
-    font-size: 0.8125rem;
-    color: var(--success);
-    font-weight: 600;
-    flex-shrink: 0;
-    margin-left: 0.5rem;
-  }
-
-  .equipment-unchecked {
-    font-size: 0.8125rem;
-    color: var(--text-muted);
-    flex-shrink: 0;
-    margin-left: 0.5rem;
   }
 
   /* ===== AUDIO PLAYER ===== */
@@ -3250,7 +2988,7 @@
     .chat-shell,
     .chat-shell:has(.member-sidebar),
     .chat-shell:has(.member-sidebar.open) {
-      grid-template-columns: 64px 260px minmax(0, 1fr);
+      grid-template-columns: 260px minmax(0, 1fr);
     }
 
     .member-sidebar {
@@ -3276,10 +3014,6 @@
     .chat-shell:has(.member-sidebar.open) {
       grid-template-columns: 1fr;
       height: 100%;
-    }
-
-    .server-rail {
-      display: none;
     }
 
     .hamburger-btn {

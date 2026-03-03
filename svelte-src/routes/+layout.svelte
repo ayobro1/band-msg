@@ -44,6 +44,7 @@
 
   :global(html) {
     height: 100%;
+    height: -webkit-fill-available;
     overflow: hidden;
   }
 
@@ -55,8 +56,11 @@
     background: var(--bg-root);
     color: var(--text-body);
     height: 100%;
+    height: -webkit-fill-available;
     line-height: 1.6;
     overflow: hidden;
+    position: fixed;
+    inset: 0;
   }
 
   :global(*) {
