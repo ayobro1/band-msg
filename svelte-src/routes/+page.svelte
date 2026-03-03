@@ -13,12 +13,14 @@
     reactions?: Array<{ emoji: string; count: number; users: string[] }>;
   };
   type Event = { id: string; title: string; description: string; startsAt: number; endsAt: number; location: string };
+  type Member = { id: string; username: string; role: string; presenceStatus: string };
 
   let me: User | null = null;
   let servers: Server[] = [];
   let channels: Channel[] = [];
   let messages: Message[] = [];
   let events: Event[] = [];
+  let members: Member[] = [];
   let selectedServerId = "";
   let selectedChannelId = "";
   let selectedChannelName = "";
@@ -45,8 +47,12 @@
   let showServerCreate = false;
   let showInviteModal = false;
   let showEventCreate = false;
+  let showMemberList = false;
   let selectedMessageForReaction = "";
   let messageContainer: HTMLElement | null = null;
+  let isLoadingMessages = false;
+  let connectionStatus: "connected" | "reconnecting" = "connected";
+  let failedPollCount = 0;
 
   // New event form
   let newEventTitle = "";
@@ -175,20 +181,40 @@
 
   async function refreshMessages() {
     if (!selectedChannelId) return;
-    const res = await apiGet(`/api/messages?channelId=${encodeURIComponent(selectedChannelId)}`);
-    if (!res.ok) return;
-    const msgs = await res.json();
+    const isInitialLoad = messages.length === 0;
+    if (isInitialLoad) isLoadingMessages = true;
     
-    // Load reactions for each message
-    for (const msg of msgs) {
-      const reactionsRes = await apiGet(`/api/reactions?messageId=${encodeURIComponent(msg.id)}`);
-      if (reactionsRes.ok) {
-        msg.reactions = await reactionsRes.json();
+    try {
+      const res = await apiGet(`/api/messages?channelId=${encodeURIComponent(selectedChannelId)}`);
+      if (!res.ok) return;
+      const msgs = await res.json();
+      
+      // Load reactions for each message
+      for (const msg of msgs) {
+        const reactionsRes = await apiGet(`/api/reactions?messageId=${encodeURIComponent(msg.id)}`);
+        if (reactionsRes.ok) {
+          msg.reactions = await reactionsRes.json();
+        }
       }
+      
+      // Sticky scroll: only auto-scroll if user is near the bottom
+      const shouldScroll = isUserNearBottom();
+      messages = msgs;
+      if (shouldScroll || isInitialLoad) {
+        scrollToBottom();
+      }
+      
+      // Reset connection status on success
+      failedPollCount = 0;
+      connectionStatus = "connected";
+    } catch {
+      failedPollCount++;
+      if (failedPollCount >= 2) {
+        connectionStatus = "reconnecting";
+      }
+    } finally {
+      isLoadingMessages = false;
     }
-    
-    messages = msgs;
-    scrollToBottom();
   }
 
   async function refreshEvents() {
@@ -198,12 +224,33 @@
     events = await res.json();
   }
 
+  async function refreshMembers() {
+    if (!selectedServerId) return;
+    try {
+      const res = await apiGet(`/api/members?serverId=${encodeURIComponent(selectedServerId)}`);
+      if (!res.ok) return;
+      members = await res.json();
+    } catch {
+      // Silently fail - member list is non-critical
+    }
+  }
+
   async function refreshTyping() {
     if (!selectedChannelId) return;
-    const res = await apiGet(`/api/typing?channelId=${encodeURIComponent(selectedChannelId)}`);
-    if (!res.ok) return;
-    const users = await res.json();
-    typingUsers = users.map((u: any) => u.username);
+    try {
+      const res = await apiGet(`/api/typing?channelId=${encodeURIComponent(selectedChannelId)}`);
+      if (!res.ok) return;
+      const users = await res.json();
+      typingUsers = users.map((u: any) => u.username);
+    } catch {
+      // Silently fail - typing is non-critical
+    }
+  }
+
+  function isUserNearBottom(): boolean {
+    if (!messageContainer) return true;
+    const threshold = 150;
+    return messageContainer.scrollHeight - messageContainer.scrollTop - messageContainer.clientHeight < threshold;
   }
 
   function scrollToBottom() {
@@ -278,6 +325,7 @@
     channels = [];
     messages = [];
     events = [];
+    members = [];
     selectedServerId = "";
     selectedChannelId = "";
   }
@@ -354,6 +402,7 @@
     selectedChannelId = "";
     await refreshChannels();
     await refreshEvents();
+    await refreshMembers();
   }
 
   async function selectChannel(channel: Channel) {
@@ -468,11 +517,13 @@
     await refreshMe();
     await refreshServers();
     await refreshChannels();
+    await refreshMembers();
     
     // Set up refresh intervals
     refreshInterval = setInterval(async () => {
       await refreshMessages();
       await refreshTyping();
+      await refreshMembers();
     }, 2000);
   });
 
@@ -572,9 +623,12 @@
         </div>
 
         <footer class="user-footer">
-          <div>
-            <strong>{me?.username}</strong>
-            <p>{me?.role}</p>
+          <div class="user-footer-info">
+            <span class="presence-dot online"></span>
+            <div>
+              <strong>{me?.username}</strong>
+              <p>{me?.role}</p>
+            </div>
           </div>
           <div class="footer-actions">
             <button class="icon-btn" on:click={() => showCalendar = !showCalendar} title="Calendar">📅</button>
@@ -587,10 +641,32 @@
       <section class="chat-main">
         <header class="chat-header">
           <h3>{selectedChannelName ? `#${selectedChannelName}` : "Select a channel"}</h3>
+          <div class="chat-header-actions">
+            <button class="icon-btn" class:active={showMemberList} on:click={() => showMemberList = !showMemberList} title="Member List">👥</button>
+          </div>
         </header>
 
+        <!-- Reconnecting Overlay -->
+        {#if connectionStatus === "reconnecting"}
+          <div class="reconnecting-bar" role="status">
+            <span class="reconnecting-dot"></span> Reconnecting...
+          </div>
+        {/if}
+
         <div class="messages-scroll" bind:this={messageContainer}>
-          {#if messages.length === 0}
+          {#if isLoadingMessages}
+            <!-- Skeleton Loading States -->
+            {#each Array(5) as _}
+              <article class="message-row skeleton">
+                <div class="avatar skeleton-avatar"></div>
+                <div class="message-content">
+                  <div class="skeleton-line skeleton-name"></div>
+                  <div class="skeleton-line skeleton-text"></div>
+                  <div class="skeleton-line skeleton-text short"></div>
+                </div>
+              </article>
+            {/each}
+          {:else if messages.length === 0}
             <p class="empty-state">No messages yet. Start the conversation!</p>
           {:else}
             {#each messages as msg}
@@ -685,6 +761,41 @@
                 </div>
               {/each}
             </div>
+          </div>
+        </aside>
+      {/if}
+
+      <!-- Member List Sidebar -->
+      {#if showMemberList}
+        <aside class="member-sidebar">
+          <header class="sidebar-header">
+            <h2>Members</h2>
+            <button class="icon-btn" on:click={() => showMemberList = false}>✕</button>
+          </header>
+          <div class="member-list-content">
+            {#each ['online', 'idle', 'dnd', 'offline'] as status}
+              {@const statusMembers = members.filter(m => m.presenceStatus === status)}
+              {#if statusMembers.length > 0}
+                <p class="section-title">{status === 'dnd' ? 'Do Not Disturb' : status.charAt(0).toUpperCase() + status.slice(1)} — {statusMembers.length}</p>
+                {#each statusMembers as member}
+                  <div class="member-item">
+                    <div class="member-avatar-wrap">
+                      <div class="avatar small">{member.username.slice(0, 1).toUpperCase()}</div>
+                      <span class="presence-dot {member.presenceStatus}"></span>
+                    </div>
+                    <div class="member-info">
+                      <span class="member-name" class:admin={member.role === 'admin'}>{member.username}</span>
+                      {#if member.role === 'admin'}
+                        <span class="member-role-badge">Admin</span>
+                      {/if}
+                    </div>
+                  </div>
+                {/each}
+              {/if}
+            {/each}
+            {#if members.length === 0}
+              <p class="empty-state">No members found.</p>
+            {/if}
           </div>
         </aside>
       {/if}
@@ -833,14 +944,22 @@
   .chat-shell {
     min-height: calc(100vh - 2rem);
     display: grid;
-    grid-template-columns: 72px 280px minmax(0, 1fr) 320px;
+    grid-template-columns: 72px 280px minmax(0, 1fr);
     gap: 0;
     border-radius: 10px;
     overflow: hidden;
   }
 
-  .chat-shell:not(:has(.calendar-sidebar)) {
-    grid-template-columns: 72px 280px minmax(0, 1fr);
+  .chat-shell:has(.calendar-sidebar) {
+    grid-template-columns: 72px 280px minmax(0, 1fr) 320px;
+  }
+
+  .chat-shell:has(.member-sidebar) {
+    grid-template-columns: 72px 280px minmax(0, 1fr) 240px;
+  }
+
+  .chat-shell:has(.calendar-sidebar):has(.member-sidebar) {
+    grid-template-columns: 72px 280px minmax(0, 1fr) 240px;
   }
 
   /* Server Rail */
@@ -986,6 +1105,116 @@
     padding: 0.9rem 1rem;
     border-bottom: 1px solid #232428;
     background: #313338;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .chat-header-actions {
+    display: flex;
+    gap: 0.25rem;
+  }
+
+  .chat-header-actions .icon-btn.active {
+    background: #404249;
+    color: #dbdee1;
+  }
+
+  /* Reconnecting Overlay */
+  .reconnecting-bar {
+    background: #faa61a;
+    color: #000;
+    text-align: center;
+    padding: 0.4rem 0.75rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+  }
+
+  .reconnecting-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #000;
+    animation: reconnect-pulse 1.2s ease-in-out infinite;
+  }
+
+  @keyframes reconnect-pulse {
+    0%, 100% { opacity: 0.3; }
+    50% { opacity: 1; }
+  }
+
+  /* Skeleton Loading States */
+  .message-row.skeleton {
+    pointer-events: none;
+  }
+
+  .skeleton-avatar {
+    background: #404249 !important;
+    animation: skeleton-shimmer 1.5s ease-in-out infinite;
+  }
+
+  .skeleton-line {
+    height: 0.85rem;
+    border-radius: 4px;
+    background: #404249;
+    animation: skeleton-shimmer 1.5s ease-in-out infinite;
+  }
+
+  .skeleton-name {
+    width: 120px;
+    margin-bottom: 0.4rem;
+  }
+
+  .skeleton-text {
+    width: 80%;
+  }
+
+  .skeleton-text.short {
+    width: 45%;
+    margin-top: 0.3rem;
+  }
+
+  @keyframes skeleton-shimmer {
+    0%, 100% { opacity: 0.4; }
+    50% { opacity: 0.7; }
+  }
+
+  /* Presence Dots */
+  .presence-dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    border: 2px solid #232428;
+    flex-shrink: 0;
+  }
+
+  .presence-dot.online {
+    background: #23a55a;
+  }
+
+  .presence-dot.idle {
+    background: #f0b232;
+  }
+
+  .presence-dot.dnd {
+    background: #f23f43;
+  }
+
+  .presence-dot.offline {
+    background: #80848e;
+  }
+
+  /* User Footer with Presence */
+  .user-footer-info {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
   }
 
   .messages-scroll {
@@ -1284,6 +1513,94 @@
     color: #b5bac1;
   }
 
+  /* Member List Sidebar */
+  .member-sidebar {
+    background: #2b2d31;
+    border-left: 1px solid #232428;
+    display: grid;
+    grid-template-rows: auto 1fr;
+    min-height: 0;
+  }
+
+  .member-list-content {
+    padding: 0.75rem;
+    overflow: auto;
+    display: grid;
+    gap: 0.15rem;
+    align-content: start;
+  }
+
+  .member-list-content .section-title {
+    margin-top: 0.75rem;
+    margin-bottom: 0.35rem;
+  }
+
+  .member-list-content .section-title:first-child {
+    margin-top: 0;
+  }
+
+  .member-item {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.35rem 0.5rem;
+    border-radius: 6px;
+    cursor: default;
+  }
+
+  .member-item:hover {
+    background: #35373c;
+  }
+
+  .member-avatar-wrap {
+    position: relative;
+    flex-shrink: 0;
+  }
+
+  .member-avatar-wrap .presence-dot {
+    position: absolute;
+    bottom: -2px;
+    right: -2px;
+    width: 12px;
+    height: 12px;
+  }
+
+  .avatar.small {
+    width: 32px;
+    height: 32px;
+    font-size: 0.8rem;
+  }
+
+  .member-info {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    min-width: 0;
+  }
+
+  .member-name {
+    color: #949ba4;
+    font-size: 0.9rem;
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .member-name.admin {
+    color: #f47fff;
+  }
+
+  .member-role-badge {
+    font-size: 0.65rem;
+    background: rgba(244, 127, 255, 0.15);
+    color: #f47fff;
+    padding: 0.1rem 0.35rem;
+    border-radius: 4px;
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+
   /* Modals */
   .modal-backdrop {
     position: fixed;
@@ -1359,18 +1676,29 @@
 
   /* Responsive */
   @media (max-width: 1200px) {
-    .chat-shell {
+    .chat-shell,
+    .chat-shell:has(.calendar-sidebar),
+    .chat-shell:has(.member-sidebar),
+    .chat-shell:has(.calendar-sidebar):has(.member-sidebar) {
       grid-template-columns: 72px 280px minmax(0, 1fr);
     }
 
-    .calendar-sidebar {
+    .calendar-sidebar,
+    .member-sidebar {
       position: fixed;
       right: 0;
       top: 0;
       bottom: 0;
-      width: 320px;
       z-index: 50;
       box-shadow: -4px 0 12px rgba(0, 0, 0, 0.3);
+    }
+
+    .calendar-sidebar {
+      width: 320px;
+    }
+
+    .member-sidebar {
+      width: 240px;
     }
   }
 
@@ -1379,7 +1707,10 @@
       grid-template-columns: 1fr;
     }
 
-    .chat-shell {
+    .chat-shell,
+    .chat-shell:has(.calendar-sidebar),
+    .chat-shell:has(.member-sidebar),
+    .chat-shell:has(.calendar-sidebar):has(.member-sidebar) {
       grid-template-columns: 1fr;
       min-height: auto;
     }

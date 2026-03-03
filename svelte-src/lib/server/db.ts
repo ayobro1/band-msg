@@ -1026,6 +1026,44 @@ export async function listServers(sessionToken: string): Promise<Result<Array<{ 
   };
 }
 
+// ============ MEMBERS ============
+
+export async function listServerMembers(args: {
+  sessionToken: string;
+  serverId: string;
+}): Promise<Result<Array<{ id: string; username: string; role: string; presenceStatus: string }>>> {
+  await ensureDb();
+  const user = await getUserBySession(args.sessionToken);
+  if (!user) {
+    return { ok: false, code: 401, error: "Unauthorized" };
+  }
+
+  const rows = await sql`
+    SELECT u.id, u.username, u.role, u.presence_status
+    FROM users u
+    JOIN server_members m ON m.user_id = u.id
+    WHERE m.server_id = ${args.serverId}
+    ORDER BY
+      CASE u.presence_status
+        WHEN 'online' THEN 0
+        WHEN 'idle' THEN 1
+        WHEN 'dnd' THEN 2
+        ELSE 3
+      END,
+      u.username ASC
+  `;
+
+  return {
+    ok: true,
+    value: (rows as any[]).map((r: any) => ({
+      id: r.id,
+      username: r.username,
+      role: r.role,
+      presenceStatus: r.presence_status || 'offline'
+    }))
+  };
+}
+
 // ============ INVITES ============
 
 export async function createInvite(args: {
