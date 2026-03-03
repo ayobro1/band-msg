@@ -683,7 +683,7 @@
   }
 
   async function rejectPendingUser(username: string) {
-    const res = await apiPost("/api/admin/users/demote", { username });
+    const res = await apiPost("/api/admin/users/reject", { username });
     if (!res.ok) {
       showToast(await readApiError(res, "Failed to reject user"), "error");
       return;
@@ -802,12 +802,16 @@
     if (showMemberList) {
       showCalendar = false;
       showChannelSidebar = false;
+      showBandTools = false;
     }
   }
 
   function toggleChannelSidebar() {
     showChannelSidebar = !showChannelSidebar;
-    if (showChannelSidebar) showMemberList = false;
+    if (showChannelSidebar) {
+      showMemberList = false;
+      showCalendar = false;
+    }
   }
 
   // Audio file detection
@@ -1045,7 +1049,7 @@
                 {#if pendingUsers.length > 0}<span class="badge-dot"></span>{/if}
               </button>
             {/if}
-            <button class="icon-btn" on:click={() => { showCalendar = !showCalendar; if (showCalendar) showMemberList = false; }} title="Calendar"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></button>
+            <button class="icon-btn" on:click={() => { showCalendar = !showCalendar; if (showCalendar) { showMemberList = false; showChannelSidebar = false; showBandTools = false; } }} title="Calendar"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></button>
             <button class="icon-btn" on:click={logout} title="Logout"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></button>
           </div>
         </footer>
@@ -1250,21 +1254,30 @@
         </footer>
       </section>
 
-      <!-- Calendar Sidebar -->
+      <!-- Calendar Full Page -->
       {#if showCalendar}
-        <aside class="calendar-sidebar">
-          <header class="sidebar-header">
+        <div class="calendar-fullpage">
+          <header class="calendar-fullpage-header">
             <h2>Calendar</h2>
-            <button class="icon-btn" on:click={() => showCalendar = false} title="Close"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+            <button class="icon-btn" on:click={() => showCalendar = false} title="Close"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
           </header>
           
-          <div class="calendar-content">
-            <button class="primary-btn" on:click={() => showEventCreate = true}>Create Event</button>
+          <div class="calendar-fullpage-content">
+            <div class="calendar-actions-bar">
+              <button class="primary-btn" on:click={() => showEventCreate = true}>
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Create Event
+              </button>
+            </div>
             
-            <div class="events-list">
+            <div class="calendar-events-grid">
               <p class="section-title">Upcoming Events</p>
               {#if events.length === 0}
-                <p class="empty-state">No events scheduled.</p>
+                <div class="calendar-empty">
+                  <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="var(--text-muted)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                  <p>No events scheduled.</p>
+                  <p class="calendar-empty-sub">Create an event to get started</p>
+                </div>
               {/if}
               {#each events as event}
                 <div class="event-card">
@@ -1282,7 +1295,7 @@
               {/each}
             </div>
           </div>
-        </aside>
+        </div>
       {/if}
 
       <!-- Member List Sidebar (always in DOM for smooth transition) -->
@@ -1323,7 +1336,7 @@
   <!-- Modals -->
   {#if showEmojiPicker && selectedMessageForReaction}
     <div class="modal-backdrop bottom-sheet-backdrop" role="button" tabindex="0" on:click={closeEmojiPicker} on:keydown={(e) => e.key === 'Escape' && closeEmojiPicker()}>
-      <div class="modal reaction-picker bottom-sheet" role="dialog" tabindex="-1" on:click|stopPropagation on:keydown|stopPropagation>
+      <div class="modal reaction-picker bottom-sheet" role="dialog" tabindex="-1" on:click|stopPropagation={() => {}} on:keydown|stopPropagation={() => {}}>
         <div class="bottom-sheet-handle"></div>
         <div class="reaction-picker-header">
           <h3>Add Reaction</h3>
@@ -1391,7 +1404,7 @@
   <!-- GIF Picker Modal -->
   {#if showGifPicker}
     <div class="modal-backdrop" role="button" tabindex="0" on:click={closeGifPicker} on:keydown={(e) => e.key === 'Escape' && closeGifPicker()}>
-      <div class="modal gif-picker-modal" role="dialog" tabindex="-1" on:click|stopPropagation on:keydown|stopPropagation>
+      <div class="modal gif-picker-modal" role="dialog" tabindex="-1" on:click|stopPropagation={() => {}} on:keydown|stopPropagation={() => {}}>
         <div class="reaction-picker-header">
           <h3>Choose a GIF</h3>
           <button class="picker-close-btn" title="Close" on:click={closeGifPicker}>
@@ -1431,7 +1444,7 @@
   <!-- Context Menu (Unsend) -->
   {#if contextMenuMessageId}
     <div class="context-backdrop" role="button" tabindex="0" on:click={closeContextMenu} on:keydown={(e) => e.key === 'Escape' && closeContextMenu()}>
-      <div class="context-menu" role="menu" tabindex="-1" style="left:{contextMenuX}px;top:{contextMenuY}px" on:click|stopPropagation on:keydown|stopPropagation>
+      <div class="context-menu" role="menu" tabindex="-1" style="left:{contextMenuX}px;top:{contextMenuY}px" on:click|stopPropagation={() => {}} on:keydown|stopPropagation={() => {}}>
         {#if contextMenuAuthor === me?.username || me?.role === 'admin'}
           <button class="context-item danger" on:click={() => unsendMessage(contextMenuMessageId)}>Unsend Message</button>
         {/if}
@@ -1442,7 +1455,7 @@
 
   {#if showInviteModal}
     <div class="modal-backdrop" role="button" tabindex="0" on:click={() => showInviteModal = false} on:keydown={(e) => e.key === 'Escape' && (showInviteModal = false)}>
-      <div class="modal" role="dialog" tabindex="-1" on:click|stopPropagation on:keydown|stopPropagation>
+      <div class="modal" role="dialog" tabindex="-1" on:click|stopPropagation={() => {}} on:keydown|stopPropagation={() => {}}>
         <h3>Join Server</h3>
         <p>Enter an invite code to join a server</p>
         <input class="field" bind:value={inviteCode} placeholder="Invite code" />
@@ -1456,7 +1469,7 @@
 
   {#if showEventCreate}
     <div class="modal-backdrop" role="button" tabindex="0" on:click={() => showEventCreate = false} on:keydown={(e) => e.key === 'Escape' && (showEventCreate = false)}>
-      <div class="modal" role="dialog" tabindex="-1" on:click|stopPropagation on:keydown|stopPropagation>
+      <div class="modal" role="dialog" tabindex="-1" on:click|stopPropagation={() => {}} on:keydown|stopPropagation={() => {}}>
         <h3>Create Event</h3>
         <input class="field" bind:value={newEventTitle} placeholder="Event title" />
         <textarea class="field" bind:value={newEventDescription} placeholder="Description" rows="3"></textarea>
@@ -1473,7 +1486,7 @@
 
   {#if showAdminPanel}
     <div class="modal-backdrop" role="button" tabindex="0" on:click={() => showAdminPanel = false} on:keydown={(e) => e.key === 'Escape' && (showAdminPanel = false)}>
-      <div class="modal admin-panel-modal" role="dialog" tabindex="-1" on:click|stopPropagation on:keydown|stopPropagation>
+      <div class="modal admin-panel-modal" role="dialog" tabindex="-1" on:click|stopPropagation={() => {}} on:keydown|stopPropagation={() => {}}>
         <h3>Admin Panel</h3>
         <p>Manage pending account requests</p>
         {#if pendingUsers.length === 0}
@@ -1681,15 +1694,7 @@
     position: relative;
   }
 
-  .chat-shell:has(.calendar-sidebar) {
-    grid-template-columns: 64px 260px minmax(0, 1fr) 320px;
-  }
-
-  .chat-shell:has(.member-sidebar.open):not(:has(.calendar-sidebar)) {
-    grid-template-columns: 64px 260px minmax(0, 1fr) 240px;
-  }
-
-  .chat-shell:has(.calendar-sidebar):has(.member-sidebar.open) {
+  .chat-shell:has(.member-sidebar.open) {
     grid-template-columns: 64px 260px minmax(0, 1fr) 240px;
   }
 
@@ -2424,26 +2429,72 @@
     color: var(--text-secondary);
   }
 
-  /* ===== CALENDAR SIDEBAR ===== */
-  .calendar-sidebar {
-    background: var(--bg-surface);
-    border-left: 1px solid var(--border-subtle);
+  /* ===== CALENDAR FULL PAGE ===== */
+  .calendar-fullpage {
+    position: fixed;
+    inset: 0;
+    background: var(--bg-root);
+    z-index: 50;
     display: grid;
     grid-template-rows: auto 1fr;
     min-height: 0;
   }
 
-  .calendar-content {
-    padding: 1rem;
-    overflow: auto;
-    display: grid;
-    gap: 1rem;
-    align-content: start;
+  .calendar-fullpage-header {
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid var(--border-subtle);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--bg-surface);
   }
 
-  .events-list {
+  .calendar-fullpage-header h2 {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: 1.125rem;
+    font-weight: 600;
+  }
+
+  .calendar-fullpage-content {
+    padding: 1.5rem;
+    overflow: auto;
     display: grid;
+    gap: 1.5rem;
+    align-content: start;
+    max-width: 800px;
+    width: 100%;
+    margin: 0 auto;
+  }
+
+  .calendar-actions-bar {
+    display: flex;
+    gap: 0.75rem;
+  }
+
+  .calendar-events-grid {
+    display: grid;
+    gap: 0.75rem;
+  }
+
+  .calendar-empty {
+    display: grid;
+    place-items: center;
     gap: 0.5rem;
+    padding: 3rem 1rem;
+    color: var(--text-muted);
+    text-align: center;
+  }
+
+  .calendar-empty p {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 0.9375rem;
+  }
+
+  .calendar-empty-sub {
+    font-size: 0.8125rem !important;
+    color: var(--text-muted);
   }
 
   .event-card {
@@ -3188,22 +3239,9 @@
   /* ===== RESPONSIVE ===== */
   @media (max-width: 1200px) {
     .chat-shell,
-    .chat-shell:has(.calendar-sidebar),
     .chat-shell:has(.member-sidebar),
-    .chat-shell:has(.member-sidebar.open),
-    .chat-shell:has(.calendar-sidebar):has(.member-sidebar),
-    .chat-shell:has(.calendar-sidebar):has(.member-sidebar.open) {
+    .chat-shell:has(.member-sidebar.open) {
       grid-template-columns: 64px 260px minmax(0, 1fr);
-    }
-
-    .calendar-sidebar {
-      position: fixed;
-      right: 0;
-      top: 0;
-      bottom: 0;
-      z-index: 50;
-      box-shadow: -4px 0 16px rgba(0,0,0,0.4);
-      width: 320px;
     }
 
     .member-sidebar {
@@ -3225,11 +3263,8 @@
 
   @media (max-width: 980px) {
     .chat-shell,
-    .chat-shell:has(.calendar-sidebar),
     .chat-shell:has(.member-sidebar),
-    .chat-shell:has(.member-sidebar.open),
-    .chat-shell:has(.calendar-sidebar):has(.member-sidebar),
-    .chat-shell:has(.calendar-sidebar):has(.member-sidebar.open) {
+    .chat-shell:has(.member-sidebar.open) {
       grid-template-columns: 1fr;
       height: 100%;
     }

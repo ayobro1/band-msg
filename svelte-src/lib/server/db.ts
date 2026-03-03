@@ -828,6 +828,31 @@ export async function demoteUser(args: { sessionToken: string; username: string 
   return { ok: true, value: { ok: true } };
 }
 
+export async function rejectUser(args: { sessionToken: string; username: string }): Promise<Result<{ ok: true }>> {
+  const adminResult = await requireAdmin(args.sessionToken);
+  if (adminResult.ok === false) {
+    return adminResult;
+  }
+
+  const username = normalizeUsername(args.username);
+  const rows = await sql`SELECT id, status FROM users WHERE username = ${username} LIMIT 1`;
+  const target = rows[0];
+
+  if (!target) {
+    return { ok: false, code: 404, error: "User not found" };
+  }
+
+  if (target.status !== "pending") {
+    return { ok: false, code: 400, error: "User is not pending" };
+  }
+
+  // Delete sessions for the rejected user
+  await sql`DELETE FROM sessions WHERE user_id = ${target.id}`;
+  // Delete the pending user
+  await sql`DELETE FROM users WHERE id = ${target.id}`;
+  return { ok: true, value: { ok: true } };
+}
+
 // ============ MESSAGE REACTIONS ============
 
 export async function addReaction(args: {
