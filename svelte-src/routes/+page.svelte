@@ -50,6 +50,19 @@
   let showMemberList = false;
   let selectedMessageForReaction = "";
   let messageContainer: HTMLElement | null = null;
+
+  // GIF picker state
+  type GifItem = { id: string; title: string; url: string; preview: string; width: number; height: number };
+  let showGifPicker = false;
+  let gifSearchQuery = "";
+  let gifResults: GifItem[] = [];
+  let isLoadingGifs = false;
+  let gifSearchTimeout: ReturnType<typeof setTimeout> | null = null;
+  let reactionPickerTab: "emoji" | "gif" = "emoji";
+  let reactionGifSearch = "";
+  let reactionGifResults: GifItem[] = [];
+  let isLoadingReactionGifs = false;
+  let reactionGifSearchTimeout: ReturnType<typeof setTimeout> | null = null;
   let isLoadingMessages = false;
   let connectionStatus: "connected" | "reconnecting" = "connected";
   let failedPollCount = 0;
@@ -451,6 +464,147 @@
     }
   }
 
+  // GIF functions
+  async function searchGifs(query: string, forReaction = false) {
+    if (forReaction) {
+      isLoadingReactionGifs = true;
+    } else {
+      isLoadingGifs = true;
+    }
+    try {
+      const params = new URLSearchParams({ q: query, limit: "20" });
+      const res = await apiGet(`/api/giphy?${params}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (forReaction) {
+          reactionGifResults = data.gifs || [];
+        } else {
+          gifResults = data.gifs || [];
+        }
+      }
+    } finally {
+      if (forReaction) {
+        isLoadingReactionGifs = false;
+      } else {
+        isLoadingGifs = false;
+      }
+    }
+  }
+
+  async function loadTrendingGifs(forReaction = false) {
+    if (forReaction) {
+      isLoadingReactionGifs = true;
+    } else {
+      isLoadingGifs = true;
+    }
+    try {
+      const res = await apiGet("/api/giphy?limit=20");
+      if (res.ok) {
+        const data = await res.json();
+        if (forReaction) {
+          reactionGifResults = data.gifs || [];
+        } else {
+          gifResults = data.gifs || [];
+        }
+      }
+    } finally {
+      if (forReaction) {
+        isLoadingReactionGifs = false;
+      } else {
+        isLoadingGifs = false;
+      }
+    }
+  }
+
+  function handleGifSearch(query: string, forReaction = false) {
+    const timeout = forReaction ? reactionGifSearchTimeout : gifSearchTimeout;
+    if (timeout) clearTimeout(timeout);
+    const newTimeout = setTimeout(() => {
+      if (query.trim()) {
+        searchGifs(query, forReaction);
+      } else {
+        loadTrendingGifs(forReaction);
+      }
+    }, 300);
+    if (forReaction) {
+      reactionGifSearchTimeout = newTimeout;
+    } else {
+      gifSearchTimeout = newTimeout;
+    }
+  }
+
+  function openGifPicker() {
+    showGifPicker = true;
+    gifSearchQuery = "";
+    gifResults = [];
+    loadTrendingGifs();
+  }
+
+  function closeGifPicker() {
+    showGifPicker = false;
+    gifSearchQuery = "";
+    gifResults = [];
+  }
+
+  async function sendGifMessage(gif: GifItem) {
+    if (!selectedChannelId) return;
+    const gifContent = `[gif:${gif.url}]`;
+    const res = await apiPost("/api/messages", {
+      channelId: selectedChannelId,
+      content: gifContent
+    });
+    if (res.ok) {
+      closeGifPicker();
+      await refreshMessages();
+    }
+  }
+
+  async function addGifReaction(messageId: string, gif: GifItem) {
+    const gifEmoji = `gif:${gif.url}`;
+    const res = await apiPost("/api/reactions", {
+      messageId,
+      emoji: gifEmoji,
+      action: "add"
+    });
+    if (res.ok) {
+      await refreshMessages();
+    }
+    showEmojiPicker = false;
+    selectedMessageForReaction = "";
+    reactionPickerTab = "emoji";
+    reactionGifSearch = "";
+    reactionGifResults = [];
+  }
+
+  const ALLOWED_GIF_HOSTS = ["media.giphy.com", "media0.giphy.com", "media1.giphy.com", "media2.giphy.com", "media3.giphy.com", "media4.giphy.com", "i.giphy.com"];
+
+  function isAllowedGifUrl(url: string): boolean {
+    try {
+      const parsed = new URL(url);
+      return ALLOWED_GIF_HOSTS.includes(parsed.hostname);
+    } catch {
+      return false;
+    }
+  }
+
+  function isGifMessage(content: string): { isGif: boolean; url: string } {
+    const match = content.match(/^\[gif:(https:\/\/[^\]]+)\]$/);
+    if (match && isAllowedGifUrl(match[1])) {
+      return { isGif: true, url: match[1] };
+    }
+    return { isGif: false, url: "" };
+  }
+
+  function isGifReaction(emoji: string): { isGif: boolean; url: string } {
+    if (emoji.startsWith("gif:")) {
+      const url = emoji.slice(4);
+      if (isAllowedGifUrl(url)) {
+        return { isGif: true, url };
+      }
+    }
+    return { isGif: false, url: "" };
+  }
+
   async function useInvite() {
     if (!inviteCode.trim()) return;
     const res = await apiPost("/api/invites", {
@@ -757,7 +911,13 @@
                     <strong>{msg.author}</strong>
                     <span class="msg-time">{new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
                   </div>
-                  <p class="message-text">{@html parseMarkdown(msg.content)}</p>
+                  {#if isGifMessage(msg.content).isGif}
+                    <div class="gif-message">
+                      <img src={isGifMessage(msg.content).url} alt="GIF" loading="lazy" />
+                    </div>
+                  {:else}
+                    <p class="message-text">{@html parseMarkdown(msg.content)}</p>
+                  {/if}
                   
                   {#if msg.reactions && msg.reactions.length > 0}
                     <div class="reactions">
@@ -775,7 +935,15 @@
                           }}
                           title={reaction.users.join(', ')}
                         >
-                          <span class="reaction-icon">{#if icon}{@html icon.svg}{:else}{reaction.emoji}{/if}</span>
+                          <span class="reaction-icon">
+                            {#if isGifReaction(reaction.emoji).isGif}
+                              <img src={isGifReaction(reaction.emoji).url} alt="GIF" class="gif-reaction-img" />
+                            {:else if icon}
+                              {@html icon.svg}
+                            {:else}
+                              {reaction.emoji}
+                            {/if}
+                          </span>
                           <span class="count">{reaction.count}</span>
                         </button>
                       {/each}
@@ -795,15 +963,20 @@
         </div>
 
         <footer class="composer">
-          <input
-            class="field"
-            bind:value={newMessage}
-            on:input={handleTyping}
-            placeholder={selectedChannelId ? `Message #${selectedChannelName || "channel"}` : "Select a channel to chat"}
-            disabled={!selectedChannelId}
-            on:keydown={(event) => event.key === "Enter" && sendMessage()}
-          />
-          <button class="primary-btn" on:click={sendMessage} disabled={!selectedChannelId || !newMessage.trim()}>Send</button>
+          <div class="composer-input-row">
+            <button class="gif-btn" on:click={openGifPicker} disabled={!selectedChannelId} title="Send a GIF">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="18" rx="2"/><text x="12" y="15.5" text-anchor="middle" font-size="8" font-weight="700" fill="currentColor" stroke="none">GIF</text></svg>
+            </button>
+            <input
+              class="field"
+              bind:value={newMessage}
+              on:input={handleTyping}
+              placeholder={selectedChannelId ? `Message #${selectedChannelName || "channel"}` : "Select a channel to chat"}
+              disabled={!selectedChannelId}
+              on:keydown={(event) => event.key === "Enter" && sendMessage()}
+            />
+            <button class="primary-btn" on:click={sendMessage} disabled={!selectedChannelId || !newMessage.trim()}>Send</button>
+          </div>
         </footer>
       </section>
 
@@ -881,16 +1054,101 @@
 
   <!-- Modals -->
   {#if showEmojiPicker && selectedMessageForReaction}
-    <div class="modal-backdrop" role="button" tabindex="0" on:click={() => showEmojiPicker = false} on:keydown={(e) => e.key === 'Escape' && (showEmojiPicker = false)}>
-      <div class="modal emoji-picker" role="dialog" tabindex="-1" on:click|stopPropagation on:keydown|stopPropagation>
-        <h3>React</h3>
-        <div class="emoji-grid">
-          {#each REACTION_ICONS as icon}
-            <button class="emoji-btn" on:click={() => addReaction(selectedMessageForReaction, icon.id)} title={icon.label}>
-              {@html icon.svg}
-            </button>
-          {/each}
+    <div class="modal-backdrop" role="button" tabindex="0" on:click={() => { showEmojiPicker = false; reactionPickerTab = "emoji"; reactionGifSearch = ""; reactionGifResults = []; }} on:keydown={(e) => e.key === 'Escape' && (showEmojiPicker = false)}>
+      <div class="modal reaction-picker" role="dialog" tabindex="-1" on:click|stopPropagation on:keydown|stopPropagation>
+        <div class="reaction-picker-header">
+          <h3>Add Reaction</h3>
+          <button class="picker-close-btn" title="Close" on:click={() => { showEmojiPicker = false; reactionPickerTab = "emoji"; reactionGifSearch = ""; reactionGifResults = []; }}>
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
         </div>
+        <div class="reaction-tabs">
+          <button class="reaction-tab" class:active={reactionPickerTab === "emoji"} on:click={() => reactionPickerTab = "emoji"}>
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
+            Emoji
+          </button>
+          <button class="reaction-tab" class:active={reactionPickerTab === "gif"} on:click={() => { reactionPickerTab = "gif"; if (reactionGifResults.length === 0) loadTrendingGifs(true); }}>
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="18" rx="2"/><text x="12" y="15.5" text-anchor="middle" font-size="8" font-weight="700" fill="currentColor" stroke="none">GIF</text></svg>
+            GIF
+          </button>
+        </div>
+
+        {#if reactionPickerTab === "emoji"}
+          <div class="emoji-grid">
+            {#each REACTION_ICONS as icon}
+              <button class="emoji-btn" on:click={() => addReaction(selectedMessageForReaction, icon.id)} title={icon.label}>
+                {@html icon.svg}
+              </button>
+            {/each}
+          </div>
+        {:else}
+          <div class="gif-search-container">
+            <input
+              class="field gif-search-input"
+              bind:value={reactionGifSearch}
+              on:input={() => handleGifSearch(reactionGifSearch, true)}
+              placeholder="Search GIFs..."
+            />
+          </div>
+          <div class="gif-grid-container">
+            {#if isLoadingReactionGifs}
+              <div class="gif-loading">
+                <span class="gif-spinner"></span> Loading GIFs...
+              </div>
+            {:else if reactionGifResults.length === 0}
+              <p class="empty-state">No GIFs found. Try a different search.</p>
+            {:else}
+              <div class="gif-grid">
+                {#each reactionGifResults as gif}
+                  <button class="gif-item" on:click={() => addGifReaction(selectedMessageForReaction, gif)} title={gif.title}>
+                    <img src={gif.preview || gif.url} alt={gif.title} loading="lazy" />
+                  </button>
+                {/each}
+              </div>
+            {/if}
+          </div>
+          <div class="giphy-attribution">Powered by GIPHY</div>
+        {/if}
+      </div>
+    </div>
+  {/if}
+
+  <!-- GIF Picker Modal -->
+  {#if showGifPicker}
+    <div class="modal-backdrop" role="button" tabindex="0" on:click={closeGifPicker} on:keydown={(e) => e.key === 'Escape' && closeGifPicker()}>
+      <div class="modal gif-picker-modal" role="dialog" tabindex="-1" on:click|stopPropagation on:keydown|stopPropagation>
+        <div class="reaction-picker-header">
+          <h3>Choose a GIF</h3>
+          <button class="picker-close-btn" title="Close" on:click={closeGifPicker}>
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+        <div class="gif-search-container">
+          <input
+            class="field gif-search-input"
+            bind:value={gifSearchQuery}
+            on:input={() => handleGifSearch(gifSearchQuery)}
+            placeholder="Search GIFs..."
+          />
+        </div>
+        <div class="gif-grid-container">
+          {#if isLoadingGifs}
+            <div class="gif-loading">
+              <span class="gif-spinner"></span> Loading GIFs...
+            </div>
+          {:else if gifResults.length === 0}
+            <p class="empty-state gif-empty">No GIFs found. Try a different search.</p>
+          {:else}
+            <div class="gif-grid">
+              {#each gifResults as gif}
+                <button class="gif-item" on:click={() => sendGifMessage(gif)} title={gif.title}>
+                  <img src={gif.preview || gif.url} alt={gif.title} loading="lazy" />
+                </button>
+              {/each}
+            </div>
+          {/if}
+        </div>
+        <div class="giphy-attribution">Powered by GIPHY</div>
       </div>
     </div>
   {/if}
@@ -1422,43 +1680,46 @@
   .reactions {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.3rem;
-    margin-top: 0.4rem;
+    gap: 0.35rem;
+    margin-top: 0.5rem;
   }
 
   .reaction-badge {
     background: #2b2d31;
-    border: 1px solid #1e1f22;
-    border-radius: 8px;
-    padding: 0.2rem 0.5rem;
+    border: 1.5px solid #3a3c42;
+    border-radius: 20px;
+    padding: 0.2rem 0.55rem;
     display: flex;
     align-items: center;
-    gap: 0.3rem;
+    gap: 0.35rem;
     cursor: pointer;
-    transition: all 0.15s;
+    transition: all 0.18s ease;
+    font-family: inherit;
   }
 
   .reaction-badge:hover {
     background: #404249;
-    border-color: #949ba4;
+    border-color: #5865f2;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(88, 101, 242, 0.15);
   }
 
   .reaction-badge.own-reaction {
-    background: rgba(88, 101, 242, 0.15);
+    background: rgba(88, 101, 242, 0.18);
     border-color: #5865f2;
   }
 
   .reaction-badge .reaction-icon {
     display: flex;
     align-items: center;
-    width: 16px;
-    height: 16px;
+    width: 18px;
+    height: 18px;
     color: #b5bac1;
   }
 
   .reaction-badge .reaction-icon :global(svg) {
-    width: 16px;
-    height: 16px;
+    width: 18px;
+    height: 18px;
   }
 
   .reaction-badge.own-reaction .reaction-icon {
@@ -1466,8 +1727,13 @@
   }
 
   .reaction-badge .count {
-    font-size: 0.75rem;
+    font-size: 0.78rem;
     color: #b5bac1;
+    font-weight: 600;
+  }
+
+  .reaction-badge.own-reaction .count {
+    color: #a8b3f5;
   }
 
   /* Context Menu */
@@ -1533,9 +1799,41 @@
   /* Composer */
   .composer {
     padding: 0 1rem 1rem;
-    display: grid;
-    grid-template-columns: 1fr auto;
-    gap: 0.6rem;
+  }
+
+  .composer-input-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .composer-input-row .field {
+    flex: 1;
+  }
+
+  .gif-btn {
+    background: transparent;
+    border: 1px solid #404249;
+    border-radius: 8px;
+    padding: 0.5rem;
+    cursor: pointer;
+    color: #b5bac1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+    flex-shrink: 0;
+  }
+
+  .gif-btn:hover {
+    background: #404249;
+    color: #f2f3f5;
+    border-color: #5865f2;
+  }
+
+  .gif-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
 
   /* Form Elements */
@@ -1782,9 +2080,80 @@
     margin-top: 0.5rem;
   }
 
-  /* Emoji Picker */
-  .emoji-picker {
-    min-width: min(320px, 90vw);
+  /* Reaction Picker */
+  .reaction-picker,
+  .gif-picker-modal {
+    min-width: min(420px, 90vw);
+    max-width: 480px;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .reaction-picker-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.5rem;
+  }
+
+  .reaction-picker-header h3 {
+    margin: 0;
+    color: #f2f3f5;
+    font-size: 1rem;
+  }
+
+  .picker-close-btn {
+    background: transparent;
+    border: none;
+    color: #949ba4;
+    cursor: pointer;
+    padding: 0.25rem;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    transition: color 0.15s;
+  }
+
+  .picker-close-btn:hover {
+    color: #f2f3f5;
+  }
+
+  .reaction-tabs {
+    display: flex;
+    gap: 0.25rem;
+    margin-bottom: 0.75rem;
+    background: #1e1f22;
+    border-radius: 8px;
+    padding: 0.2rem;
+  }
+
+  .reaction-tab {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: #949ba4;
+    padding: 0.5rem 0.75rem;
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 0.85rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    transition: all 0.15s;
+  }
+
+  .reaction-tab:hover {
+    color: #dbdee1;
+  }
+
+  .reaction-tab.active {
+    background: #5865f2;
+    color: #fff;
   }
 
   .emoji-grid {
@@ -1794,10 +2163,10 @@
   }
 
   .emoji-btn {
-    background: transparent;
-    border: 1px solid #232428;
-    border-radius: 8px;
-    padding: 0.7rem;
+    background: #1e1f22;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    padding: 0.65rem;
     cursor: pointer;
     transition: all 0.15s;
     color: #b5bac1;
@@ -1807,14 +2176,121 @@
   }
 
   .emoji-btn :global(svg) {
-    width: 24px;
-    height: 24px;
+    width: 26px;
+    height: 26px;
   }
 
   .emoji-btn:hover {
-    background: #404249;
-    transform: scale(1.1);
-    color: #f2f3f5;
+    background: #5865f2;
+    transform: scale(1.12);
+    color: #fff;
+    border-color: #5865f2;
+    box-shadow: 0 4px 12px rgba(88, 101, 242, 0.3);
+  }
+
+  /* GIF Picker */
+  .gif-search-container {
+    margin-bottom: 0.5rem;
+  }
+
+  .gif-search-input {
+    font-size: 0.9rem;
+  }
+
+  .gif-grid-container {
+    flex: 1;
+    overflow-y: auto;
+    min-height: 200px;
+    max-height: 400px;
+    border-radius: 8px;
+  }
+
+  .gif-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.4rem;
+  }
+
+  .gif-item {
+    background: #1e1f22;
+    border: 2px solid transparent;
+    border-radius: 8px;
+    overflow: hidden;
+    cursor: pointer;
+    padding: 0;
+    transition: all 0.15s;
+    aspect-ratio: auto;
+  }
+
+  .gif-item img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    border-radius: 6px;
+  }
+
+  .gif-item:hover {
+    border-color: #5865f2;
+    transform: scale(1.03);
+    box-shadow: 0 4px 12px rgba(88, 101, 242, 0.25);
+  }
+
+  .gif-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 2rem;
+    color: #949ba4;
+    font-size: 0.9rem;
+  }
+
+  .gif-spinner {
+    width: 18px;
+    height: 18px;
+    border: 2px solid #404249;
+    border-top-color: #5865f2;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  .giphy-attribution {
+    text-align: center;
+    font-size: 0.72rem;
+    color: #6d6f78;
+    padding-top: 0.5rem;
+    letter-spacing: 0.02em;
+  }
+
+  /* GIF Messages */
+  .gif-message {
+    margin-top: 0.25rem;
+    max-width: 320px;
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .gif-message img {
+    display: block;
+    width: 100%;
+    height: auto;
+    border-radius: 8px;
+  }
+
+  .gif-reaction-img {
+    width: 20px;
+    height: 20px;
+    object-fit: cover;
+    border-radius: 3px;
+  }
+
+  .gif-empty {
+    padding: 1rem;
   }
 
   /* Utility */
