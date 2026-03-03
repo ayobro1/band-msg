@@ -1889,9 +1889,9 @@
   .messages-scroll {
     overflow-y: auto;
     overflow-x: hidden;
-    padding: 1rem;
+    padding: 0.5rem;
     display: grid;
-    gap: 1rem;
+    gap: 2px;
     align-content: start;
     scroll-behavior: smooth;
     min-height: 0;
@@ -1906,6 +1906,7 @@
     transition: background 150ms ease-out;
     user-select: none;
     -webkit-user-select: none;
+    position: relative;
   }
 
   .message-row:hover {
@@ -2011,24 +2012,36 @@
 
   /* ===== QUICK REACTIONS ===== */
   .quick-reactions {
-    display: flex;
+    display: none;
     gap: 0.25rem;
-    margin-top: 0.35rem;
-    opacity: 0;
-    transition: opacity 150ms ease-out;
+    position: absolute;
+    top: -0.5rem;
+    right: 0.5rem;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 0.2rem;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    z-index: 2;
     pointer-events: none;
   }
 
   .message-row:hover .quick-reactions,
   .message-row:focus-within .quick-reactions {
-    opacity: 1;
+    display: flex;
     pointer-events: auto;
   }
 
   @media (hover: none) {
     .quick-reactions {
-      opacity: 1;
+      position: static;
+      display: flex;
       pointer-events: auto;
+      background: transparent;
+      border: none;
+      padding: 0;
+      box-shadow: none;
+      margin-top: 0.35rem;
     }
   }
 
