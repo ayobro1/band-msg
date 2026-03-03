@@ -6,6 +6,9 @@ type AppUser = {
   username: string;
   role: "admin" | "member";
   status: "approved" | "pending";
+  avatarUrl?: string;
+  presenceStatus?: "online" | "idle" | "dnd" | "offline";
+  customStatus?: string;
 };
 
 type Result<T> =
@@ -49,6 +52,7 @@ function isUniqueViolation(error: unknown): boolean {
 async function ensureDb(): Promise<void> {
   if (!initPromise) {
     initPromise = (async () => {
+      // Core users table with Discord-like features
       await sql`
         CREATE TABLE IF NOT EXISTS users (
           id TEXT PRIMARY KEY,
@@ -57,10 +61,15 @@ async function ensureDb(): Promise<void> {
           password_salt TEXT NOT NULL,
           role TEXT NOT NULL CHECK (role IN ('admin', 'member')),
           status TEXT NOT NULL CHECK (status IN ('approved', 'pending')),
+          avatar_url TEXT,
+          presence_status TEXT DEFAULT 'offline' CHECK (presence_status IN ('online', 'idle', 'dnd', 'offline')),
+          custom_status TEXT,
+          last_seen_at BIGINT,
           created_at BIGINT NOT NULL
         )
       `;
 
+      // Sessions table
       await sql`
         CREATE TABLE IF NOT EXISTS sessions (
           token TEXT PRIMARY KEY,
@@ -70,6 +79,7 @@ async function ensureDb(): Promise<void> {
         )
       `;
 
+      // Rate limits table
       await sql`
         CREATE TABLE IF NOT EXISTS rate_limits (
           key TEXT PRIMARY KEY,
@@ -78,31 +88,192 @@ async function ensureDb(): Promise<void> {
         )
       `;
 
+      // Servers/Guilds table
+      await sql`
+        CREATE TABLE IF NOT EXISTS servers (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          description TEXT,
+          icon_url TEXT,
+          owner_id TEXT NOT NULL REFERENCES users(id),
+          created_at BIGINT NOT NULL
+        )
+      `;
+
+      // Server members with roles
+      await sql`
+        CREATE TABLE IF NOT EXISTS server_members (
+          id TEXT PRIMARY KEY,
+          server_id TEXT NOT NULL REFERENCES servers(id) ON DELETE CASCADE,
+          user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          role_id TEXT,
+          nickname TEXT,
+          joined_at BIGINT NOT NULL,
+          UNIQUE(server_id, user_id)
+        )
+      `;
+
+      // Custom roles table
+      await sql`
+        CREATE TABLE IF NOT EXISTS roles (
+          id TEXT PRIMARY KEY,
+          server_id TEXT NOT NULL REFERENCES servers(id) ON DELETE CASCADE,
+          name TEXT NOT NULL,
+          color TEXT DEFAULT '#99AAB5',
+          permissions BIGINT DEFAULT 0,
+          position INTEGER DEFAULT 0,
+          created_at BIGINT NOT NULL
+        )
+      `;
+
+      // Enhanced channels table with server support and types
       await sql`
         CREATE TABLE IF NOT EXISTS channels (
           id TEXT PRIMARY KEY,
-          name TEXT NOT NULL UNIQUE,
+          server_id TEXT REFERENCES servers(id) ON DELETE CASCADE,
+          name TEXT NOT NULL,
           description TEXT NOT NULL,
+          channel_type TEXT DEFAULT 'text' CHECK (channel_type IN ('text', 'voice', 'private', 'announcement')),
+          category TEXT,
+          is_private BOOLEAN DEFAULT false,
           created_by TEXT NOT NULL REFERENCES users(id),
           created_at BIGINT NOT NULL
         )
       `;
 
+      // Channel members for private channels
+      await sql`
+        CREATE TABLE IF NOT EXISTS channel_members (
+          id TEXT PRIMARY KEY,
+          channel_id TEXT NOT NULL REFERENCES channels(id) ON DELETE CASCADE,
+          user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          can_read BOOLEAN DEFAULT true,
+          can_write BOOLEAN DEFAULT true,
+          added_at BIGINT NOT NULL,
+          UNIQUE(channel_id, user_id)
+        )
+      `;
+
+      // Messages table
       await sql`
         CREATE TABLE IF NOT EXISTS messages (
           id TEXT PRIMARY KEY,
           channel_id TEXT NOT NULL REFERENCES channels(id) ON DELETE CASCADE,
           user_id TEXT NOT NULL REFERENCES users(id),
           content TEXT NOT NULL,
+          is_edited BOOLEAN DEFAULT false,
+          edited_at BIGINT,
+          reply_to_id TEXT REFERENCES messages(id) ON DELETE SET NULL,
           created_at BIGINT NOT NULL
         )
       `;
 
+      // Message attachments
+      await sql`
+        CREATE TABLE IF NOT EXISTS message_attachments (
+          id TEXT PRIMARY KEY,
+          message_id TEXT NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
+          filename TEXT NOT NULL,
+          url TEXT NOT NULL,
+          size_bytes BIGINT NOT NULL,
+          mime_type TEXT NOT NULL,
+          created_at BIGINT NOT NULL
+        )
+      `;
+
+      // Message reactions
+      await sql`
+        CREATE TABLE IF NOT EXISTS message_reactions (
+          id TEXT PRIMARY KEY,
+          message_id TEXT NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
+          user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          emoji TEXT NOT NULL,
+          created_at BIGINT NOT NULL,
+          UNIQUE(message_id, user_id, emoji)
+        )
+      `;
+
+      // Typing indicators
+      await sql`
+        CREATE TABLE IF NOT EXISTS typing_indicators (
+          id TEXT PRIMARY KEY,
+          channel_id TEXT NOT NULL REFERENCES channels(id) ON DELETE CASCADE,
+          user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          started_at BIGINT NOT NULL,
+          UNIQUE(channel_id, user_id)
+        )
+      `;
+
+      // Server invites
+      await sql`
+        CREATE TABLE IF NOT EXISTS invites (
+          code TEXT PRIMARY KEY,
+          server_id TEXT NOT NULL REFERENCES servers(id) ON DELETE CASCADE,
+          channel_id TEXT REFERENCES channels(id) ON DELETE CASCADE,
+          created_by TEXT NOT NULL REFERENCES users(id),
+          max_uses INTEGER DEFAULT 0,
+          current_uses INTEGER DEFAULT 0,
+          expires_at BIGINT,
+          created_at BIGINT NOT NULL
+        )
+      `;
+
+      // Calendar events
+      await sql`
+        CREATE TABLE IF NOT EXISTS calendar_events (
+          id TEXT PRIMARY KEY,
+          server_id TEXT REFERENCES servers(id) ON DELETE CASCADE,
+          channel_id TEXT REFERENCES channels(id) ON DELETE CASCADE,
+          title TEXT NOT NULL,
+          description TEXT,
+          location TEXT,
+          starts_at BIGINT NOT NULL,
+          ends_at BIGINT NOT NULL,
+          created_by TEXT NOT NULL REFERENCES users(id),
+          created_at BIGINT NOT NULL
+        )
+      `;
+
+      // Event attendees
+      await sql`
+        CREATE TABLE IF NOT EXISTS event_attendees (
+          id TEXT PRIMARY KEY,
+          event_id TEXT NOT NULL REFERENCES calendar_events(id) ON DELETE CASCADE,
+          user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          status TEXT DEFAULT 'pending' CHECK (status IN ('attending', 'maybe', 'declined', 'pending')),
+          created_at BIGINT NOT NULL,
+          UNIQUE(event_id, user_id)
+        )
+      `;
+
+      // Indexes for performance
       await sql`CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions (user_id)`;
       await sql`CREATE INDEX IF NOT EXISTS idx_rate_limits_reset_at ON rate_limits (reset_at)`;
       await sql`CREATE INDEX IF NOT EXISTS idx_channels_created_at ON channels (created_at)`;
+      await sql`CREATE INDEX IF NOT EXISTS idx_channels_server ON channels (server_id)`;
       await sql`CREATE INDEX IF NOT EXISTS idx_messages_channel_created ON messages (channel_id, created_at)`;
       await sql`CREATE INDEX IF NOT EXISTS idx_users_status_role ON users (status, role)`;
+      await sql`CREATE INDEX IF NOT EXISTS idx_server_members_server ON server_members (server_id)`;
+      await sql`CREATE INDEX IF NOT EXISTS idx_server_members_user ON server_members (user_id)`;
+      await sql`CREATE INDEX IF NOT EXISTS idx_message_reactions_message ON message_reactions (message_id)`;
+      await sql`CREATE INDEX IF NOT EXISTS idx_typing_indicators_channel ON typing_indicators (channel_id)`;
+      await sql`CREATE INDEX IF NOT EXISTS idx_invites_server ON invites (server_id)`;
+      await sql`CREATE INDEX IF NOT EXISTS idx_calendar_events_server ON calendar_events (server_id)`;
+      await sql`CREATE INDEX IF NOT EXISTS idx_calendar_events_starts ON calendar_events (starts_at)`;
+      
+      // Create default server for migration
+      const serverRows = await sql`SELECT id FROM servers LIMIT 1`;
+      if (serverRows.length === 0) {
+        const defaultServerId = crypto.randomUUID();
+        await sql`
+          INSERT INTO servers (id, name, description, owner_id, created_at)
+          SELECT ${defaultServerId}, 'Band Chat', 'Default server', id, ${Date.now()}
+          FROM users WHERE role = 'admin' AND status = 'approved' LIMIT 1
+        `;
+        
+        // Migrate existing channels to default server
+        await sql`UPDATE channels SET server_id = ${defaultServerId} WHERE server_id IS NULL`;
+      }
     })();
   }
 
@@ -480,5 +651,381 @@ export async function demoteUser(args: { sessionToken: string; username: string 
   }
 
   await sql`UPDATE users SET role = 'member' WHERE id = ${target.id}`;
+  return { ok: true, value: { ok: true } };
+}
+
+// ============ MESSAGE REACTIONS ============
+
+export async function addReaction(args: {
+  sessionToken: string;
+  messageId: string;
+  emoji: string;
+}): Promise<Result<{ reactionId: string }>> {
+  const user = await getUserBySession(args.sessionToken);
+  if (!user) {
+    return { ok: false, code: 401, error: "Unauthorized" };
+  }
+
+  const messageRows = await sql`SELECT id FROM messages WHERE id = ${args.messageId} LIMIT 1`;
+  if (!messageRows[0]) {
+    return { ok: false, code: 404, error: "Message not found" };
+  }
+
+  const id = crypto.randomUUID();
+  try {
+    await sql`
+      INSERT INTO message_reactions (id, message_id, user_id, emoji, created_at)
+      VALUES (${id}, ${args.messageId}, ${user.id}, ${args.emoji}, ${Date.now()})
+    `;
+    return { ok: true, value: { reactionId: id } };
+  } catch (error) {
+    if (isUniqueViolation(error)) {
+      return { ok: false, code: 409, error: "Reaction already exists" };
+    }
+    throw error;
+  }
+}
+
+export async function removeReaction(args: {
+  sessionToken: string;
+  messageId: string;
+  emoji: string;
+}): Promise<Result<{ ok: true }>> {
+  const user = await getUserBySession(args.sessionToken);
+  if (!user) {
+    return { ok: false, code: 401, error: "Unauthorized" };
+  }
+
+  await sql`
+    DELETE FROM message_reactions
+    WHERE message_id = ${args.messageId} AND user_id = ${user.id} AND emoji = ${args.emoji}
+  `;
+  return { ok: true, value: { ok: true } };
+}
+
+export async function getMessageReactions(args: {
+  sessionToken: string;
+  messageId: string;
+}): Promise<Result<Array<{ emoji: string; users: string[]; count: number }>>> {
+  const user = await getUserBySession(args.sessionToken);
+  if (!user) {
+    return { ok: false, code: 401, error: "Unauthorized" };
+  }
+
+  const rows = await sql`
+    SELECT r.emoji, u.username
+    FROM message_reactions r
+    JOIN users u ON u.id = r.user_id
+    WHERE r.message_id = ${args.messageId}
+    ORDER BY r.created_at ASC
+  `;
+
+  const reactionMap = new Map<string, string[]>();
+  for (const row of rows as any[]) {
+    const users = reactionMap.get(row.emoji) || [];
+    users.push(row.username);
+    reactionMap.set(row.emoji, users);
+  }
+
+  const reactions = Array.from(reactionMap.entries()).map(([emoji, users]) => ({
+    emoji,
+    users,
+    count: users.length
+  }));
+
+  return { ok: true, value: reactions };
+}
+
+// ============ PRESENCE & TYPING ============
+
+export async function updatePresence(args: {
+  sessionToken: string;
+  status: "online" | "idle" | "dnd" | "offline";
+  customStatus?: string;
+}): Promise<Result<{ ok: true }>> {
+  const user = await getUserBySession(args.sessionToken);
+  if (!user) {
+    return { ok: false, code: 401, error: "Unauthorized" };
+  }
+
+  await sql`
+    UPDATE users
+    SET presence_status = ${args.status},
+        custom_status = ${args.customStatus || null},
+        last_seen_at = ${Date.now()}
+    WHERE id = ${user.id}
+  `;
+
+  return { ok: true, value: { ok: true } };
+}
+
+export async function startTyping(args: {
+  sessionToken: string;
+  channelId: string;
+}): Promise<Result<{ ok: true }>> {
+  const user = await getUserBySession(args.sessionToken);
+  if (!user) {
+    return { ok: false, code: 401, error: "Unauthorized" };
+  }
+
+  const id = crypto.randomUUID();
+  await sql`
+    INSERT INTO typing_indicators (id, channel_id, user_id, started_at)
+    VALUES (${id}, ${args.channelId}, ${user.id}, ${Date.now()})
+    ON CONFLICT (channel_id, user_id)
+    DO UPDATE SET started_at = ${Date.now()}
+  `;
+
+  return { ok: true, value: { ok: true } };
+}
+
+export async function stopTyping(args: {
+  sessionToken: string;
+  channelId: string;
+}): Promise<Result<{ ok: true }>> {
+  const user = await getUserBySession(args.sessionToken);
+  if (!user) {
+    return { ok: false, code: 401, error: "Unauthorized" };
+  }
+
+  await sql`
+    DELETE FROM typing_indicators
+    WHERE channel_id = ${args.channelId} AND user_id = ${user.id}
+  `;
+
+  return { ok: true, value: { ok: true } };
+}
+
+export async function getTypingUsers(args: {
+  sessionToken: string;
+  channelId: string;
+}): Promise<Result<Array<{ username: string }>>> {
+  const user = await getUserBySession(args.sessionToken);
+  if (!user) {
+    return { ok: false, code: 401, error: "Unauthorized" };
+  }
+
+  const fiveSecondsAgo = Date.now() - 5000;
+  const rows = await sql`
+    SELECT u.username
+    FROM typing_indicators t
+    JOIN users u ON u.id = t.user_id
+    WHERE t.channel_id = ${args.channelId} AND t.started_at > ${fiveSecondsAgo} AND u.id != ${user.id}
+  `;
+
+  return { ok: true, value: rows.map((r: any) => ({ username: r.username })) };
+}
+
+// Clean old typing indicators (call periodically)
+export async function cleanOldTypingIndicators(): Promise<void> {
+  await ensureDb();
+  const tenSecondsAgo = Date.now() - 10000;
+  await sql`DELETE FROM typing_indicators WHERE started_at < ${tenSecondsAgo}`;
+}
+
+// ============ SERVERS/GUILDS ============
+
+export async function createServer(args: {
+  sessionToken: string;
+  name: string;
+  description?: string;
+}): Promise<Result<{ serverId: string }>> {
+  const user = await getUserBySession(args.sessionToken);
+  if (!user) {
+    return { ok: false, code: 401, error: "Unauthorized" };
+  }
+
+  const serverId = crypto.randomUUID();
+  const memberId = crypto.randomUUID();
+
+  await sql`
+    INSERT INTO servers (id, name, description, owner_id, created_at)
+    VALUES (${serverId}, ${args.name}, ${args.description || ''}, ${user.id}, ${Date.now()})
+  `;
+
+  await sql`
+    INSERT INTO server_members (id, server_id, user_id, joined_at)
+    VALUES (${memberId}, ${serverId}, ${user.id}, ${Date.now()})
+  `;
+
+  return { ok: true, value: { serverId } };
+}
+
+export async function listServers(sessionToken: string): Promise<Result<Array<{ id: string; name: string; description: string; iconUrl?: string }>>> {
+  const user = await getUserBySession(sessionToken);
+  if (!user) {
+    return { ok: false, code: 401, error: "Unauthorized" };
+  }
+
+  const rows = await sql`
+    SELECT s.id, s.name, s.description, s.icon_url
+    FROM servers s
+    JOIN server_members m ON m.server_id = s.id
+    WHERE m.user_id = ${user.id}
+    ORDER BY s.created_at ASC
+  `;
+
+  return {
+    ok: true,
+    value: rows.map((r: any) => ({
+      id: r.id,
+      name: r.name,
+      description: r.description || '',
+      iconUrl: r.icon_url
+    }))
+  };
+}
+
+// ============ INVITES ============
+
+export async function createInvite(args: {
+  sessionToken: string;
+  serverId: string;
+  maxUses?: number;
+  expiresInMs?: number;
+}): Promise<Result<{ code: string }>> {
+  const user = await getUserBySession(args.sessionToken);
+  if (!user) {
+    return { ok: false, code: 401, error: "Unauthorized" };
+  }
+
+  const code = crypto.randomBytes(8).toString('hex');
+  const expiresAt = args.expiresInMs ? Date.now() + args.expiresInMs : null;
+
+  await sql`
+    INSERT INTO invites (code, server_id, channel_id, created_by, max_uses, current_uses, expires_at, created_at)
+    VALUES (${code}, ${args.serverId}, NULL, ${user.id}, ${args.maxUses || 0}, 0, ${expiresAt}, ${Date.now()})
+  `;
+
+  return { ok: true, value: { code } };
+}
+
+export async function useInvite(args: {
+  sessionToken: string;
+  code: string;
+}): Promise<Result<{ serverId: string }>> {
+  const user = await getUserBySession(args.sessionToken);
+  if (!user) {
+    return { ok: false, code: 401, error: "Unauthorized" };
+  }
+
+  const rows = await sql`SELECT * FROM invites WHERE code = ${args.code} LIMIT 1`;
+  const invite = rows[0];
+
+  if (!invite) {
+    return { ok: false, code: 404, error: "Invalid invite code" };
+  }
+
+  if (invite.expires_at && Number(invite.expires_at) < Date.now()) {
+    return { ok: false, code: 400, error: "Invite expired" };
+  }
+
+  if (invite.max_uses > 0 && Number(invite.current_uses) >= invite.max_uses) {
+    return { ok: false, code: 400, error: "Invite uses exceeded" };
+  }
+
+  const memberId = crypto.randomUUID();
+  try {
+    await sql`
+      INSERT INTO server_members (id, server_id, user_id, joined_at)
+      VALUES (${memberId}, ${invite.server_id}, ${user.id}, ${Date.now()})
+    `;
+  } catch (error) {
+    if (isUniqueViolation(error)) {
+      return { ok: false, code: 409, error: "Already a member" };
+    }
+    throw error;
+  }
+
+  await sql`UPDATE invites SET current_uses = current_uses + 1 WHERE code = ${args.code}`;
+
+  return { ok: true, value: { serverId: invite.server_id } };
+}
+
+// ============ CALENDAR EVENTS ============
+
+export async function createEvent(args: {
+  sessionToken: string;
+  serverId?: string;
+  channelId?: string;
+  title: string;
+  description?: string;
+  location?: string;
+  startsAt: number;
+  endsAt: number;
+}): Promise<Result<{ eventId: string }>> {
+  const user = await getUserBySession(args.sessionToken);
+  if (!user) {
+    return { ok: false, code: 401, error: "Unauthorized" };
+  }
+
+  const id = crypto.randomUUID();
+  await sql`
+    INSERT INTO calendar_events (id, server_id, channel_id, title, description, location, starts_at, ends_at, created_by, created_at)
+    VALUES (${id}, ${args.serverId || null}, ${args.channelId || null}, ${args.title}, ${args.description || ''}, ${args.location || ''}, ${args.startsAt}, ${args.endsAt}, ${user.id}, ${Date.now()})
+  `;
+
+  return { ok: true, value: { eventId: id } };
+}
+
+export async function listEvents(args: {
+  sessionToken: string;
+  serverId?: string;
+  startDate?: number;
+  endDate?: number;
+}): Promise<Result<Array<{ id: string; title: string; description: string; startsAt: number; endsAt: number; location: string }>>> {
+  const user = await getUserBySession(args.sessionToken);
+  if (!user) {
+    return { ok: false, code: 401, error: "Unauthorized" };
+  }
+
+  let rows;
+  if (args.serverId) {
+    rows = await sql`
+      SELECT id, title, description, location, starts_at, ends_at
+      FROM calendar_events
+      WHERE server_id = ${args.serverId}
+      ORDER BY starts_at ASC
+    `;
+  } else {
+    rows = await sql`
+      SELECT id, title, description, location, starts_at, ends_at
+      FROM calendar_events
+      ORDER BY starts_at ASC
+      LIMIT 100
+    `;
+  }
+
+  return {
+    ok: true,
+    value: rows.map((r: any) => ({
+      id: r.id,
+      title: r.title,
+      description: r.description || '',
+      location: r.location || '',
+      startsAt: Number(r.starts_at),
+      endsAt: Number(r.ends_at)
+    }))
+  };
+}
+
+export async function respondToEvent(args: {
+  sessionToken: string;
+  eventId: string;
+  status: "attending" | "maybe" | "declined";
+}): Promise<Result<{ ok: true }>> {
+  const user = await getUserBySession(args.sessionToken);
+  if (!user) {
+    return { ok: false, code: 401, error: "Unauthorized" };
+  }
+
+  const id = crypto.randomUUID();
+  await sql`
+    INSERT INTO event_attendees (id, event_id, user_id, status, created_at)
+    VALUES (${id}, ${args.eventId}, ${user.id}, ${args.status}, ${Date.now()})
+    ON CONFLICT (event_id, user_id)
+    DO UPDATE SET status = ${args.status}
+  `;
+
   return { ok: true, value: { ok: true } };
 }

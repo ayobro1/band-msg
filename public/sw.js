@@ -1,9 +1,9 @@
-const CACHE_NAME = "band-chat-v6";
-const OFFLINE_URL = "/offline";
+const CACHE_NAME = "band-chat-v7";
+const OFFLINE_URL = "/offline.html";
 const STATIC_ASSETS = [
   "/",
   OFFLINE_URL,
-  "/manifest.webmanifest",
+  "/manifest.json",
   "/icons/icon-192.svg",
   "/icons/icon-512.svg",
   "/icons/icon-maskable.svg",
