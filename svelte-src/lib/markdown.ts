@@ -29,9 +29,10 @@ export function parseMarkdown(text: string): string {
   result = result.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_match: string, text: string, url: string) => {
     const trimmed = url.trim().toLowerCase();
     if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
-      return `<a href="${url}" target="_blank" rel="noopener noreferrer">${text}</a>`;
+      const safeUrl = url.replace(/"/g, '&quot;');
+      return `<a href="${safeUrl}" target="_blank" rel="noopener noreferrer">${text}</a>`;
     }
-    return `${text} (${url})`;
+    return text;
   });
   
   // Mentions (@username)
