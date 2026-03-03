@@ -9,6 +9,9 @@ const config = {
     files: {
       assets: "public",
       appTemplate: "svelte-src/app.html",
+      hooks: {
+        server: "svelte-src/hooks.server"
+      },
       routes: "svelte-src/routes",
       lib: "svelte-src/lib"
     }
