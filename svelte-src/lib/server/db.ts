@@ -27,7 +27,8 @@ function getSqlClient() {
   }
   return sqlClient;
 }
-const sql = (strings: TemplateStringsArray, ...params: any[]) => getSqlClient()(strings, ...params);
+const sql = (strings: TemplateStringsArray, ...params: any[]): Promise<Record<string, any>[]> =>
+  getSqlClient()(strings, ...params) as Promise<Record<string, any>[]>;
 let initPromise: Promise<void> | null = null;
 
 const USERNAME_PATTERN = /^[a-z0-9_-]{3,20}$/;

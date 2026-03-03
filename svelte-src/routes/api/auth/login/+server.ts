@@ -53,7 +53,7 @@ export const POST = async ({ request, cookies }: any) => {
       expiresAt: expiresAtMs()
     });
 
-    if (!result.ok) {
+    if (result.ok === false) {
       await delayMs(LOGIN_FAILURE_DELAY_MS);
       return toJson({ error: result.error }, result.code ?? 401);
     }

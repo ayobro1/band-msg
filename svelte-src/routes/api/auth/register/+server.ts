@@ -37,7 +37,7 @@ export const POST = async ({ request }: any) => {
       passwordSalt: salt
     });
 
-    if (!result.ok) {
+    if (result.ok === false) {
       return toJson({ error: result.error }, result.code ?? 400);
     }
 
