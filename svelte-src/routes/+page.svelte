@@ -1407,6 +1407,37 @@
 </main>
 
 <style>
+      main.discord-app,
+      .chat-shell,
+      .chat-main {
+        height: 100dvh;
+        min-height: 100dvh;
+        display: flex;
+        flex-direction: column;
+        box-sizing: border-box;
+      }
+
+      .chat-shell {
+        flex: 1 1 auto;
+        min-height: 0;
+      }
+
+      .chat-main {
+        flex: 1 1 auto;
+        min-height: 0;
+      }
+
+      .messages-scroll {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow-y: auto;
+        overflow-x: hidden;
+        padding: 0.5rem;
+        display: grid;
+        gap: 2px;
+        align-content: start;
+        scroll-behavior: smooth;
+      }
     main.discord-app {
       display: flex;
       flex-direction: column;

@@ -43,8 +43,8 @@
   }
 
   :global(html), :global(body) {
-    height: 100%;
-    min-height: 100vh;
+    height: 100dvh;
+    min-height: 100dvh;
     margin: 0;
     padding: 0;
     box-sizing: border-box;
