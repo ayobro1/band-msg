@@ -42,25 +42,25 @@
     --radius-full:   9999px;
   }
 
-  :global(html) {
+  :global(html), :global(body) {
     height: 100%;
-    height: -webkit-fill-available;
-    overflow: hidden;
-  }
-
-  :global(body) {
+    min-height: 100vh;
     margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    background: var(--bg-root);
+    color: var(--text-body);
     font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    background: var(--bg-root);
-    color: var(--text-body);
-    height: 100%;
-    height: -webkit-fill-available;
     line-height: 1.6;
-    overflow: hidden;
-    position: fixed;
-    inset: 0;
+    /* Safe area for iOS notch and desktop PWA */
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+    overflow-x: hidden;
+    overflow-y: auto;
   }
 
   :global(*) {

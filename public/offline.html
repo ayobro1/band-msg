@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Offline - Band Chat</title>
   <style>
     * {
@@ -18,8 +18,9 @@
       display: grid;
       place-items: center;
       min-height: 100vh;
-      padding: 2rem;
+      padding: calc(2rem + env(safe-area-inset-top)) calc(2rem + env(safe-area-inset-right)) calc(2rem + env(safe-area-inset-bottom)) calc(2rem + env(safe-area-inset-left));
       text-align: center;
+      box-sizing: border-box;
     }
 
     .container {
