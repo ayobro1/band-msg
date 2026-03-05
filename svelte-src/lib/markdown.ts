@@ -215,6 +215,56 @@ export const REACTION_ICONS: ReactionDef[] = [
     id: "tada",
     label: "Tada",
     svg: `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M22.7 19l-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.7C.4 7.1.9 10.1 2.9 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1.1.1-1.4z"/></svg>`
+  },
+  {
+    id: "guitar",
+    label: "Guitar",
+    svg: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.2 17.6c-.5 1.4-2.6 2.4-5.2 2.4H9c-2.6 0-4.7-1-5.2-2.4L2 12V5c0-1.1.9-2 2-2h16c1.1 0 2 .9 2 2v7l-1.8 2.6z"/><path d="M9 8V3"/><path d="M15 8V3"/><circle cx="19" cy="17" r="2"/></svg>`
+  },
+  {
+    id: "piano",
+    label: "Piano",
+    svg: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 8v8"/><path d="M10 8v8"/><path d="M14 8v8"/><path d="M18 8v8"/><path d="M6 12h12"/></svg>`
+  },
+  {
+    id: "drums",
+    label: "Drums",
+    svg: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/><path d="M8 12h8"/><path d="M12 8v8"/></svg>`
+  },
+  {
+    id: "mic",
+    label: "Microphone",
+    svg: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>`
+  },
+  {
+    id: "sax",
+    label: "Saxophone",
+    svg: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20"/><path d="M8 22h8"/><path d="M4 15c0-3 2-5 4-5s4 2 4 5"/><path d="M16 10c2-3 4-3 4-3v8s-2 0-4-3c-1-1.5-2-2.5-4-2.5"/></svg>`
+  },
+  {
+    id: "violin",
+    label: "Violin",
+    svg: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3l-3 3-3-3"/><path d="M14 6l3 3 3-3"/><path d="M17 9l-3 3-3-3"/><path d="M14 12l3 3 3-3"/><path d="M17 15l-3 3-3-3"/><path d="M8 18v3"/><path d="M16 18v3"/><path d="M12 21v3"/></svg>`
+  },
+  {
+    id: "trumpet",
+    label: "Trumpet",
+    svg: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 16v4"/><path d="M3 12c0-1 1-2 3-2 3 0 5 1 7 3 2 2 4 3 6 3s4-1 6-3c2-2 4-3 7-3 2 0 3 1 3 2v4"/><path d="M6 8h.01"/></svg>`
+  },
+  {
+    id: "headphones",
+    label: "Headphones",
+    svg: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></svg>`
+  },
+  {
+    id: "music",
+    label: "Music Note",
+    svg: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>`
+  },
+  {
+    id: "speaker",
+    label: "Speaker",
+    svg: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>`
   }
 ];
 
