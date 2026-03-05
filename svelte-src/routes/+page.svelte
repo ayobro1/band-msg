@@ -1413,6 +1413,7 @@
     height: 100vh;
     height: 100dvh;
     display: grid;
+    grid-template-columns: 1fr;
     grid-template-rows: minmax(0, 1fr);
     gap: 0;
     background: var(--bg-root);
@@ -1573,7 +1574,7 @@
   .chat-shell {
     height: 100%;
     display: grid;
-    grid-template-columns: 260px minmax(0, 1fr);
+    grid-template-columns: clamp(200px, 18vw, 320px) minmax(0, 1fr);
     grid-template-rows: minmax(0, 1fr);
     gap: 0;
     overflow: hidden;
@@ -1581,7 +1582,7 @@
   }
 
   .chat-shell:has(.member-sidebar.open) {
-    grid-template-columns: 260px minmax(0, 1fr) 240px;
+    grid-template-columns: clamp(200px, 18vw, 320px) minmax(0, 1fr) 240px;
   }
 
   .sidebar-overlay {
@@ -3000,7 +3001,7 @@
     .chat-shell,
     .chat-shell:has(.member-sidebar),
     .chat-shell:has(.member-sidebar.open) {
-      grid-template-columns: 260px minmax(0, 1fr);
+      grid-template-columns: clamp(200px, 18vw, 280px) minmax(0, 1fr);
     }
 
     .member-sidebar {
