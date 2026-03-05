@@ -43,7 +43,7 @@
   }
 
   :global(html), :global(body) {
-    min-height: 100vh;
+    height: 100%;
     margin: 0;
     padding: 0;
     box-sizing: border-box;
@@ -58,8 +58,7 @@
     padding-bottom: env(safe-area-inset-bottom);
     padding-left: env(safe-area-inset-left);
     padding-right: env(safe-area-inset-right);
-    overflow-x: auto;
-    overflow-y: auto;
+    overflow: hidden;
   }
 
   :global(*) {
