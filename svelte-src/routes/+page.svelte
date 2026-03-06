@@ -868,6 +868,25 @@
   .auth-header,
   .calendar-fullpage-header {
     padding-top: env(safe-area-inset-top, 0px);
+    position: relative;
+  }
+
+  .back-arrow-btn {
+    position: absolute;
+    left: max(0.5rem, env(safe-area-inset-left, 0px));
+    top: calc(8px + env(safe-area-inset-top, 0px));
+    z-index: 2;
+    background: transparent;
+    border: none;
+    padding: 0.25rem 0.5rem;
+    display: flex;
+    align-items: center;
+  }
+
+  .calendar-fullpage-header h2 {
+    margin-left: 2.5rem;
+    margin-right: auto;
+    text-align: left;
   }
 
   /* If you have absolutely positioned back/nav buttons, also add: */
@@ -1174,8 +1193,11 @@
       {#if showCalendar}
         <div class="calendar-fullpage">
           <header class="calendar-fullpage-header">
+            <button class="icon-btn back-arrow-btn" on:click={() => showCalendar = false} title="Back" aria-label="Back">
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+            </button>
             <h2>Calendar</h2>
-            <button class="icon-btn" on:click={() => showCalendar = false} title="Close"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+            <button class="icon-btn" on:click={() => showCalendar = false} title="Close" aria-label="Close"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
           </header>
           
           <div class="calendar-fullpage-content">
@@ -1457,7 +1479,7 @@
   .toast {
     position: fixed;
     right: max(1rem, env(safe-area-inset-right, 0px));
-    bottom: max(1rem, env(safe-area-inset-bottom, 0px));
+    bottom: max(1.5rem, env(safe-area-inset-bottom, 0px));
     z-index: 30;
     min-width: min(360px, calc(100vw - 2rem));
     max-width: 420px;
@@ -1472,6 +1494,9 @@
     display: flex;
     align-items: center;
     gap: 0.75rem;
+    margin-bottom: 0.5rem;
+    /* Prevent overlap with home indicator */
+    max-height: calc(100vh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 3rem);
   }
 
   .toast::before {
@@ -1618,6 +1643,8 @@
     overflow-y: auto;
     overflow-x: hidden;
     padding: 0.5rem;
+    scroll-behavior: smooth;
+    min-height: 0;
   }
 
   .sidebar-overlay {
