@@ -1228,8 +1228,10 @@
         {#if contextMenuMessageId}
           <div class="message-context-menu" style="position: fixed; top: {contextMenuY}px; left: {contextMenuX}px; z-index: 200; background: var(--bg-surface, #18181B); color: var(--text-body, #D4D4D8); border: 1px solid var(--border, #333); border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); min-width: 140px; padding: 0.5rem 0;">
             <button class="context-menu-item" on:click={() => { selectedMessageForReaction = contextMenuMessageId; showEmojiPicker = true; closeContextMenu(); }}>React</button>
-            {#if me?.username === contextMenuAuthor}
-              <button class="context-menu-item" on:click={() => { unsendMessage(contextMenuMessageId); closeContextMenu(); }}>Unsend</button>
+            {#if me && contextMenuAuthor && me.username && contextMenuMessageId}
+              {#if me.username === contextMenuAuthor}
+                <button class="context-menu-item" on:click={() => { unsendMessage(contextMenuMessageId); closeContextMenu(); }}>Unsend</button>
+              {/if}
             {/if}
             <button class="context-menu-item" on:click={closeContextMenu}>Cancel</button>
           </div>
