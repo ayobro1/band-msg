@@ -1,10 +1,10 @@
 <!doctype html>
-<html lang="en" style="height: 100%; overflow: hidden">
+<html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
     <meta name="description" content="A full-featured Discord-like chat platform for communities" />
-    <meta name="theme-color" content="#5865F2" />
+    <meta name="theme-color" content="#09090B" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="BandChat" />
@@ -16,9 +16,19 @@
     <link rel="apple-touch-icon" href="/icons/icon-192.svg" />
     <title>Band Chat - Discord Clone</title>
     %sveltekit.head%
+    <style>
+      html, body {
+        height: 100%;
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        touch-action: manipulation;
+        -webkit-tap-highlight-color: transparent;
+      }
+    </style>
   </head>
-  <body data-sveltekit-preload-data="hover" style="height: 100%; margin: 0; padding: 0; overflow: hidden; -webkit-overflow-scrolling: touch; overscroll-behavior: none">
-    <div style="display: contents; height: 100%" id="svelte">%sveltekit.body%</div>
+  <body data-sveltekit-preload-data="hover">
+    <div style="display: contents; min-height: 100%; min-height: 100dvh" id="svelte">%sveltekit.body%</div>
     <script>
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('/sw.js').catch(() => {});

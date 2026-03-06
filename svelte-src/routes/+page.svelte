@@ -1410,7 +1410,9 @@
   /* ===== BASE ===== */
   .discord-app {
     width: 100%;
-    height: 100vh;
+    min-height: 100%;
+    min-height: 100dvh;
+    height: 100%;
     height: 100dvh;
     display: flex;
     flex-direction: column;
@@ -1418,10 +1420,12 @@
     color: var(--text-body);
     font-size: 0.875rem;
     overflow: hidden;
-    padding-top: env(safe-area-inset-top, 0px);
-    padding-bottom: env(safe-area-inset-bottom, 0px);
-    padding-left: env(safe-area-inset-left, 0px);
-    padding-right: env(safe-area-inset-right, 0px);
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
   }
 
   /* ===== TOAST ===== */
@@ -2203,6 +2207,7 @@
   /* ===== COMPOSER ===== */
   .composer {
     padding: 0 1rem 1rem;
+    padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
   }
 
   .composer-input-row {
