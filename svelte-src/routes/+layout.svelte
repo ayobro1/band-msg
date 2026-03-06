@@ -1,6 +1,37 @@
 <slot />
 
 <style>
+  :global(html), :global(body) {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    background: var(--bg-root);
+    color: var(--text-body);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    line-height: 1.6;
+    overflow: hidden;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  :global(body > div) {
+    height: 100%;
+    height: 100dvh;
+    width: 100%;
+    overflow: hidden;
+  }
+
+  :global(*) {
+    box-sizing: border-box;
+  }
+
+  :global(button),
+  :global(input) {
+    font: inherit;
+  }
+
   :global(:root) {
     --bg-root:       #09090B;
     --bg-surface:    #0F0F12;
@@ -43,7 +74,7 @@
   }
 
   :global(html), :global(body) {
-    min-height: 100vh;
+    height: 100%;
     margin: 0;
     padding: 0;
     box-sizing: border-box;
@@ -53,13 +84,14 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     line-height: 1.6;
-    /* Safe area for iOS notch and desktop PWA */
-    padding-top: env(safe-area-inset-top);
-    padding-bottom: env(safe-area-inset-bottom);
-    padding-left: env(safe-area-inset-left);
-    padding-right: env(safe-area-inset-right);
-    overflow-x: auto;
-    overflow-y: auto;
+    overflow: hidden;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  :global(body > div) {
+    height: 100%;
+    height: 100dvh;
   }
 
   :global(*) {

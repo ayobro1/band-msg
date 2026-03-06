@@ -1407,185 +1407,16 @@
 </main>
 
 <style>
-      main.discord-app {
-        display: flex;
-        flex-direction: column;
-        min-height: 100dvh;
-        height: 100dvh;
-        width: 100vw;
-        max-width: 100vw;
-        overflow-x: hidden;
-        box-sizing: border-box;
-      }
-
-      .chat-shell {
-        display: flex;
-        flex: 1 1 auto;
-        min-height: 0;
-        height: 100%;
-        width: 100%;
-        max-width: 100vw;
-        box-sizing: border-box;
-        overflow-x: hidden;
-      }
-
-      .chat-main {
-        display: flex;
-        flex-direction: column;
-        flex: 1 1 auto;
-        min-width: 0;
-        min-height: 0;
-        height: 100%;
-        box-sizing: border-box;
-      }
-
-      .messages-scroll {
-        flex: 1 1 auto;
-        min-height: 0;
-        min-width: 0;
-        height: 100%;
-        overflow-y: auto;
-        overflow-x: hidden;
-        padding: 0.5rem;
-        display: flex;
-        flex-direction: column;
-        gap: 2px;
-        align-content: flex-start;
-        scroll-behavior: smooth;
-      }
-
-      @media (max-width: 1200px) {
-        .chat-shell,
-        .chat-shell:has(.member-sidebar),
-        .chat-shell:has(.member-sidebar.open) {
-          flex-direction: column;
-          width: 100%;
-          min-width: 0;
-          min-height: 0;
-          max-width: 100vw;
-        }
-      }
-
-      @media (max-width: 980px) {
-        .chat-shell,
-        .chat-shell:has(.member-sidebar),
-        .chat-shell:has(.member-sidebar.open) {
-          flex-direction: column;
-          width: 100%;
-          min-width: 0;
-          min-height: 0;
-          max-width: 100vw;
-        }
-        .hamburger-btn {
-          display: flex;
-        }
-        .mobile-close-btn {
-          display: flex;
-        }
-        .channel-sidebar {
-          position: fixed;
-          left: 0;
-          top: 0;
-          bottom: 0;
-          width: 280px;
-          max-width: 100vw;
-          z-index: 60;
-          transform: translateX(-100%);
-          transition: transform 300ms cubic-bezier(0.32, 0.72, 0, 1);
-          border-right: 1px solid var(--border-subtle);
-        }
-        .channel-sidebar.open {
-          transform: translateX(0);
-        }
-        .member-sidebar {
-          position: fixed;
-          right: 0;
-          top: 0;
-          bottom: 0;
-          width: 260px !important;
-          max-width: 100vw;
-          z-index: 60;
-          transform: translateX(100%);
-          transition: transform 300ms cubic-bezier(0.32, 0.72, 0, 1), width 0s;
-        }
-        .member-sidebar.open {
-          transform: translateX(0);
-        }
-        .sidebar-overlay {
-          display: block;
-          position: fixed;
-          inset: 0;
-          z-index: 55;
-          background: rgba(0,0,0,0.60);
-          backdrop-filter: blur(4px);
-          -webkit-backdrop-filter: blur(4px);
-          animation: fade-in 0.2s ease-out;
-        }
-        @keyframes fade-in {
-          from { opacity: 0; }
-          to { opacity: 1; }
-        }
-        .emoji-grid {
-          grid-template-columns: repeat(5, 1fr);
-        }
-      }
-    main.discord-app {
-      display: flex;
-      flex-direction: column;
-      min-height: 100vh;
-      min-height: 100dvh;
-      height: 100vh;
-      height: 100dvh;
-      width: 100vw;
-      box-sizing: border-box;
-    }
-
-    .chat-shell {
-      display: flex;
-      flex: 1 1 auto;
-      min-height: 0;
-      height: 100%;
-      width: 100%;
-      box-sizing: border-box;
-    }
-
-    .chat-main {
-      display: flex;
-      flex-direction: column;
-      flex: 1 1 auto;
-      min-height: 0;
-      height: 100%;
-      box-sizing: border-box;
-    }
-
-    .messages-scroll {
-      flex: 1 1 auto;
-      min-height: 0;
-      height: 100%;
-      overflow-y: auto;
-      overflow-x: hidden;
-      padding: 0.5rem;
-      display: grid;
-      gap: 2px;
-      align-content: start;
-      scroll-behavior: smooth;
-    }
   /* ===== BASE ===== */
   .discord-app {
-    width: 100%;
-    height: 100vh;
-    height: 100dvh;
-    display: grid;
-    grid-template-rows: minmax(0, 1fr);
-    gap: 0;
+    position: fixed;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
     background: var(--bg-root);
     color: var(--text-body);
     font-size: 0.875rem;
     overflow: hidden;
-    padding-top: env(safe-area-inset-top, 0px);
-    padding-bottom: env(safe-area-inset-bottom, 0px);
-    padding-left: env(safe-area-inset-left, 0px);
-    padding-right: env(safe-area-inset-right, 0px);
   }
 
   /* ===== TOAST ===== */
@@ -1629,12 +1460,11 @@
 
   /* ===== AUTH ===== */
   .auth-shell {
-    width: 100%;
-    height: 100%;
-    display: grid;
-    place-items: center;
-    padding: 2rem 1rem;
-    overflow-y: auto;
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
     animation: auth-fade-in 0.5s ease-out;
   }
 
@@ -1734,17 +1564,26 @@
 
   /* ===== CHAT SHELL ===== */
   .chat-shell {
-    height: 100%;
-    display: grid;
-    grid-template-columns: 260px minmax(0, 1fr);
-    grid-template-rows: minmax(0, 1fr);
-    gap: 0;
+    flex: 1;
+    display: flex;
     overflow: hidden;
     position: relative;
   }
 
-  .chat-shell:has(.member-sidebar.open) {
-    grid-template-columns: 260px minmax(0, 1fr) 240px;
+  /* ===== MAIN CHAT AREA ===== */
+  .chat-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .messages-scroll {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 0.5rem;
   }
 
   .sidebar-overlay {
@@ -1753,9 +1592,10 @@
 
   /* ===== CHANNEL SIDEBAR ===== */
   .channel-sidebar {
+    height: 100%;
     background: var(--bg-surface);
-    display: grid;
-    grid-template-rows: auto auto 1fr auto;
+    display: flex;
+    flex-direction: column;
     border-right: 1px solid var(--border-subtle);
     min-height: 0;
   }
@@ -1808,6 +1648,7 @@
   }
 
   .channels-wrap {
+    flex: 1;
     min-height: 0;
     padding: 0.75rem;
     display: grid;
@@ -1915,12 +1756,11 @@
 
   /* ===== MAIN CHAT AREA ===== */
   .chat-main {
-    height: 100%;
-    background: var(--bg-root);
-    display: grid;
-    grid-template-rows: auto 1fr auto;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
     min-height: 0;
-    position: relative;
+    background: var(--bg-root);
   }
 
   .chat-header {
@@ -2050,12 +1890,10 @@
 
   /* ===== MESSAGES ===== */
   .messages-scroll {
+    flex: 1;
     overflow-y: auto;
     overflow-x: hidden;
     padding: 0.5rem;
-    display: grid;
-    gap: 2px;
-    align-content: start;
     scroll-behavior: smooth;
     min-height: 0;
   }
@@ -3163,7 +3001,7 @@
     .chat-shell,
     .chat-shell:has(.member-sidebar),
     .chat-shell:has(.member-sidebar.open) {
-      grid-template-columns: 260px minmax(0, 1fr);
+      grid-template-columns: clamp(200px, 18vw, 280px) minmax(0, 1fr);
     }
 
     .member-sidebar {
