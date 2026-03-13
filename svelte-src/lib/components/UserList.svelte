@@ -19,7 +19,7 @@
 
 {#if $memberStore.showUserList}
   <div class="hidden md:flex flex-col w-56 min-w-56 max-w-56 bg-[#0a0a0a] border-l border-white/10 overflow-hidden">
-    <div class="flex items-center px-4 border-b border-white/10 shrink-0 pb-4" style="padding-top: max(1rem, env(safe-area-inset-top)); min-height: 3.5rem;">
+    <div class="h-14 flex items-center px-4 border-b border-white/10 shrink-0">
       <h3 class="text-[12px] font-semibold text-white/30 uppercase tracking-widest">
         Band Members
       </h3>

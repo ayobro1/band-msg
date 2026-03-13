@@ -122,7 +122,7 @@
 
 <div class="flex-1 flex flex-col min-w-0 bg-black">
   <!-- Header -->
-  <div class="flex items-center justify-between px-4 border-b border-white/10 shrink-0 pt-safe pb-4" style="padding-top: max(1rem, env(safe-area-inset-top)); min-height: 3.5rem;">
+  <div class="h-14 flex items-center justify-between px-4 border-b border-white/10 shrink-0 relative z-10">
     <div class="flex items-center gap-3">
       <!-- Mobile channels button -->
       <button
@@ -151,11 +151,12 @@
         </p>
       </div>
     </div>
-    <div class="flex items-center gap-1">
+    <div class="flex items-center gap-1 relative z-20">
       <button
-        on:click={() => showNotificationSettings = true}
-        class="p-2 rounded-lg transition-colors text-white/40 hover:text-white hover:bg-white/5"
+        on:click={() => { console.log('Notification clicked'); showNotificationSettings = true; }}
+        class="p-2 rounded-lg transition-colors text-white/40 hover:text-white hover:bg-white/5 touch-manipulation"
         title="Notifications"
+        type="button"
       >
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
@@ -163,9 +164,10 @@
         </svg>
       </button>
       <button
-        on:click={() => showCalendar = true}
-        class="p-2 rounded-lg transition-colors text-white/40 hover:text-white hover:bg-white/5"
+        on:click={() => { console.log('Calendar clicked'); showCalendar = true; }}
+        class="p-2 rounded-lg transition-colors text-white/40 hover:text-white hover:bg-white/5 touch-manipulation"
         title="Calendar"
+        type="button"
       >
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
@@ -176,9 +178,10 @@
       </button>
       {#if $authStore.user?.role === 'admin'}
         <button
-          on:click={() => showAdminPanel = true}
-          class="p-2 rounded-lg transition-colors text-white/40 hover:text-white hover:bg-white/5"
+          on:click={() => { console.log('Admin clicked'); showAdminPanel = true; }}
+          class="p-2 rounded-lg transition-colors text-white/40 hover:text-white hover:bg-white/5 touch-manipulation"
           title="Admin Panel"
+          type="button"
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" />
@@ -272,7 +275,7 @@
   </div>
 
   <!-- User panel at bottom -->
-  <div class="flex items-center gap-2.5 px-4 bg-black border-t border-white/10 shrink-0 py-3" style="padding-bottom: max(0.75rem, env(safe-area-inset-bottom)); min-height: 3.5rem;">
+  <div class="h-14 flex items-center gap-2.5 px-4 bg-black border-t border-white/10 shrink-0">
     <Avatar alt={$authStore.user?.username || ''} size="sm" status={null} />
     <div class="flex-1 min-w-0">
       <p class="text-[13px] font-medium text-white truncate">{$authStore.user?.username}</p>

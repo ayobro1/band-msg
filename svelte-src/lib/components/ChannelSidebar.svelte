@@ -10,7 +10,7 @@
 
 <div class="w-60 min-w-60 max-w-60 bg-[#0a0a0a] border-r border-white/10 flex flex-col hidden md:flex">
   <!-- Server header -->
-  <div class="flex items-center px-4 border-b border-white/10 shrink-0 pb-4" style="padding-top: max(1rem, env(safe-area-inset-top)); min-height: 3.5rem;">
+  <div class="h-14 flex items-center px-4 border-b border-white/10 shrink-0">
     <h2 class="text-[15px] font-semibold text-white">Band Chat</h2>
   </div>
 
