@@ -79,6 +79,8 @@
     position: fixed;
     width: 100%;
     height: 100%;
+    /* Support for iOS safe areas */
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
   }
 
   :global(*) {
@@ -100,6 +102,14 @@
     :global(body) {
       overflow-x: hidden;
       touch-action: pan-y;
+    }
+  }
+
+  /* iOS safe area support */
+  @supports (padding: env(safe-area-inset-top)) {
+    :global(body) {
+      padding-top: env(safe-area-inset-top);
+      padding-bottom: env(safe-area-inset-bottom);
     }
   }
 </style>

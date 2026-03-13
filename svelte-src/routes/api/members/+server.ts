@@ -1,6 +1,6 @@
 import { json } from "@sveltejs/kit";
 import { getSessionToken } from "$lib/server/auth";
-import { listServerMembers } from "$lib/server/db";
+import { getSqlClient } from "$lib/server/db";
 
 export async function GET({ url, cookies, locals }: any) {
   const sessionToken = locals.sessionToken ?? getSessionToken(cookies);
@@ -8,15 +8,19 @@ export async function GET({ url, cookies, locals }: any) {
     return json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const serverId = url.searchParams.get("serverId");
-  if (!serverId) {
-    return json({ error: "Missing serverId" }, { status: 400 });
+  // For simplicity, just return all approved users with their presence status
+  try {
+    const sql = getSqlClient();
+    const users = await sql`
+      SELECT id, username, role, presence_status as "presenceStatus"
+      FROM users
+      WHERE status = 'approved'
+      ORDER BY username
+    `;
+    
+    return json({ members: users });
+  } catch (error) {
+    console.error('Failed to fetch members:', error);
+    return json({ error: "Failed to fetch members" }, { status: 500 });
   }
-
-  const result = await listServerMembers({ sessionToken, serverId });
-  if (result.ok === false) {
-    return json({ error: result.error }, { status: result.code });
-  }
-
-  return json(result.value);
 }

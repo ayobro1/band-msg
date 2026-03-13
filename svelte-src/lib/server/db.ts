@@ -27,6 +27,8 @@ function getSqlClient() {
   }
   return sqlClient;
 }
+
+export { getSqlClient };
 const sql = (strings: TemplateStringsArray, ...params: any[]): Promise<Record<string, any>[]> =>
   getSqlClient()(strings, ...params) as Promise<Record<string, any>[]>;
 let initPromise: Promise<void> | null = null;
