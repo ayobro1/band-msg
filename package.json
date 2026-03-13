@@ -16,6 +16,7 @@
     "@sveltejs/kit": "^2.46.3",
     "@tailwindcss/typography": "^0.5.19",
     "@untitledui/icons": "^0.0.21",
+    "@vercel/analytics": "^2.0.1",
     "react-aria-components": "^1.16.0",
     "svelte": "^5.39.6",
     "tailwind-merge": "^3.5.0",
