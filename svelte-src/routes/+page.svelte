@@ -48,7 +48,7 @@
 {#if !$authStore.user}
   <AuthScreen />
 {:else}
-  <div class="h-screen w-screen flex overflow-hidden bg-black text-white antialiased">
+  <div class="fixed inset-0 flex overflow-hidden bg-black text-white antialiased">
     <!-- Channel Sidebar -->
     <ChannelSidebar />
     
@@ -67,6 +67,18 @@
     overflow: hidden;
     background: #000000;
     font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    position: fixed;
+    width: 100%;
+    height: 100%;
+    height: 100vh;
+    height: 100dvh;
+  }
+
+  :global(html) {
+    overflow: hidden;
+    position: fixed;
+    width: 100%;
+    height: 100%;
   }
 
   :global(*) {
@@ -87,6 +99,7 @@
   @media (max-width: 768px) {
     :global(body) {
       overflow-x: hidden;
+      touch-action: pan-y;
     }
   }
 </style>

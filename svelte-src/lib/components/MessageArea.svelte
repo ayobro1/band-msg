@@ -294,13 +294,12 @@
 {/if}
 
 <!-- Mobile Channels Drawer -->
-<Drawer.Root bind:open={showMobileChannels}>
+<Drawer.Root bind:open={showMobileChannels} direction="left">
   <Drawer.Portal>
     <Drawer.Overlay class="fixed inset-0 bg-black/60 z-40" />
-    <Drawer.Content class="fixed bottom-0 left-0 right-0 max-h-[85vh] flex flex-col bg-[#0a0a0a] rounded-t-2xl z-50 border-t border-white/10">
+    <Drawer.Content class="fixed top-0 bottom-0 left-0 w-80 max-w-[85vw] flex flex-col bg-[#0a0a0a] z-50 border-r border-white/10">
       <div class="flex-1 overflow-y-auto">
         <div class="sticky top-0 bg-[#0a0a0a] border-b border-white/10 px-4 py-4">
-          <div class="w-12 h-1.5 bg-white/20 rounded-full mx-auto mb-4"></div>
           <h2 class="text-lg font-semibold text-white">Channels</h2>
         </div>
         <div class="p-4">
@@ -327,13 +326,12 @@
 </Drawer.Root>
 
 <!-- Mobile Members Drawer -->
-<Drawer.Root bind:open={showMobileMembers}>
+<Drawer.Root bind:open={showMobileMembers} direction="right">
   <Drawer.Portal>
     <Drawer.Overlay class="fixed inset-0 bg-black/60 z-40" />
-    <Drawer.Content class="fixed bottom-0 left-0 right-0 max-h-[85vh] flex flex-col bg-[#0a0a0a] rounded-t-2xl z-50 border-t border-white/10">
+    <Drawer.Content class="fixed top-0 bottom-0 right-0 w-80 max-w-[85vw] flex flex-col bg-[#0a0a0a] z-50 border-l border-white/10">
       <div class="flex-1 overflow-y-auto">
         <div class="sticky top-0 bg-[#0a0a0a] border-b border-white/10 px-4 py-4">
-          <div class="w-12 h-1.5 bg-white/20 rounded-full mx-auto mb-4"></div>
           <h2 class="text-lg font-semibold text-white">Band Members</h2>
         </div>
         <div class="p-4">
