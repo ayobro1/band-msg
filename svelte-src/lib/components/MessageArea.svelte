@@ -10,6 +10,7 @@
   import Calendar from './Calendar.svelte';
   import NotificationSettings from './NotificationSettings.svelte';
   import Avatar from './Avatar.svelte';
+  import Input from './Input.svelte';
   
   let messageInput = '';
   let messageContainer: HTMLDivElement;
@@ -244,21 +245,22 @@
 
   <!-- Input area -->
   <div class="px-4 pb-4 md:pb-5 shrink-0">
-    <div class="relative flex items-center bg-white/5 border border-white/10 rounded-2xl overflow-hidden transition-all focus-within:border-white/30 focus-within:bg-white/10">
-      <input
-        type="text"
-        bind:value={messageInput}
-        on:input={handleTyping}
-        on:keydown={handleKeyDown}
-        placeholder="Message the band..."
-        maxlength="2000"
-        class="flex-1 bg-transparent text-[14.5px] text-white placeholder:text-white/20 outline-none py-3 px-4 min-w-0"
-        autocomplete="off"
-      />
+    <div class="relative flex items-end gap-2">
+      <div class="flex-1">
+        <Input
+          type="text"
+          bind:value={messageInput}
+          on:input={handleTyping}
+          on:keydown={handleKeyDown}
+          placeholder="Message the band..."
+          maxlength={2000}
+          autocomplete="off"
+        />
+      </div>
       <button
         on:click={handleSend}
         disabled={!messageInput.trim()}
-        class="p-3 transition-colors shrink-0 {messageInput.trim() ? 'text-white hover:text-white/80' : 'text-white/10'}"
+        class="p-3 rounded-xl transition-all shrink-0 {messageInput.trim() ? 'bg-white text-black hover:bg-white/90' : 'bg-white/5 text-white/20 cursor-not-allowed'}"
         aria-label="Send message"
       >
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -271,7 +273,7 @@
 
   <!-- User panel at bottom -->
   <div class="h-14 flex items-center gap-2.5 px-4 bg-black border-t border-white/10 shrink-0">
-    <Avatar alt={$authStore.user?.username || ''} size="sm" status="online" />
+    <Avatar alt={$authStore.user?.username || ''} size="sm" status={null} />
     <div class="flex-1 min-w-0">
       <p class="text-[13px] font-medium text-white truncate">{$authStore.user?.username}</p>
       <p class="text-[11px] text-white/30">{$authStore.user?.role}</p>

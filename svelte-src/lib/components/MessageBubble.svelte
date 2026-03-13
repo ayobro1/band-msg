@@ -45,7 +45,7 @@
   <div class="flex gap-3">
     <!-- Avatar -->
     {#if showHeader}
-      <Avatar alt={message.author} size="md" status="online" />
+      <Avatar alt={message.author} size="md" status={null} />
     {:else}
       <div class="w-10 shrink-0"></div>
     {/if}
