@@ -3,6 +3,7 @@
   import { messageStore } from '../stores/messages';
   import { channelStore } from '../stores/channels';
   import { parseMarkdown } from '$lib/markdown';
+  import Avatar from './Avatar.svelte';
 
   export let message: any;
   export let showHeader: boolean;
@@ -19,15 +20,6 @@
       return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     }
     return date.toLocaleDateString();
-  }
-
-  function getAvatarColor(name: string): string {
-    const colors = ['#7c3aed', '#2563eb', '#e11d48', '#059669', '#d97706', '#db2777'];
-    let hash = 0;
-    for (let i = 0; i < name.length; i++) {
-      hash = name.charCodeAt(i) + ((hash << 5) - hash);
-    }
-    return colors[Math.abs(hash) % colors.length];
   }
 
   async function handleReactionClick(emoji: string) {
@@ -53,14 +45,9 @@
   <div class="flex gap-3">
     <!-- Avatar -->
     {#if showHeader}
-      <div
-        class="w-10 h-10 rounded-full flex items-center justify-center shrink-0 mt-0.5 text-white text-sm font-semibold"
-        style="background: {getAvatarColor(message.author)};"
-      >
-        {message.author.charAt(0).toUpperCase()}
-      </div>
+      <Avatar alt={message.author} size="md" status="online" />
     {:else}
-      <div class="w-10 shrink-0" />
+      <div class="w-10 shrink-0"></div>
     {/if}
 
     <div class="flex-1 min-w-0">

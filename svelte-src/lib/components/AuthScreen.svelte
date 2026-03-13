@@ -1,5 +1,7 @@
 <script lang="ts">
   import { authStore } from '../stores/auth';
+  import SocialButton from './SocialButton.svelte';
+  import Spinner from './Spinner.svelte';
 
   let mode: 'login' | 'register' = 'login';
   let username = '';
@@ -37,6 +39,10 @@
       handleSubmit();
     }
   }
+
+  function handleGoogleSignIn() {
+    window.location.href = '/api/auth/google';
+  }
 </script>
 
 <div class="fixed inset-0 flex items-center justify-center bg-black px-6">
@@ -64,6 +70,20 @@
           {error}
         </div>
       {/if}
+
+      <!-- Social Sign In -->
+      <div class="space-y-3">
+        <SocialButton social="google" theme="gray" on:click={handleGoogleSignIn}>
+          Sign in with Google
+        </SocialButton>
+      </div>
+
+      <!-- Divider -->
+      <div class="flex items-center gap-3 my-6">
+        <div class="flex-1 h-px bg-white/10"></div>
+        <span class="text-xs text-white/30">OR</span>
+        <div class="flex-1 h-px bg-white/10"></div>
+      </div>
 
       <div class="space-y-8">
         <!-- Username Input -->
@@ -117,9 +137,14 @@
         <button
           on:click={handleSubmit}
           disabled={$authStore.isLoading}
-          class="w-full py-3 bg-white text-black font-semibold rounded-xl hover:bg-white/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          class="w-full py-3 bg-white text-black font-semibold rounded-xl hover:bg-white/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
         >
-          {$authStore.isLoading ? 'Loading...' : mode === 'login' ? 'Sign in' : 'Create account'}
+          {#if $authStore.isLoading}
+            <Spinner size="sm" color="#000000" />
+            <span>Loading...</span>
+          {:else}
+            {mode === 'login' ? 'Sign in' : 'Create account'}
+          {/if}
         </button>
       </div>
 

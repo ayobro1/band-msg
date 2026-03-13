@@ -8,6 +8,8 @@
   import MessageBubble from './MessageBubble.svelte';
   import AdminPanel from './AdminPanel.svelte';
   import Calendar from './Calendar.svelte';
+  import NotificationSettings from './NotificationSettings.svelte';
+  import Avatar from './Avatar.svelte';
   
   let messageInput = '';
   let messageContainer: HTMLDivElement;
@@ -16,6 +18,7 @@
   let showCalendar = false;
   let showMobileChannels = false;
   let showMobileMembers = false;
+  let showNotificationSettings = false;
 
   $: selectedChannel = $channelStore.channels.find(
     c => c.id === $channelStore.selectedChannelId
@@ -149,6 +152,16 @@
     </div>
     <div class="flex items-center gap-1">
       <button
+        on:click={() => showNotificationSettings = true}
+        class="p-2 rounded-lg transition-colors text-white/40 hover:text-white hover:bg-white/5"
+        title="Notifications"
+      >
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+          <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+        </svg>
+      </button>
+      <button
         on:click={() => showCalendar = true}
         class="p-2 rounded-lg transition-colors text-white/40 hover:text-white hover:bg-white/5"
         title="Calendar"
@@ -258,12 +271,7 @@
 
   <!-- User panel at bottom -->
   <div class="h-14 flex items-center gap-2.5 px-4 bg-black border-t border-white/10 shrink-0">
-    <div class="relative">
-      <div class="w-8 h-8 rounded-full bg-white flex items-center justify-center text-black text-sm font-semibold">
-        {$authStore.user?.username.charAt(0).toUpperCase()}
-      </div>
-      <div class="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-white rounded-full border-2 border-black"></div>
-    </div>
+    <Avatar alt={$authStore.user?.username || ''} size="sm" status="online" />
     <div class="flex-1 min-w-0">
       <p class="text-[13px] font-medium text-white truncate">{$authStore.user?.username}</p>
       <p class="text-[11px] text-white/30">{$authStore.user?.role}</p>
@@ -277,6 +285,10 @@
 
 {#if showCalendar}
   <Calendar onClose={() => showCalendar = false} />
+{/if}
+
+{#if showNotificationSettings}
+  <NotificationSettings onClose={() => showNotificationSettings = false} />
 {/if}
 
 <!-- Mobile Channels Drawer -->
@@ -332,15 +344,11 @@
                 <div class="space-y-1">
                   {#each users as user}
                     <button class="flex items-center gap-3 w-full px-3 py-3 rounded-xl hover:bg-white/5 transition-colors">
-                      <div class="relative shrink-0">
-                        <div
-                          class="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-semibold {status === 'offline' ? 'bg-white/5' : 'bg-white/10'}"
-                          style={status !== 'offline' ? `background: ${getAvatarColor(user.username)};` : ''}
-                        >
-                          {user.username.charAt(0).toUpperCase()}
-                        </div>
-                        <div class="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-[#0a0a0a] {statusColors[status]}"></div>
-                      </div>
+                      <Avatar
+                        alt={user.username}
+                        size="md"
+                        status={status === 'online' ? 'online' : status === 'idle' ? 'away' : status === 'dnd' ? 'busy' : 'offline'}
+                      />
                       <div class="flex-1 min-w-0 text-left">
                         <p class="text-sm font-medium truncate {status === 'offline' ? 'text-white/30' : 'text-white/70'}">
                           {user.username}
