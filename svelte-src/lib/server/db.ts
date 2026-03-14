@@ -55,11 +55,12 @@ function isUniqueViolation(error: unknown): boolean {
 async function ensureDb(): Promise<void> {
   if (!initPromise) {
     initPromise = (async () => {
-      // Core users table with Discord-like features
-      await sql`
-        CREATE TABLE IF NOT EXISTS users (
-          id TEXT PRIMARY KEY,
-          username TEXT NOT NULL UNIQUE,
+      try {
+        // Core users table with Discord-like features
+        await sql`
+          CREATE TABLE IF NOT EXISTS users (
+            id TEXT PRIMARY KEY,
+            username TEXT NOT NULL UNIQUE,
           password_hash TEXT NOT NULL,
           password_salt TEXT NOT NULL,
           role TEXT NOT NULL CHECK (role IN ('admin', 'member')),
@@ -309,11 +310,15 @@ async function ensureDb(): Promise<void> {
           ALTER TABLE users 
           ADD COLUMN presence_status TEXT DEFAULT 'offline'
         `;
-        await sql`
-          ALTER TABLE users
-          ADD CONSTRAINT users_presence_status_check 
-          CHECK (presence_status IN ('online', 'idle', 'dnd', 'offline'))
-        `;
+        try {
+          await sql`
+            ALTER TABLE users
+            ADD CONSTRAINT users_presence_status_check 
+            CHECK (presence_status IN ('online', 'idle', 'dnd', 'offline'))
+          `;
+        } catch(e) {
+          // Constraint might already exist
+        }
       }
 
       if (!(await columnExists('users', 'custom_status'))) {
@@ -338,11 +343,16 @@ async function ensureDb(): Promise<void> {
           ALTER TABLE channels 
           ADD COLUMN channel_type TEXT DEFAULT 'text'
         `;
-        await sql`
-          ALTER TABLE channels
-          ADD CONSTRAINT channels_channel_type_check 
-          CHECK (channel_type IN ('text', 'voice', 'private', 'announcement'))
-        `;
+        
+        try {
+          await sql`
+            ALTER TABLE channels
+            ADD CONSTRAINT channels_channel_type_check 
+            CHECK (channel_type IN ('text', 'voice', 'private', 'announcement'))
+          `;
+        } catch (e) {
+            // Constraint might already exist
+        }
       }
 
       // Migration: Add category column to channels if it doesn't exist
@@ -451,6 +461,12 @@ async function ensureDb(): Promise<void> {
         await sql`CREATE INDEX IF NOT EXISTS idx_calendar_events_server ON calendar_events (server_id)`;
       } catch (e) {
         // Index might already exist or column might not exist yet
+      }
+
+      } catch (err) {
+        initPromise = null; // Reset on failure so we can try again
+        console.error("Database initialization failed:", err);
+        throw err;
       }
     })();
   }

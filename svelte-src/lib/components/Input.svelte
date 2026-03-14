@@ -4,7 +4,7 @@
   export let placeholder: string = '';
   export let disabled: boolean = false;
   export let maxlength: number | undefined = undefined;
-  export let autocomplete: string = 'off';
+  export let autocomplete: any = 'off';
   
   let focused = false;
   let inputElement: HTMLInputElement | HTMLTextAreaElement;
