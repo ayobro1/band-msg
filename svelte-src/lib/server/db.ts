@@ -1350,3 +1350,17 @@ export async function getAllPushSubscriptions(): Promise<Array<{ endpoint: strin
     authKey: r.auth_key
   }));
 }
+
+export async function getPushSubscriptionsExceptUser(userId: string): Promise<Array<{ endpoint: string; p256dhKey: string; authKey: string }>> {
+  const rows = await sql`
+    SELECT endpoint, p256dh_key, auth_key
+    FROM push_subscriptions
+    WHERE user_id != ${userId}
+  `;
+
+  return rows.map((r: any) => ({
+    endpoint: r.endpoint,
+    p256dhKey: r.p256dh_key,
+    authKey: r.auth_key
+  }));
+}
