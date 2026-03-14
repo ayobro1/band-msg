@@ -11,6 +11,13 @@ export function parseMarkdown(text: string): string {
   // Code blocks (```...```)
   result = result.replace(/```([^`]+)```/g, '<pre><code>$1</code></pre>');
   
+  // Images (![alt](url)) - Specifically for GIFs
+  result = result.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_match: string, alt: string, url: string) => {
+    const safeUrl = url.replace(/"/g, '&quot;');
+    const safeAlt = alt.replace(/"/g, '&quot;');
+    return `<img src="${safeUrl}" alt="${safeAlt}" class="rounded-xl max-w-full max-h-[300px] object-contain my-2 bg-black/20" loading="lazy" />`;
+  });
+  
   // Inline code (`...`)
   result = result.replace(/`([^`]+)`/g, '<code>$1</code>');
   

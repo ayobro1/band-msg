@@ -45,6 +45,10 @@
   }
 </script>
 
+{#if $authStore.isLoading}
+  <Spinner fullscreen={true} />
+{/if}
+
 <div class="fixed inset-0 flex items-center justify-center bg-black px-6">
   <div class="w-full max-w-md">
     <!-- Logo -->
@@ -140,12 +144,7 @@
           disabled={$authStore.isLoading}
           class="w-full py-3 bg-white text-black font-semibold rounded-xl hover:bg-white/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
         >
-          {#if $authStore.isLoading}
-            <Spinner size="sm" color="#000000" />
-            <span>Loading...</span>
-          {:else}
-            {mode === 'login' ? 'Sign in' : 'Create account'}
-          {/if}
+          {mode === 'login' ? 'Sign in' : 'Create account'}
         </button>
       </div>
 

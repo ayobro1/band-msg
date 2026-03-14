@@ -81,7 +81,7 @@ export async function subscribeToPush(): Promise<boolean> {
     });
 
     if (!response.ok) {
-      const error = await response.json();
+      const error = await response.json().catch(() => ({}));
       console.error('Failed to save subscription:', error);
       return false;
     }

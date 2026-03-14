@@ -130,7 +130,7 @@
         >
           {#if isLoading}
             <span class="absolute inset-0 flex items-center justify-center">
-              <Spinner size="sm" color={isSubscribed ? '#000000' : '#ffffff'} />
+              <Spinner size="sm" />
             </span>
           {:else}
             <span class="inline-block h-4 w-4 transform rounded-full bg-black transition-transform {isSubscribed ? 'translate-x-6' : 'translate-x-1'}"></span>

@@ -143,13 +143,14 @@
 
 <div class="flex-1 flex flex-col min-w-0 bg-black" style="padding-top: env(safe-area-inset-top);">
   <!-- Header -->
-  <div class="h-14 flex items-center justify-between px-4 border-b border-white/10 shrink-0 relative z-10">
+  <div class="h-14 flex items-center justify-between px-4 border-b border-white/10 shrink-0 relative" style="z-index: 100;">
     <div class="flex items-center gap-3">
       <!-- Mobile channels button -->
       <button
         type="button"
         on:click={() => showMobileChannels = true}
-        class="md:hidden p-2 rounded-lg text-white/40 hover:text-white hover:bg-white/5 touch-manipulation"
+        class="md:hidden p-2 rounded-lg text-white/40 hover:text-white hover:bg-white/5 touch-manipulation relative"
+        style="z-index: 101; pointer-events: auto;"
         aria-label="Open channels"
       >
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -177,7 +178,8 @@
       <button
         type="button"
         on:click|stopPropagation={() => { showNotificationSettings = true; }}
-        class="p-2 rounded-lg transition-colors text-white/40 hover:text-white hover:bg-white/5 touch-manipulation cursor-pointer"
+        class="p-2 rounded-lg transition-colors text-white/40 hover:text-white hover:bg-white/5 touch-manipulation cursor-pointer relative"
+        style="z-index: 101; pointer-events: auto;"
         title="Notifications"
       >
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -188,7 +190,8 @@
       <button
         type="button"
         on:click|stopPropagation={() => { showCalendar = true; }}
-        class="p-2 rounded-lg transition-colors text-white/40 hover:text-white hover:bg-white/5 touch-manipulation cursor-pointer"
+        class="p-2 rounded-lg transition-colors text-white/40 hover:text-white hover:bg-white/5 touch-manipulation cursor-pointer relative"
+        style="z-index: 101; pointer-events: auto;"
         title="Calendar"
       >
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -202,7 +205,8 @@
         <button
           type="button"
           on:click|stopPropagation={() => { showAdminPanel = true; }}
-          class="p-2 rounded-lg transition-colors text-white/40 hover:text-white hover:bg-white/5 touch-manipulation cursor-pointer"
+          class="p-2 rounded-lg transition-colors text-white/40 hover:text-white hover:bg-white/5 touch-manipulation cursor-pointer relative"
+          style="z-index: 101; pointer-events: auto;"
           title="Admin Panel"
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -220,7 +224,8 @@
             memberStore.toggleUserList();
           }
         }}
-        class="p-2 rounded-lg transition-colors {$memberStore.showUserList ? 'text-white bg-white/10' : 'text-white/40 hover:text-white hover:bg-white/5'}"
+        class="p-2 rounded-lg transition-colors {$memberStore.showUserList ? 'text-white bg-white/10' : 'text-white/40 hover:text-white hover:bg-white/5'} relative"
+        style="z-index: 101; pointer-events: auto;"
         title="Members"
       >
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -352,8 +357,24 @@
     <Drawer.Overlay class="fixed inset-0 bg-black/60 z-40" />
     <Drawer.Content class="fixed top-0 bottom-0 left-0 w-80 max-w-[85vw] flex flex-col bg-[#0a0a0a] z-50 border-r border-white/10" style="padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom);">
       <div class="flex-1 overflow-y-auto">
-        <div class="sticky top-0 bg-[#0a0a0a] border-b border-white/10 px-4 py-4">
+        <div class="sticky top-0 bg-[#0a0a0a] border-b border-white/10 px-4 py-4 flex items-center justify-between">
           <h2 class="text-lg font-semibold text-white">Channels</h2>
+          {#if $authStore.user?.role === 'admin'}
+            <button
+              type="button"
+              on:click|stopPropagation={() => {
+                showMobileChannels = false;
+                showCreateChannel = true;
+              }}
+              class="p-2 rounded-lg text-white/40 hover:text-white hover:bg-white/5 transition-colors touch-manipulation"
+              aria-label="Create Channel"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+            </button>
+          {/if}
         </div>
         <div class="p-4">
           <h3 class="text-xs font-semibold text-white/25 uppercase tracking-widest px-2 mb-2">

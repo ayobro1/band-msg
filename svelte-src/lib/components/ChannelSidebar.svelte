@@ -93,7 +93,7 @@
           Text Channels
         </h3>
         {#if $authStore.user?.role === 'admin'}
-          <button type="button" on:click={() => showCreateChannel = true} class="p-1 -mr-1 text-white/30 hover:text-white transition-colors" aria-label="Create Channel">
+          <button type="button" on:click|stopPropagation={() => showCreateChannel = true} class="p-1 -mr-1 text-white/30 hover:text-white transition-colors touch-manipulation" aria-label="Create Channel">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <line x1="12" y1="5" x2="12" y2="19" />
               <line x1="5" y1="12" x2="19" y2="12" />
