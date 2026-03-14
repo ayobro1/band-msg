@@ -36,7 +36,6 @@
   }
 
   async function loadAllUsers() {
-    // This would need a new endpoint, for now we'll just show pending
     allUsers = [];
   }
 
@@ -69,15 +68,27 @@
   }
 </script>
 
-<div class="fixed inset-0 bg-black/80 flex items-center justify-center z-[200] p-4" style="padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom);">
-  <div class="bg-[#111] border border-white/10 rounded-2xl w-full max-w-2xl max-h-[80vh] flex flex-col">
+<!-- svelte-ignore a11y_click_events_have_key_events -->
+<!-- svelte-ignore a11y_no_static_element_interactions -->
+<div
+  class="fixed inset-0 bg-black/80 z-[200] flex items-end md:items-center md:justify-center"
+  style="padding-top: env(safe-area-inset-top);"
+  on:click={onClose}
+>
+  <!-- svelte-ignore a11y_click_events_have_key_events -->
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div
+    class="bg-black border-t border-white/10 md:border md:rounded-2xl w-full md:max-w-lg md:max-h-[85vh] flex flex-col rounded-t-2xl max-h-[92vh]"
+    on:click|stopPropagation
+  >
     <!-- Header -->
-    <div class="flex items-center justify-between p-4 border-b border-white/10">
-      <h2 class="text-xl font-bold text-white">Admin Panel</h2>
+    <div class="flex items-center justify-between px-4 py-3 border-b border-white/10 shrink-0">
+      <h2 class="text-lg font-bold text-white">Admin</h2>
       <button
         type="button"
         on:click={onClose}
         class="p-2 rounded-lg text-white/40 hover:text-white hover:bg-white/5 transition-colors"
+        aria-label="Close"
       >
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <line x1="18" y1="6" x2="6" y2="18" />
@@ -87,53 +98,62 @@
     </div>
 
     <!-- Tabs -->
-    <div class="flex border-b border-white/10">
+    <div class="flex border-b border-white/10 shrink-0">
       <button
         type="button"
         on:click={() => activeTab = 'pending'}
-        class="flex-1 px-4 py-3 text-sm font-medium transition-colors {activeTab === 'pending' ? 'text-white border-b-2 border-white' : 'text-white/40 hover:text-white/60'}"
+        class="flex-1 px-4 py-2.5 text-sm font-medium transition-colors {activeTab === 'pending' ? 'text-white border-b-2 border-white' : 'text-white/40 hover:text-white/60'}"
       >
-        Pending Approvals ({pendingUsers.length})
+        Pending ({pendingUsers.length})
       </button>
       <button
         type="button"
         on:click={() => activeTab = 'users'}
-        class="flex-1 px-4 py-3 text-sm font-medium transition-colors {activeTab === 'users' ? 'text-white border-b-2 border-white' : 'text-white/40 hover:text-white/60'}"
+        class="flex-1 px-4 py-2.5 text-sm font-medium transition-colors {activeTab === 'users' ? 'text-white border-b-2 border-white' : 'text-white/40 hover:text-white/60'}"
       >
         All Users
       </button>
     </div>
 
     <!-- Content -->
-    <div class="flex-1 overflow-y-auto p-4">
+    <div class="flex-1 overflow-y-auto p-4 scrollbar-hide" style="padding-bottom: max(1rem, env(safe-area-inset-bottom));">
       {#if activeTab === 'pending'}
         {#if isLoading}
-          <div class="text-center py-8 text-white/40">Loading...</div>
+          <div class="text-center py-12 text-white/30 text-sm">Loading...</div>
         {:else if pendingUsers.length === 0}
-          <div class="text-center py-8 text-white/40">No pending approvals</div>
+          <div class="text-center py-12">
+            <div class="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center mx-auto mb-3">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="text-white/20">
+                <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                <circle cx="8.5" cy="7" r="4" />
+                <polyline points="17 11 19 13 23 9" />
+              </svg>
+            </div>
+            <p class="text-sm text-white/30">No pending approvals</p>
+          </div>
         {:else}
           <div class="space-y-2">
             {#each pendingUsers as user}
-              <div class="bg-white/5 border border-white/10 rounded-lg p-4">
-                <div class="flex items-center justify-between">
-                  <div>
-                    <p class="font-medium text-white">{user.username}</p>
-                    <p class="text-sm text-white/40">
-                      Requested {new Date(user.createdAt).toLocaleDateString()}
+              <div class="bg-white/5 border border-white/8 rounded-xl p-3.5">
+                <div class="flex items-center justify-between gap-3">
+                  <div class="min-w-0 flex-1">
+                    <p class="font-medium text-white text-sm truncate">{user.username}</p>
+                    <p class="text-xs text-white/35">
+                      {new Date(user.createdAt).toLocaleDateString()}
                     </p>
                   </div>
-                  <div class="flex gap-2">
+                  <div class="flex gap-2 shrink-0">
                     <button
                       type="button"
                       on:click={() => approveUser(user.username)}
-                      class="px-4 py-2 bg-white text-black rounded-lg hover:bg-white/90 transition-colors text-sm font-medium"
+                      class="px-3 py-1.5 bg-white text-black rounded-lg hover:bg-white/90 transition-colors text-xs font-semibold"
                     >
                       Approve
                     </button>
                     <button
                       type="button"
                       on:click={() => rejectUser(user.username)}
-                      class="px-4 py-2 bg-white/10 text-white rounded-lg hover:bg-white/20 transition-colors text-sm font-medium"
+                      class="px-3 py-1.5 bg-white/10 text-white rounded-lg hover:bg-white/20 transition-colors text-xs font-medium"
                     >
                       Reject
                     </button>
@@ -144,8 +164,8 @@
           </div>
         {/if}
       {:else}
-        <div class="text-center py-8 text-white/40">
-          User management coming soon
+        <div class="text-center py-12">
+          <p class="text-sm text-white/30">User management coming soon</p>
         </div>
       {/if}
     </div>

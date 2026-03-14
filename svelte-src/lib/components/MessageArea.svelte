@@ -247,11 +247,11 @@
       </div>
     {/if}
 
-    <div class="h-4" />
+    <div class="h-4"></div>
   </div>
 
   <!-- Input area -->
-  <div class="px-4 pb-4 md:pb-5 shrink-0" style="padding-bottom: max(1rem, env(safe-area-inset-bottom));">
+  <div class="px-4 pb-3 md:pb-4 shrink-0">
     <div class="relative flex items-end gap-2">
       <div class="flex-1">
         <Input
@@ -280,12 +280,15 @@
   </div>
 
   <!-- User panel at bottom -->
-  <div class="h-14 flex items-center gap-2.5 px-4 bg-black border-t border-white/10 shrink-0">
-    <Avatar alt={$authStore.user?.username || ''} size="sm" status={null} />
+  <div class="h-12 flex items-center gap-2.5 px-4 bg-black border-t border-white/8 shrink-0" style="padding-bottom: env(safe-area-inset-bottom);">
+    <div class="relative">
+      <Avatar alt={$authStore.user?.username || ''} size="sm" status={null} />
+      <div class="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-green-400 border-2 border-black"></div>
+    </div>
     <div class="flex-1 min-w-0">
       <p class="text-[13px] font-medium text-white truncate">{$authStore.user?.username}</p>
-      <p class="text-[11px] text-white/30">{$authStore.user?.role}</p>
     </div>
+    <span class="text-[10px] text-white/25 uppercase tracking-wider font-medium">{$authStore.user?.role}</span>
   </div>
 </div>
 
