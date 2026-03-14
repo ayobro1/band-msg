@@ -13,7 +13,6 @@
     online: $memberStore.members.filter(u => u.presenceStatus === 'online'),
     idle: $memberStore.members.filter(u => u.presenceStatus === 'idle'),
     dnd: $memberStore.members.filter(u => u.presenceStatus === 'dnd'),
-    offline: $memberStore.members.filter(u => u.presenceStatus === 'offline'),
   };
 </script>
 

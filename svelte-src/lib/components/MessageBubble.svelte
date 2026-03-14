@@ -31,7 +31,28 @@
     return date.toLocaleDateString();
   }
 
+  let showReactionPicker = false;
+  let touchTimer: ReturnType<typeof setTimeout> | null = null;
+  const QUICK_REACTIONS = ['👍', '❤️', '😂', '🔥', '👀', '💯'];
+
+  function handleTouchStart(e: TouchEvent) {
+    if (touchTimer) clearTimeout(touchTimer);
+    touchTimer = setTimeout(() => {
+      showReactionPicker = true;
+      if (navigator.vibrate) navigator.vibrate(50); // Haptic feedback if supported
+    }, 400); // 400ms long press
+  }
+
+  function handleTouchEnd() {
+    if (touchTimer) clearTimeout(touchTimer);
+  }
+
+  function handleTouchMove() {
+    if (touchTimer) clearTimeout(touchTimer);
+  }
+
   async function handleReactionClick(emoji: string) {
+    showReactionPicker = false;
     if (!$channelStore.selectedChannelId) return;
     
     const reaction = message.reactions?.find((r: any) => r.emoji === emoji);
@@ -50,7 +71,35 @@
   }
 </script>
 
-<div class="group relative px-4 md:px-5 {showHeader ? 'mt-4 pt-1' : 'mt-0.5'}">
+{#if showReactionPicker}
+  <!-- svelte-ignore a11y_click_events_have_key_events -->
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div class="fixed inset-0 z-40" on:click|stopPropagation={() => showReactionPicker = false} on:touchstart|stopPropagation={() => showReactionPicker = false}></div>
+{/if}
+
+<!-- svelte-ignore a11y_no_static_element_interactions -->
+<div 
+  class="group relative px-4 md:px-5 {showHeader ? 'mt-4 pt-1' : 'mt-0.5'}"
+  on:touchstart={handleTouchStart}
+  on:touchend={handleTouchEnd}
+  on:touchmove={handleTouchMove}
+  on:touchcancel={handleTouchEnd}
+  on:contextmenu|preventDefault={(e) => showReactionPicker = true}
+>
+  {#if showReactionPicker}
+    <div class="absolute z-50 -top-10 left-12 flex items-center gap-1 bg-[#222] border border-white/10 rounded-full px-2 py-1.5 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+      {#each QUICK_REACTIONS as emoji}
+        <button
+          type="button"
+          on:click|stopPropagation={() => handleReactionClick(emoji)}
+          class="w-9 h-9 rounded-full flex items-center justify-center text-xl hover:bg-white/10 transition-transform transform active:scale-90 touch-manipulation origin-center"
+        >
+          {emoji}
+        </button>
+      {/each}
+    </div>
+  {/if}
+
   <div class="flex gap-3">
     <!-- Avatar -->
     {#if showHeader}

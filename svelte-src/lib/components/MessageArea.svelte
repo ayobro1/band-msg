@@ -11,6 +11,7 @@
   import NotificationSettings from './NotificationSettings.svelte';
   import Avatar from './Avatar.svelte';
   import Input from './Input.svelte';
+  import GiphyPicker from './GiphyPicker.svelte';
   
   let messageInput = '';
   let messageContainer: HTMLDivElement;
@@ -20,6 +21,7 @@
   let showMobileChannels = false;
   let showMobileMembers = false;
   let showNotificationSettings = false;
+  let showGiphy = false;
 
   $: selectedChannel = $channelStore.channels.find(
     c => c.id === $channelStore.selectedChannelId
@@ -60,6 +62,24 @@
     if (result.success) {
       messageInput = '';
     }
+  }
+
+  async function handleGiphySelect(url: string) {
+    if (!$channelStore.selectedChannelId) return;
+    showGiphy = false;
+    
+    // Stop typing indicator
+    if (typingTimeout) {
+      clearTimeout(typingTimeout);
+      typingTimeout = null;
+    }
+    await messageStore.stopTyping($channelStore.selectedChannelId);
+    
+    // Send markdown image immediately
+    await messageStore.sendMessage(
+      $channelStore.selectedChannelId,
+      `![GIF](${url})`
+    );
   }
 
   async function handleTyping() {
@@ -116,7 +136,6 @@
     online: $memberStore.members.filter(u => u.presenceStatus === 'online'),
     idle: $memberStore.members.filter(u => u.presenceStatus === 'idle'),
     dnd: $memberStore.members.filter(u => u.presenceStatus === 'dnd'),
-    offline: $memberStore.members.filter(u => u.presenceStatus === 'offline'),
   };
 </script>
 
@@ -253,6 +272,16 @@
   <!-- Input area -->
   <div class="px-4 pb-3 md:pb-4 shrink-0">
     <div class="relative flex items-end gap-2">
+      <!-- GIF Button -->
+      <button
+        type="button"
+        on:click={() => showGiphy = true}
+        class="h-11 px-3.5 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors flex items-center justify-center shrink-0 font-bold text-xs text-white/70 hover:text-white"
+        title="Add GIF"
+      >
+        GIF
+      </button>
+
       <div class="flex-1">
         <Input
           type="text"
@@ -302,6 +331,13 @@
 
 {#if showNotificationSettings}
   <NotificationSettings onClose={() => showNotificationSettings = false} />
+{/if}
+
+{#if showGiphy}
+  <GiphyPicker
+    onClose={() => showGiphy = false}
+    onSelect={handleGiphySelect}
+  />
 {/if}
 
 <!-- Mobile Channels Drawer -->
@@ -362,7 +398,7 @@
                         status={status === 'online' ? 'online' : status === 'idle' ? 'away' : status === 'dnd' ? 'busy' : 'offline'}
                       />
                       <div class="flex-1 min-w-0 text-left">
-                        <p class="text-sm font-medium truncate {status === 'offline' ? 'text-white/30' : 'text-white/70'}">
+                        <p class="text-sm font-medium truncate text-white/70">
                           {user.username}
                         </p>
                         <p class="text-xs text-white/20 truncate">{user.role}</p>
