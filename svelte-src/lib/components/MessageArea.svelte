@@ -279,7 +279,7 @@
       <button
         type="button"
         on:click={() => {
-          if (window.innerWidth < 768) {
+          if (window.innerWidth < 1024) {
             showMobileMembers = true;
           } else {
             memberStore.toggleUserList();
