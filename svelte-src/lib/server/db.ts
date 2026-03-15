@@ -752,7 +752,7 @@ export async function deleteChannel(args: {
 export async function listMessages(args: {
   sessionToken: string;
   channelId: string;
-}): Promise<Result<Array<{ id: string; content: string; channelId: string; createdAt: number; author: string; replyCount: number }>>> {
+}): Promise<Result<Array<{ id: string; content: string; channelId: string; createdAt: number; author: string }>>> {
   const user = await getUserBySession(args.sessionToken);
   if (!user) {
     return { ok: false, code: 401, error: "Unauthorized" };
@@ -784,22 +784,6 @@ export async function listMessages(args: {
   `;
   const messageRows = rows as any[];
 
-  // Get reply counts for each message
-  const messageIds = messageRows.map(m => m.id);
-  let replyCounts: Record<string, number> = {};
-  
-  if (messageIds.length > 0) {
-    const replyCountRows = await sql`
-      SELECT reply_to_id, COUNT(*) as count
-      FROM messages
-      WHERE reply_to_id = ANY(${messageIds})
-      GROUP BY reply_to_id
-    `;
-    replyCounts = Object.fromEntries(
-      replyCountRows.map((r: any) => [r.reply_to_id, Number(r.count)])
-    );
-  }
-
   return {
     ok: true,
     value: messageRows.map((row) => ({
@@ -807,17 +791,16 @@ export async function listMessages(args: {
       content: row.content,
       channelId: row.channel_id,
       createdAt: Number(row.created_at),
-      author: row.author,
-      replyCount: replyCounts[row.id] || 0
+      author: row.author
     }))
   };
+}
 }
 
 export async function sendMessage(args: {
   sessionToken: string;
   channelId: string;
   content: string;
-  replyToId?: string | null;
 }): Promise<Result<{ messageId: string }>> {
   const user = await getUserBySession(args.sessionToken);
   if (!user) {
@@ -847,8 +830,8 @@ export async function sendMessage(args: {
 
   const id = crypto.randomUUID();
   await sql`
-    INSERT INTO messages (id, channel_id, user_id, content, reply_to_id, created_at)
-    VALUES (${id}, ${args.channelId}, ${user.id}, ${content}, ${args.replyToId || null}, ${Date.now()})
+    INSERT INTO messages (id, channel_id, user_id, content, created_at)
+    VALUES (${id}, ${args.channelId}, ${user.id}, ${content}, ${Date.now()})
   `;
 
   return { ok: true, value: { messageId: id } };
