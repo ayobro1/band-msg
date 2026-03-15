@@ -775,13 +775,7 @@ export async function listMessages(args: {
   }
 
   const rows = await sql`
-    SELECT 
-      m.id, 
-      m.content, 
-      m.channel_id, 
-      m.created_at, 
-      u.username AS author,
-      (SELECT COUNT(*) FROM messages WHERE reply_to_id = m.id) as reply_count
+    SELECT m.id, m.content, m.channel_id, m.created_at, u.username AS author
     FROM messages m
     JOIN users u ON u.id = m.user_id
     WHERE m.channel_id = ${args.channelId}
@@ -789,6 +783,22 @@ export async function listMessages(args: {
     LIMIT 200
   `;
   const messageRows = rows as any[];
+
+  // Get reply counts for each message
+  const messageIds = messageRows.map(m => m.id);
+  let replyCounts: Record<string, number> = {};
+  
+  if (messageIds.length > 0) {
+    const replyCountRows = await sql`
+      SELECT reply_to_id, COUNT(*) as count
+      FROM messages
+      WHERE reply_to_id = ANY(${messageIds})
+      GROUP BY reply_to_id
+    `;
+    replyCounts = Object.fromEntries(
+      replyCountRows.map((r: any) => [r.reply_to_id, Number(r.count)])
+    );
+  }
 
   return {
     ok: true,
@@ -798,7 +808,7 @@ export async function listMessages(args: {
       channelId: row.channel_id,
       createdAt: Number(row.created_at),
       author: row.author,
-      replyCount: Number(row.reply_count) || 0
+      replyCount: replyCounts[row.id] || 0
     }))
   };
 }
