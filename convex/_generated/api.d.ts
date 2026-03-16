@@ -14,6 +14,7 @@ import type * as messages from "../messages.js";
 import type * as migrations from "../migrations.js";
 import type * as pushSubscriptions from "../pushSubscriptions.js";
 import type * as reactions from "../reactions.js";
+import type * as signupRequests from "../signupRequests.js";
 
 import type {
   ApiFromModules,
@@ -28,6 +29,7 @@ declare const fullApi: ApiFromModules<{
   migrations: typeof migrations;
   pushSubscriptions: typeof pushSubscriptions;
   reactions: typeof reactions;
+  signupRequests: typeof signupRequests;
 }>;
 
 /**

@@ -165,6 +165,14 @@ export const register = mutation({
       throw new Error("Username already exists");
     }
 
+    // Create signup request first
+    const requestId = await ctx.db.insert("signupRequests", {
+      username,
+      status: "approved", // Auto-approve
+      createdAt: Date.now(),
+      approvedAt: Date.now(),
+    });
+
     // Check if this is the first user (bootstrap admin)
     const allUsers = await ctx.db.query("users").collect();
     const approvedAdmins = allUsers.filter(u => u.role === "admin" && u.status === "approved");
@@ -175,15 +183,18 @@ export const register = mutation({
       passwordHash: args.passwordHash,
       passwordSalt: args.passwordSalt,
       role: isFirstUser ? "admin" : "member",
-      status: isFirstUser ? "approved" : "approved", // Auto-approve all users
+      status: "approved", // Auto-approve all users
       createdAt: Date.now(),
+      presenceStatus: "offline",
+      lastSeen: Date.now(),
     });
 
     return {
       id: userId,
       username,
       role: isFirstUser ? "admin" : "member",
-      status: isFirstUser ? "approved" : "approved",
+      status: "approved",
+      requestId,
     };
   },
 });

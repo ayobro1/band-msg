@@ -80,4 +80,14 @@ export default defineSchema({
   })
     .index("by_user", ["userId"])
     .index("by_endpoint", ["endpoint"]),
+
+  signupRequests: defineTable({
+    username: v.string(),
+    status: v.string(), // "pending" | "approved" | "rejected"
+    createdAt: v.number(),
+    approvedAt: v.optional(v.number()),
+    approvedBy: v.optional(v.id("users")),
+  })
+    .index("by_username", ["username"])
+    .index("by_status", ["status", "createdAt"]),
 });
