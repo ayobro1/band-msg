@@ -603,17 +603,17 @@ export async function loginUser(args: {
     return { ok: false, code: 401, error: "Invalid username or password" };
   }
 
+  // Bootstrap: if no approved admins exist, first login becomes admin
   if (user.status !== "approved") {
     const bootstrapAdmin = (await countApprovedAdmins()) === 0;
     if (bootstrapAdmin) {
       await sql`UPDATE users SET role = 'admin', status = 'approved' WHERE id = ${user.id}`;
       user.role = "admin";
       user.status = "approved";
-    } else {
-      return { ok: false, code: 403, error: "Account pending approval" };
     }
   }
 
+  // Create session for all authenticated users (approved or pending)
   await sql`
     INSERT INTO sessions (token, user_id, expires_at, created_at)
     VALUES (${args.sessionToken}, ${user.id}, ${args.expiresAt}, ${Date.now()})
@@ -627,6 +627,30 @@ export async function logoutSession(sessionToken: string): Promise<void> {
   await sql`DELETE FROM sessions WHERE token = ${sessionToken}`;
 }
 
+/** Returns any authenticated user (approved or pending). Used for /api/auth/me so pending users can check their status. */
+export async function getSessionUser(sessionToken: string): Promise<AppUser | null> {
+  await ensureDb();
+  const now = Date.now();
+
+  const rows = await sql`
+    SELECT u.id, u.username, u.role, u.status, u.needs_username_setup
+    FROM sessions s
+    JOIN users u ON u.id = s.user_id
+    WHERE s.token = ${sessionToken}
+      AND s.expires_at > ${now}
+    LIMIT 1
+  `;
+
+  if (!rows[0]) return null;
+
+  const user = toAppUser(rows[0]);
+  if (rows[0].needs_username_setup) {
+    (user as any).needsUsernameSetup = true;
+  }
+  return user;
+}
+
+/** Returns only approved authenticated users. Used by all non-auth endpoints to gate access. */
 export async function getUserBySession(sessionToken: string): Promise<AppUser | null> {
   await ensureDb();
   const now = Date.now();

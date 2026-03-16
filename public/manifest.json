@@ -1,7 +1,7 @@
 {
-  "name": "Band Chat - Discord Clone",
+  "name": "Band Chat",
   "short_name": "BandChat",
-  "description": "A full-featured Discord-like chat platform for communities",
+  "description": "Chat platform for bands and communities",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#000000",

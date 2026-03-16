@@ -1,6 +1,9 @@
 <script lang="ts">
+  import { createEventDispatcher } from 'svelte';
   import { authStore } from '../stores/auth';
   import Spinner from './Spinner.svelte';
+
+  const dispatch = createEventDispatcher();
 
   let mode: 'login' | 'register' = 'login';
   let username = '';
@@ -9,7 +12,7 @@
 
   async function handleSubmit() {
     error = '';
-    
+
     if (!username || !password) {
       error = 'Please fill in all fields';
       return;
@@ -26,10 +29,11 @@
 
     if (!result.success) {
       error = result.error || 'An error occurred';
-    } else if (mode === 'register') {
-      error = '';
-      mode = 'login';
-      password = '';
+    }
+
+    // Start polling if user is pending (after login or auto-login from register)
+    if ($authStore.user?.status === 'pending') {
+      dispatch('pending');
     }
   }
 
@@ -97,9 +101,15 @@
                 <circle cx="12" cy="12" r="10"/>
                 <polyline points="12 6 12 12 16 14"/>
               </svg>
-              Approval Pending
+              Waiting for approval
             </div>
-            <p class="text-xs opacity-70">Your account is waiting for admin approval. Please check back later.</p>
+            <p class="text-xs opacity-70">
+              Your account <strong>{$authStore.user.username}</strong> is waiting for admin approval. You'll be let in automatically once approved.
+            </p>
+            <div class="flex items-center gap-1.5 mt-1 text-xs opacity-50">
+              <div class="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse"></div>
+              Checking...
+            </div>
           </div>
         {/if}
 

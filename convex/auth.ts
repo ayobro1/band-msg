@@ -211,7 +211,19 @@ export const register = mutation({
         requestId,
       };
     } else {
-      // Not first user - only create signup request
+      // Create user with pending status so they can login and see their approval state
+      const userId = await ctx.db.insert("users", {
+        username,
+        passwordHash: args.passwordHash,
+        passwordSalt: args.passwordSalt,
+        role: "member",
+        status: "pending",
+        createdAt: Date.now(),
+        presenceStatus: "offline",
+        lastSeen: Date.now(),
+      });
+
+      // Also create signup request for tracking
       const requestId = await ctx.db.insert("signupRequests", {
         username,
         passwordHash: args.passwordHash,
@@ -221,7 +233,7 @@ export const register = mutation({
       });
 
       return {
-        id: requestId,
+        id: userId,
         username,
         role: "member",
         status: "pending",
@@ -251,11 +263,7 @@ export const login = mutation({
       throw new Error("Invalid username or password");
     }
 
-    if (user.status !== "approved") {
-      throw new Error("Account pending approval");
-    }
-
-    // Create session
+    // Create session (allow both approved and pending users to get sessions)
     await ctx.db.insert("sessions", {
       token: args.sessionToken,
       userId: user._id,

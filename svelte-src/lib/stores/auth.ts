@@ -69,7 +69,9 @@ function createAuthStore() {
         const res = await apiPost('/api/auth/register', { username, password });
         if (res.ok) {
           update(state => ({ ...state, isLoading: false }));
-          return { success: true };
+          // Auto-login after registration
+          const loginResult = await this.login(username, password);
+          return loginResult;
         } else {
           const error = await res.json();
           update(state => ({ ...state, isLoading: false, error: error.error || 'Registration failed' }));

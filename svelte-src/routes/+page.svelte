@@ -19,6 +19,59 @@
   let showPWAGuide = false;
   let showUsernameSetup = false;
   let heartbeatInterval: any;
+  let approvalPollInterval: any;
+
+  async function initApp() {
+    // Connect to Pusher for real-time updates
+    pusherStore.connect();
+
+    // Load initial data from Convex
+    console.log('[Page] Loading channels from Convex');
+    await convexChannelStore.loadChannels();
+    console.log('[Page] Channels loaded:', $convexChannelStore.channels);
+
+    await memberStore.loadMembers();
+
+    // Load messages for selected channel
+    if ($convexChannelStore.selectedChannelId) {
+      console.log('[Page] Loading messages for channel:', $convexChannelStore.selectedChannelId);
+      await convexMessageStore.loadMessages($convexChannelStore.selectedChannelId);
+    }
+
+    // Start heartbeat to keep user online
+    if (browser) {
+      const { convex } = await import('../lib/convex');
+      const { api } = await import('../../convex/_generated/api');
+
+      heartbeatInterval = setInterval(async () => {
+        if (data.sessionToken) {
+          try {
+            await convex.mutation(api.auth.heartbeat, { sessionToken: data.sessionToken });
+          } catch (error) {
+            console.error('[Page] Heartbeat failed:', error);
+          }
+        }
+      }, 30000);
+    }
+  }
+
+  function startApprovalPolling() {
+    if (approvalPollInterval) return;
+    approvalPollInterval = setInterval(async () => {
+      await authStore.checkAuth();
+      if ($authStore.user?.status === 'approved') {
+        stopApprovalPolling();
+        await initApp();
+      }
+    }, 3000);
+  }
+
+  function stopApprovalPolling() {
+    if (approvalPollInterval) {
+      clearInterval(approvalPollInterval);
+      approvalPollInterval = null;
+    }
+  }
 
   onMount(async () => {
     // Set session token for Convex
@@ -30,68 +83,41 @@
 
     // Initialize theme
     themeStore.init();
-    
+
     // Check if user is authenticated first
     await authStore.checkAuth();
-    
+
     // Only show PWA guide if:
     // 1. User is NOT logged in (first time visitor)
     // 2. Haven't seen the guide before
     // 3. Not already installed as PWA
     if (!$authStore.user && browser) {
       const hasSeenPWAGuide = localStorage.getItem('hasSeenPWAGuide');
-      const isStandalone = window.matchMedia('(display-mode: standalone)').matches || 
+      const isStandalone = window.matchMedia('(display-mode: standalone)').matches ||
                           (window.navigator as any).standalone === true;
-      
+
       if (!hasSeenPWAGuide && !isStandalone) {
         showPWAGuide = true;
         return;
       }
     }
-    
+
     // Check if user needs to set username
     if ($authStore.user?.needsUsernameSetup && $authStore.user?.status === 'approved') {
       showUsernameSetup = true;
       return;
     }
-    
-    if ($authStore.user && $authStore.user.status === 'approved') {
-      // Connect to Pusher for real-time updates (will remove later)
-      pusherStore.connect();
-      
-      // Load initial data from Convex
-      console.log('[Page] Loading channels from Convex');
-      await convexChannelStore.loadChannels();
-      console.log('[Page] Channels loaded:', $convexChannelStore.channels);
-      
-      await memberStore.loadMembers();
-      
-      // Load messages for selected channel
-      if ($convexChannelStore.selectedChannelId) {
-        console.log('[Page] Loading messages for channel:', $convexChannelStore.selectedChannelId);
-        await convexMessageStore.loadMessages($convexChannelStore.selectedChannelId);
-      }
 
-      // Start heartbeat to keep user online
-      if (browser) {
-        const { convex } = await import('../lib/convex');
-        const { api } = await import('../../convex/_generated/api');
-        
-        heartbeatInterval = setInterval(async () => {
-          if (data.sessionToken) {
-            try {
-              await convex.mutation(api.auth.heartbeat, { sessionToken: data.sessionToken });
-            } catch (error) {
-              console.error('[Page] Heartbeat failed:', error);
-            }
-          }
-        }, 30000); // Every 30 seconds
-      }
+    if ($authStore.user?.status === 'pending') {
+      startApprovalPolling();
+    } else if ($authStore.user && $authStore.user.status === 'approved') {
+      await initApp();
     }
   });
 
   onDestroy(() => {
     pusherStore.disconnect();
+    stopApprovalPolling();
     if (heartbeatInterval) {
       clearInterval(heartbeatInterval);
     }
@@ -110,19 +136,9 @@
     showUsernameSetup = false;
     // Reload user data
     await authStore.checkAuth();
-    
+
     if ($authStore.user?.status === 'approved') {
-      // Connect to Pusher
-      pusherStore.connect();
-      
-      // Load initial data
-      await convexChannelStore.loadChannels();
-      await memberStore.loadMembers();
-      
-      // Load messages for selected channel
-      if ($convexChannelStore.selectedChannelId) {
-        await convexMessageStore.loadMessages($convexChannelStore.selectedChannelId);
-      }
+      await initApp();
     }
   }
 </script>
@@ -134,20 +150,20 @@
 {#if showPWAGuide}
   <PWAInstallGuide on:skip={handlePWAGuideComplete} on:done={handlePWAGuideComplete} />
 {:else if showUsernameSetup && $authStore.user?.status === 'approved'}
-  <UsernameSetup 
-    suggestedUsername={$authStore.user?.username || ''} 
-    on:complete={handleUsernameSetupComplete} 
+  <UsernameSetup
+    suggestedUsername={$authStore.user?.username || ''}
+    on:complete={handleUsernameSetupComplete}
   />
 {:else if !$authStore.user || $authStore.user?.status === 'pending'}
-  <AuthScreen />
+  <AuthScreen on:pending={startApprovalPolling} />
 {:else}
   <div class="fixed inset-0 flex overflow-hidden bg-black text-white antialiased">
     <!-- Channel Sidebar -->
     <ChannelSidebar />
-    
+
     <!-- Message Area -->
     <MessageArea />
-    
+
     <!-- User List -->
     <UserList />
   </div>
