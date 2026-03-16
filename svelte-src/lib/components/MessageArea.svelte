@@ -3,6 +3,7 @@
   import { Drawer } from 'vaul-svelte';
   import { authStore } from '../stores/auth';
   import { channelStore } from '../stores/channels';
+  import { convexChannelStore } from '../stores/convexChannels';
   import { convexMessageStore as messageStore } from '../stores/convexMessages';
   import { memberStore } from '../stores/members';
   import { themeStore } from '../stores/theme';
@@ -40,13 +41,13 @@
     themeStore.init();
   });
 
-  $: selectedChannel = $channelStore.channels.find(
-    c => c.id === $channelStore.selectedChannelId
+  $: selectedChannel = $convexChannelStore.channels.find(
+    c => c.id === $convexChannelStore.selectedChannelId
   );
 
   // Load messages when channel changes
-  $: if ($channelStore.selectedChannelId) {
-    messageStore.loadMessages($channelStore.selectedChannelId);
+  $: if ($convexChannelStore.selectedChannelId) {
+    messageStore.loadMessages($convexChannelStore.selectedChannelId);
   }
 
   // Check if user is near bottom to enable auto-scroll

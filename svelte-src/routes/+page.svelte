@@ -9,6 +9,7 @@
   import UsernameSetup from '../lib/components/UsernameSetup.svelte';
   import { authStore } from '../lib/stores/auth';
   import { channelStore } from '../lib/stores/channels';
+  import { convexChannelStore } from '../lib/stores/convexChannels';
   import { messageStore } from '../lib/stores/messages';
   import { convexMessageStore } from '../lib/stores/convexMessages';
   import { memberStore } from '../lib/stores/members';
@@ -24,10 +25,19 @@
     // Set session token for Convex
     if (data.sessionToken) {
       convexMessageStore.setSessionToken(data.sessionToken);
+      convexChannelStore.setSessionToken(data.sessionToken);
     }
 
     // Initialize theme
     themeStore.init();
+    
+    // Check if user is authenticated first
+    await authStore.checkAuth();
+    
+    // Load channels from Convex
+    if ($authStore.isAuthenticated) {
+      await convexChannelStore.loadChannels();
+    }
     
     // Check if user is authenticated first
     await authStore.checkAuth();
