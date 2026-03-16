@@ -55,8 +55,14 @@
   }
 
   async function selectChannel(channelId: string) {
+    console.log('[ChannelSidebar] Selecting channel:', channelId);
     convexChannelStore.selectChannel(channelId);
-    await convexMessageStore.loadMessages(channelId);
+    try {
+      await convexMessageStore.loadMessages(channelId);
+      console.log('[ChannelSidebar] Messages loaded for channel:', channelId);
+    } catch (error) {
+      console.error('[ChannelSidebar] Error loading messages:', error);
+    }
   }
 
   function handleContextMenu(e: MouseEvent, channel: any) {
