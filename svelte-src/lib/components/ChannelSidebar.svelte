@@ -88,14 +88,19 @@
     try {
       const sessionToken = $convexMessageStore.sessionToken;
       if (!sessionToken) {
-        console.error('No session token');
+        console.error('[ChannelSidebar] No session token');
+        alert('No session token - please refresh the page');
         return;
       }
+
+      console.log('[ChannelSidebar] Deleting channel:', channelToDelete.id);
 
       await convex.mutation(api.channels.remove, {
         channelId: channelToDelete.id as Id<"channels">,
         sessionToken
       });
+
+      console.log('[ChannelSidebar] Channel deleted successfully');
 
       await convexChannelStore.loadChannels();
       if ($convexChannelStore.selectedChannelId === channelToDelete.id) {
@@ -105,7 +110,8 @@
         }
       }
     } catch (err) {
-      console.error('Failed to delete channel:', err);
+      console.error('[ChannelSidebar] Failed to delete channel:', err);
+      alert(`Failed to delete channel: ${err instanceof Error ? err.message : 'Unknown error'}`);
     } finally {
       showDeleteConfirm = false;
       channelToDelete = null;
