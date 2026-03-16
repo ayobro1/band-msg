@@ -795,7 +795,6 @@ export async function listMessages(args: {
     }))
   };
 }
-}
 
 export async function sendMessage(args: {
   sessionToken: string;
