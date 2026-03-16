@@ -79,7 +79,7 @@
       transitionConfig={{ duration: 150 }}
     />
     <Drawer.Content
-      class="fixed bottom-0 left-0 right-0 z-[200] flex flex-col bg-[#0a0a0a] rounded-t-[20px] max-h-[96vh] md:hidden outline-none"
+      class="fixed bottom-0 left-0 right-0 z-[200] flex flex-col bg-[#1a1a1a] rounded-t-[20px] max-h-[96vh] md:hidden outline-none"
       style="padding-bottom: env(safe-area-inset-bottom);"
     >
       <div class="flex-1 overflow-y-auto w-full max-w-md mx-auto relative px-4 pb-6">
@@ -190,7 +190,7 @@
     on:click={onClose}
   ></div>
   <div 
-    class="relative bg-[#0a0a0a] border border-white/10 w-full max-w-[400px] rounded-2xl shadow-2xl p-6"
+    class="relative bg-[#1a1a1a] border border-white/20 w-full max-w-[400px] rounded-2xl shadow-2xl p-6"
     role="dialog"
     aria-modal="true"
     on:click|stopPropagation
@@ -302,7 +302,7 @@
           transitionConfig={{ duration: 150 }}
         />
         <Drawer.Content
-          class="fixed bottom-0 left-0 right-0 z-[300] flex flex-col bg-[#0a0a0a] rounded-t-[20px] h-[85vh] outline-none"
+          class="fixed bottom-0 left-0 right-0 z-[300] flex flex-col bg-[#1a1a1a] rounded-t-[20px] h-[85vh] outline-none"
           style="padding-bottom: env(safe-area-inset-bottom);"
         >
           <div class="mx-auto w-12 h-1.5 flex-shrink-0 rounded-full bg-white/10 my-3"></div>
@@ -325,7 +325,7 @@
       on:click={() => showMemberSelector = false}
     ></div>
     <div 
-      class="relative bg-[#0a0a0a] border border-white/10 w-full max-w-[500px] h-[600px] rounded-2xl shadow-2xl overflow-hidden flex flex-col"
+      class="relative bg-[#1a1a1a] border border-white/20 w-full max-w-[500px] h-[600px] rounded-2xl shadow-2xl overflow-hidden flex flex-col"
       role="dialog"
       aria-modal="true"
       on:click|stopPropagation
