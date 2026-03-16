@@ -9,7 +9,7 @@ export default defineSchema({
     passwordSalt: v.optional(v.string()),
     googleId: v.optional(v.string()),
     role: v.string(), // "admin" | "member"
-    status: v.optional(v.string()), // "approved" | "pending" | "rejected"
+    status: v.string(), // "approved" | "pending" | "rejected" - REQUIRED field
     presenceStatus: v.string(), // "online" | "idle" | "dnd" | "offline"
     lastSeen: v.number(),
     createdAt: v.optional(v.number()),
@@ -17,7 +17,8 @@ export default defineSchema({
   })
     .index("by_username", ["username"])
     .index("by_email", ["email"])
-    .index("by_google_id", ["googleId"]),
+    .index("by_google_id", ["googleId"])
+    .index("by_status", ["status"]),
 
   sessions: defineTable({
     userId: v.id("users"),
