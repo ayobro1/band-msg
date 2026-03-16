@@ -181,20 +181,20 @@
 </Drawer.Root>
 
 <!-- Desktop Modal Version -->
-<!-- svelte-ignore a11y_click_events_have_key_events -->
-<!-- svelte-ignore a11y_no_static_element_interactions -->
-<div 
-  class="hidden md:block fixed inset-0 bg-black/80 z-[200]"
-  transition:fade={{ duration: 150 }}
-  on:click={onClose}
-></div>
-<div class="hidden md:flex fixed inset-0 z-[201] items-center justify-center p-4 pointer-events-none">
+<div class="hidden md:block">
+  <!-- svelte-ignore a11y_click_events_have_key_events -->
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div 
-    class="relative bg-[#2a2a2a] border border-white/30 w-full max-w-[400px] rounded-2xl shadow-2xl p-6 pointer-events-auto"
-    role="dialog"
-    aria-modal="true"
-    on:click|stopPropagation
-  >
+    class="fixed inset-0 bg-black/80 z-[200]"
+    on:click={onClose}
+  ></div>
+  <div class="fixed inset-0 z-[201] flex items-center justify-center p-4 pointer-events-none">
+    <div 
+      class="relative bg-[#2a2a2a] border border-white/30 w-full max-w-[400px] rounded-2xl shadow-2xl p-6 pointer-events-auto"
+      role="dialog"
+      aria-modal="true"
+      on:click|stopPropagation
+    >
     <div class="flex items-center justify-between mb-6">
       <h2 class="text-[20px] font-bold text-white tracking-tight">Create Channel</h2>
       <button type="button" on:click={onClose} class="p-2 -mr-2 text-white/40 hover:text-white transition-colors bg-white/5 rounded-full" aria-label="Close modal">
@@ -289,6 +289,7 @@
       </button>
     </form>
   </div>
+  </div>
 </div>
 
 <!-- Member Selector Modal (Mobile - Drawer) -->
@@ -316,24 +317,25 @@
   </div>
   
   <!-- Member Selector Modal (Desktop) -->
-  <!-- svelte-ignore a11y_click_events_have_key_events -->
-  <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div
-    class="hidden md:block fixed inset-0 bg-black/80 z-[300]"
-    transition:fade={{ duration: 150 }}
-    on:click={() => showMemberSelector = false}
-  ></div>
-  <div class="hidden md:flex fixed inset-0 z-[301] items-center justify-center p-4 pointer-events-none">
-    <div 
-      class="relative bg-[#2a2a2a] border border-white/30 w-full max-w-[500px] h-[600px] rounded-2xl shadow-2xl overflow-hidden flex flex-col pointer-events-auto"
-      role="dialog"
-      aria-modal="true"
-      on:click|stopPropagation
-    >
-      <MemberSelector 
-        bind:selectedMemberIds 
-        onClose={() => showMemberSelector = false}
-      />
+  <div class="hidden md:block">
+    <!-- svelte-ignore a11y_click_events_have_key_events -->
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div
+      class="fixed inset-0 bg-black/80 z-[300]"
+      on:click={() => showMemberSelector = false}
+    ></div>
+    <div class="fixed inset-0 z-[301] flex items-center justify-center p-4 pointer-events-none">
+      <div 
+        class="relative bg-[#2a2a2a] border border-white/30 w-full max-w-[500px] h-[600px] rounded-2xl shadow-2xl overflow-hidden flex flex-col pointer-events-auto"
+        role="dialog"
+        aria-modal="true"
+        on:click|stopPropagation
+      >
+        <MemberSelector 
+          bind:selectedMemberIds 
+          onClose={() => showMemberSelector = false}
+        />
+      </div>
     </div>
   </div>
 {/if}

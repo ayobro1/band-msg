@@ -132,20 +132,21 @@
 </script>
 
 <!-- svelte-ignore a11y_click_events_have_key_events -->
-<!-- svelte-ignore a11y_click_events_have_key_events -->
-<!-- svelte-ignore a11y_no_static_element_interactions -->
-<div
-  class="fixed inset-0 bg-black/80 z-[200]"
-  style="padding-top: env(safe-area-inset-top);"
-  on:click={onClose}
-></div>
-<div class="fixed inset-0 z-[201] flex items-end md:items-center md:justify-center animate-fade-in pointer-events-none" style="padding-top: env(safe-area-inset-top);">
+<div class="hidden md:block">
   <!-- svelte-ignore a11y_click_events_have_key_events -->
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div
-    class="bg-black border-t border-white/10 md:border md:rounded-2xl w-full md:max-w-lg md:max-h-[85vh] flex flex-col rounded-t-2xl max-h-[92vh] animate-slide-up md:animate-scale-in pointer-events-auto"
-    on:click|stopPropagation
-  >
+    class="fixed inset-0 bg-black/80 z-[200]"
+    style="padding-top: env(safe-area-inset-top);"
+    on:click={onClose}
+  ></div>
+  <div class="fixed inset-0 z-[201] flex items-end md:items-center md:justify-center animate-fade-in pointer-events-none" style="padding-top: env(safe-area-inset-top);">
+    <!-- svelte-ignore a11y_click_events_have_key_events -->
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div
+      class="bg-black border-t border-white/10 md:border md:rounded-2xl w-full md:max-w-lg md:max-h-[85vh] flex flex-col rounded-t-2xl max-h-[92vh] animate-slide-up md:animate-scale-in pointer-events-auto"
+      on:click|stopPropagation
+    >
     <!-- Header -->
     <div class="flex items-center justify-between px-4 py-3 border-b border-white/10 shrink-0">
       <h2 class="text-lg font-bold text-white">Events</h2>
@@ -329,5 +330,6 @@
         </div>
       {/if}
     </div>
+  </div>
   </div>
 </div>
