@@ -1,9 +1,33 @@
-import { consumeRateLimit, registerUser } from "$lib/server/db";
 import { hashPassword } from "$lib/server/auth";
 import { getClientIp } from "$lib/server/request";
+import { ConvexHttpClient } from "convex/browser";
+import { api } from "../../../../../convex/_generated/api";
+
+const CONVEX_URL = process.env.CONVEX_URL || process.env.PUBLIC_CONVEX_URL || "";
+const convex = new ConvexHttpClient(CONVEX_URL);
 
 const REGISTER_MAX_ATTEMPTS = 8;
 const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
+
+// Simple in-memory rate limiting for registration
+const rateLimits = new Map<string, { count: number; resetAt: number }>();
+
+function consumeRateLimit(key: string): { allowed: boolean } {
+  const now = Date.now();
+  const limit = rateLimits.get(key);
+
+  if (!limit || limit.resetAt < now) {
+    rateLimits.set(key, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
+    return { allowed: true };
+  }
+
+  if (limit.count >= REGISTER_MAX_ATTEMPTS) {
+    return { allowed: false };
+  }
+
+  limit.count++;
+  return { allowed: true };
+}
 
 const toJson = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -25,23 +49,26 @@ export const POST = async ({ request }: any) => {
     const ip = getClientIp(request);
     const key = `register:${ip}:${username.trim().toLowerCase()}`;
 
-    const limit = await consumeRateLimit(key, REGISTER_MAX_ATTEMPTS, RATE_LIMIT_WINDOW_MS);
+    const limit = consumeRateLimit(key);
 
     if (!limit.allowed) {
       return toJson({ error: "Too many registration attempts, try again later" }, 429);
     }
 
-    const result = await registerUser({
-      username,
-      passwordHash: hash,
-      passwordSalt: salt
-    });
+    try {
+      const result = await convex.mutation(api.auth.register, {
+        username,
+        passwordHash: hash,
+        passwordSalt: salt
+      });
 
-    if (result.ok === false) {
-      return toJson({ error: result.error }, result.code ?? 400);
+      return toJson(result, 201);
+    } catch (error: any) {
+      if (error.message?.includes("already exists")) {
+        return toJson({ error: "Username already exists" }, 409);
+      }
+      throw error;
     }
-
-    return toJson(result.value, 201);
   } catch (error: any) {
     const expose = process.env.AUTH_DEBUG === "true";
     return toJson(

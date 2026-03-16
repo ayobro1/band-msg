@@ -1,5 +1,3 @@
-Here is your revised version with all emojis removed and a more professional tone throughout:
-
 ---
 
 # Band Chat - Discord Clone
@@ -54,7 +52,7 @@ A full-featured Discord-like chat platform built with SvelteKit, featuring messa
 #### 1. Clone the repository
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/NolanCotter/band-msg.git
 cd band-msg
 ```
 

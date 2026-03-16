@@ -1,11 +1,39 @@
 import { createSessionToken, expiresAtMs, hashPassword, setSessionCookie } from "$lib/server/auth";
-import { clearRateLimit, consumeRateLimit, getLoginSalt, loginUser } from "$lib/server/db";
 import { delayMs, getClientIp } from "$lib/server/request";
+import { ConvexHttpClient } from "convex/browser";
+import { api } from "../../../../../convex/_generated/api";
+
+const CONVEX_URL = process.env.CONVEX_URL || process.env.PUBLIC_CONVEX_URL || "";
+const convex = new ConvexHttpClient(CONVEX_URL);
 
 const LOGIN_IP_MAX_ATTEMPTS = 30;
 const LOGIN_ACCOUNT_MAX_ATTEMPTS = 10;
 const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
 const LOGIN_FAILURE_DELAY_MS = 450;
+
+// Simple in-memory rate limiting for login
+const rateLimits = new Map<string, { count: number; resetAt: number }>();
+
+function consumeRateLimit(key: string, maxAttempts: number): { allowed: boolean } {
+  const now = Date.now();
+  const limit = rateLimits.get(key);
+
+  if (!limit || limit.resetAt < now) {
+    rateLimits.set(key, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
+    return { allowed: true };
+  }
+
+  if (limit.count >= maxAttempts) {
+    return { allowed: false };
+  }
+
+  limit.count++;
+  return { allowed: true };
+}
+
+function clearRateLimit(key: string) {
+  rateLimits.delete(key);
+}
 
 const toJson = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -27,17 +55,18 @@ export const POST = async ({ request, cookies }: any) => {
     const ipKey = `login-ip:${ip}`;
     const userKey = `login-user:${username.trim().toLowerCase()}`;
 
-    const ipLimit = await consumeRateLimit(ipKey, LOGIN_IP_MAX_ATTEMPTS, RATE_LIMIT_WINDOW_MS);
+    const ipLimit = consumeRateLimit(ipKey, LOGIN_IP_MAX_ATTEMPTS);
     if (!ipLimit.allowed) {
       return toJson({ error: "Too many login attempts, try again later" }, 429);
     }
 
-    const userLimit = await consumeRateLimit(userKey, LOGIN_ACCOUNT_MAX_ATTEMPTS, RATE_LIMIT_WINDOW_MS);
+    const userLimit = consumeRateLimit(userKey, LOGIN_ACCOUNT_MAX_ATTEMPTS);
     if (!userLimit.allowed) {
       return toJson({ error: "Too many login attempts, try again later" }, 429);
     }
 
-    const salt = await getLoginSalt(username);
+    // Get salt from Convex
+    const salt = await convex.query(api.auth.getLoginSalt, { username });
     if (!salt) {
       await delayMs(LOGIN_FAILURE_DELAY_MS);
       return toJson({ error: "Invalid username or password" }, 401);
@@ -46,26 +75,62 @@ export const POST = async ({ request, cookies }: any) => {
     const hashed = await hashPassword(password, salt);
     const sessionToken = createSessionToken();
 
-    const result = await loginUser({
-      username,
-      passwordHash: hashed.hash,
-      sessionToken,
-      expiresAt: expiresAtMs()
-    });
+    try {
+      const user = await convex.mutation(api.auth.login, {
+        username,
+        passwordHash: hashed.hash,
+        sessionToken,
+        expiresAt: expiresAtMs()
+      });
 
-    if (result.ok === false) {
+      clearRateLimit(ipKey);
+      clearRateLimit(userKey);
+
+      setSessionCookie(cookies, sessionToken);
+      
+      // Sync to SQL so /api/auth/me works
+      try {
+        const { getSqlClient } = await import('$lib/server/db');
+        const sql = getSqlClient();
+        
+        // Find or create user in SQL
+        let sqlUser = await sql`SELECT id FROM users WHERE username = ${user.username} LIMIT 1`;
+        let sqlUserId = sqlUser[0]?.id;
+        
+        if (!sqlUserId) {
+          const crypto = await import('node:crypto');
+          sqlUserId = crypto.randomUUID();
+          await sql`
+            INSERT INTO users (id, username, role, status, created_at)
+            VALUES (${sqlUserId}, ${user.username}, ${user.role}, ${user.status}, ${Date.now()})
+          `;
+        } else {
+          // Update status/role if needed
+          await sql`
+            UPDATE users 
+            SET role = ${user.role}, status = ${user.status}
+            WHERE id = ${sqlUserId}
+          `;
+        }
+        
+        // Create session in SQL
+        await sql`
+          INSERT INTO sessions (token, user_id, expires_at, created_at)
+          VALUES (${sessionToken}, ${sqlUserId}, ${expiresAtMs()}, ${Date.now()})
+        `;
+      } catch (sqlError) {
+        console.error('[Login] SQL sync failed:', sqlError);
+      }
+      
+      // Return user data with session token
+      return toJson({
+        ...user,
+        sessionToken
+      });
+    } catch (error: any) {
       await delayMs(LOGIN_FAILURE_DELAY_MS);
-      return toJson({ error: result.error }, result.code ?? 401);
+      return toJson({ error: error.message || "Invalid username or password" }, 401);
     }
-
-    await clearRateLimit(ipKey);
-    await clearRateLimit(userKey);
-
-    setSessionCookie(cookies, sessionToken);
-    return toJson({
-      ...result.value,
-      sessionToken
-    });
   } catch (error: any) {
     const expose = process.env.AUTH_DEBUG === "true";
     return toJson(

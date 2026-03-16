@@ -1,6 +1,7 @@
 import { json } from "@sveltejs/kit";
 import { getSessionToken } from "$lib/server/auth";
 import { addReaction, removeReaction, getMessageReactions } from "$lib/server/db";
+import { triggerReactionUpdate } from "$lib/server/pusher";
 
 export async function POST({ request, cookies }: any) {
   const sessionToken = getSessionToken(cookies);
@@ -30,12 +31,26 @@ export async function POST({ request, cookies }: any) {
     if (result.ok === false) {
       return json({ error: result.error }, { status: result.code });
     }
+    
+    // Get updated reactions and trigger Pusher event
+    const reactionsResult = await getMessageReactions({ sessionToken, messageId });
+    if (reactionsResult.ok && result.value.channelId) {
+      triggerReactionUpdate(result.value.channelId, messageId, reactionsResult.value);
+    }
+    
     return json(result.value);
   } else {
     const result = await addReaction({ sessionToken, messageId, emoji });
     if (result.ok === false) {
       return json({ error: result.error }, { status: result.code });
     }
+    
+    // Get updated reactions and trigger Pusher event
+    const reactionsResult = await getMessageReactions({ sessionToken, messageId });
+    if (reactionsResult.ok && result.value.channelId) {
+      triggerReactionUpdate(result.value.channelId, messageId, reactionsResult.value);
+    }
+    
     return json(result.value);
   }
 };

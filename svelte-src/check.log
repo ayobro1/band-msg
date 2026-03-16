@@ -1,0 +1,78 @@
+Loading svelte-check in workspace: c:\Users\nolan\band-msg\svelte-src
+Getting Svelte diagnostics...
+
+c:\Users\nolan\band-msg\svelte-src\[32mlib\components\Calendar.svelte[39m:141:17
+[33mWarn[39m: A form label must be associated with a control
+https://svelte.dev/e/a11y_label_has_associated_control (svelte)
+[36m              <div>
+                [35m<label class="block text-xs font-medium text-white/40 mb-1 px-1">Starts</label>[36m
+                <input[39m
+
+c:\Users\nolan\band-msg\svelte-src\[32mlib\components\Calendar.svelte[39m:149:17
+[33mWarn[39m: A form label must be associated with a control
+https://svelte.dev/e/a11y_label_has_associated_control (svelte)
+[36m              <div>
+                [35m<label class="block text-xs font-medium text-white/40 mb-1 px-1">Ends</label>[36m
+                <input[39m
+
+c:\Users\nolan\band-msg\svelte-src\[32mlib\components\Input.svelte[39m:25:8
+[31mError[39m: Type 'string' is not assignable to type 'FullAutoFill'. (ts)
+[36m      {maxlength}
+      {[35mautocomplete[36m}
+      on:focus={() => focused = true}[39m
+
+c:\Users\nolan\band-msg\svelte-src\[32mlib\components\Input.svelte[39m:44:8
+[31mError[39m: Type 'string' is not assignable to type 'FullAutoFill'. (ts)
+[36m      {maxlength}
+      {[35mautocomplete[36m}
+      on:focus={() => focused = true}[39m
+
+c:\Users\nolan\band-msg\svelte-src\[32mlib\components\GiphyPicker.svelte[39m:64:11
+[33mWarn[39m: Avoid using autofocus
+https://svelte.dev/e/a11y_autofocus (svelte)
+[36m          class="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 pl-9 pr-4 text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-white/30 transition-colors"
+          [35mautofocus[36m
+        />[39m
+
+c:\Users\nolan\band-msg\svelte-src\[32mlib\components\CreateChannel.svelte[39m:96:17
+[33mWarn[39m: Avoid using autofocus
+https://svelte.dev/e/a11y_autofocus (svelte)
+[36m                class="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 pl-8 pr-4 text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-white/30 transition-colors"
+                [35mautofocus[36m
+              />[39m
+
+c:\Users\nolan\band-msg\svelte-src\[32mlib\components\AuthScreen.svelte[39m:99:11
+[33mWarn[39m: A form label must be associated with a control
+https://svelte.dev/e/a11y_label_has_associated_control (svelte)
+[36m          <span class="bar"></span>
+          [35m<label class="label">
+            <span class="label-char" style="--index: 0">U</span>
+            <span class="label-char" style="--index: 1">s</span>
+            <span class="label-char" style="--index: 2">e</span>
+            <span class="label-char" style="--index: 3">r</span>
+            <span class="label-char" style="--index: 4">n</span>
+            <span class="label-char" style="--index: 5">a</span>
+            <span class="label-char" style="--index: 6">m</span>
+            <span class="label-char" style="--index: 7">e</span>
+          </label>[36m
+        </div>[39m
+
+c:\Users\nolan\band-msg\svelte-src\[32mlib\components\AuthScreen.svelte[39m:121:11
+[33mWarn[39m: A form label must be associated with a control
+https://svelte.dev/e/a11y_label_has_associated_control (svelte)
+[36m          <span class="bar"></span>
+          [35m<label class="label">
+            <span class="label-char" style="--index: 0">P</span>
+            <span class="label-char" style="--index: 1">a</span>
+            <span class="label-char" style="--index: 2">s</span>
+            <span class="label-char" style="--index: 3">s</span>
+            <span class="label-char" style="--index: 4">w</span>
+            <span class="label-char" style="--index: 5">o</span>
+            <span class="label-char" style="--index: 6">r</span>
+            <span class="label-char" style="--index: 7">d</span>
+          </label>[36m
+        </div>[39m
+
+====================================
+[31msvelte-check found 2 errors and 6 warnings in 5 files
+[39m

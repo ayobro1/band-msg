@@ -1,33 +1,20 @@
-import { getSessionUser } from "$lib/server/db";
+import { json } from '@sveltejs/kit';
+import type { RequestHandler } from './$types';
+import { getSessionUser } from '$lib/server/db';
+import { getSessionToken } from '$lib/server/auth';
 
-const toJson = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), {
-    status,
-    headers: { "content-type": "application/json" }
-  });
+export const GET: RequestHandler = async ({ cookies }) => {
+  const sessionToken = getSessionToken(cookies);
 
-export const GET = async ({ locals }: any) => {
-  try {
-    if (!locals.sessionToken) {
-      return toJson({ error: "unauthorized" }, 401);
-    }
-
-    const user = await getSessionUser(locals.sessionToken);
-
-    if (!user) {
-      return toJson({ error: "unauthorized" }, 401);
-    }
-
-    return toJson(user);
-  } catch (error: any) {
-    const expose = process.env.AUTH_DEBUG === "true";
-    return toJson(
-      {
-        error: expose
-          ? `Auth check failed: ${error?.message ?? "unknown server error"}`
-          : "Auth check failed due to server configuration"
-      },
-      500
-    );
+  if (!sessionToken) {
+    return json({ error: 'Unauthorized' }, { status: 401 });
   }
+
+  const user = await getSessionUser(sessionToken);
+
+  if (!user) {
+    return json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  return json(user);
 };

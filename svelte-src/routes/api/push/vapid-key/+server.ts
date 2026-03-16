@@ -17,7 +17,7 @@ export const GET = async () => {
       // Store in a file for persistence across restarts
       const fs = await import('fs');
       const path = await import('path');
-      const envPath = path.join(process.cwd(), '.env.local');
+      const envPath = path.join(process.cwd(), '.env');
       let envContent = '';
       if (fs.existsSync(envPath)) {
         envContent = fs.readFileSync(envPath, 'utf-8');
@@ -28,7 +28,7 @@ export const GET = async () => {
       }
       process.env.VAPID_PUBLIC_KEY = keys.publicKey;
       process.env.VAPID_PRIVATE_KEY = keys.privateKey;
-      console.log('VAPID keys generated and saved to .env.local');
+      console.log('VAPID keys generated and saved to .env');
     } catch (e: any) {
       console.error('Failed to generate VAPID keys:', e.message);
       return toJson({ error: "Failed to generate VAPID keys: " + e.message }, 500);

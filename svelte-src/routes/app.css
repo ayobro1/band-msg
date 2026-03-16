@@ -1,5 +1,268 @@
 @import 'tailwindcss';
 
+:root[data-theme="dark"] {
+	--bg-primary: #000000;
+	--bg-secondary: #0a0a0a;
+	--bg-tertiary: #111111;
+	--text-primary: #ffffff;
+	--text-secondary: rgba(255, 255, 255, 0.7);
+	--text-tertiary: rgba(255, 255, 255, 0.4);
+	--border-color: rgba(255, 255, 255, 0.1);
+}
+
+:root[data-theme="light"] {
+	--bg-primary: #fafafa;
+	--bg-secondary: #f5f5f5;
+	--bg-tertiary: #eeeeee;
+	--text-primary: #111827;
+	--text-secondary: #4b5563;
+	--text-tertiary: #9ca3af;
+	--border-color: #e5e7eb;
+}
+
+/* Apply theme to body */
+body {
+	background-color: var(--bg-primary) !important;
+	color: var(--text-primary) !important;
+}
+
+/* Light mode overrides - CONSISTENT styling */
+body.light-mode {
+	background-color: #fafafa !important;
+	color: #000000 !important;
+	--bg-primary: #fafafa;
+	--bg-secondary: #f5f5f5;
+	--bg-tertiary: #eeeeee;
+	--text-primary: #000000;
+	--text-secondary: #374151;
+	--text-tertiary: #6b7280;
+	--border-color: #e5e7eb;
+}
+
+/* Main layout backgrounds */
+body.light-mode .flex-1.flex.flex-col,
+body.light-mode .flex-1.flex.flex-col.min-w-0 {
+	background-color: #fafafa !important;
+}
+
+/* Message area specifically */
+body.light-mode [class*="flex-1"][class*="flex"][class*="flex-col"][class*="min-w-0"] {
+	background-color: #fafafa !important;
+}
+
+/* Sidebars */
+body.light-mode .channel-sidebar,
+body.light-mode .members-sidebar {
+	background-color: #f9fafb !important;
+	border-color: #e5e7eb !important;
+}
+
+/* Override all black backgrounds */
+body.light-mode .bg-black,
+body.light-mode [style*="background-color: rgb(0, 0, 0)"],
+body.light-mode [style*="background-color:#000000"],
+body.light-mode [style*="background-color: #000000"],
+body.light-mode [style*="background: rgb(0, 0, 0)"],
+body.light-mode [style*="background:#000000"],
+body.light-mode [style*="background: #000000"] {
+	background-color: #fafafa !important;
+}
+
+/* Dark gray backgrounds to light gray */
+body.light-mode [style*="background-color: rgb(10, 10, 10)"],
+body.light-mode [style*="background-color:#0a0a0a"],
+body.light-mode [style*="background-color: #0a0a0a"] {
+	background-color: #f5f5f5 !important;
+}
+
+/* Channel icon in header - KEEP BLACK */
+body.light-mode .w-8.h-8.rounded-xl.bg-white {
+	background-color: #000000 !important;
+}
+
+body.light-mode .w-8.h-8.rounded-xl.bg-white svg {
+	color: #ffffff !important;
+	stroke: #ffffff !important;
+}
+
+/* Primary buttons - KEEP BLACK */
+body.light-mode button.bg-white:not(.w-8):not(.h-8),
+body.light-mode a.bg-white:not(.w-8):not(.h-8) {
+	background-color: #000000 !important;
+	color: #ffffff !important;
+}
+
+body.light-mode button.bg-white:not(.w-8):not(.h-8) *,
+body.light-mode a.bg-white:not(.w-8):not(.h-8) * {
+	color: #ffffff !important;
+}
+
+/* All white text to black */
+body.light-mode .text-white:not(button.bg-white *):not(.bg-white *):not([style*="color:"]) {
+	color: #000000 !important;
+}
+
+body.light-mode [style*="color: rgb(255, 255, 255)"]:not(button.bg-white *):not(.bg-white *) {
+	color: #000000 !important;
+}
+
+/* Message content text - force black */
+body.light-mode .text-white\/80 {
+	color: #000000 !important;
+}
+
+/* Text opacity variations */
+body.light-mode .text-white\/80 {
+	color: #000000 !important;
+}
+
+body.light-mode .text-white\/70 {
+	color: #1f2937 !important;
+}
+
+body.light-mode .text-white\/60 {
+	color: #374151 !important;
+}
+
+body.light-mode .text-white\/50 {
+	color: #4b5563 !important;
+}
+
+body.light-mode .text-white\/40 {
+	color: #6b7280 !important;
+}
+
+body.light-mode .text-white\/35,
+body.light-mode .text-white\/30,
+body.light-mode .text-white\/25 {
+	color: #9ca3af !important;
+}
+
+body.light-mode .text-white\/20 {
+	color: #d1d5db !important;
+}
+
+/* Inline style text colors */
+body.light-mode [style*="color: rgba(255, 255, 255, 0.8)"] {
+	color: #000000 !important;
+}
+
+body.light-mode [style*="color: rgba(255, 255, 255, 0.7)"],
+body.light-mode [style*="color: rgba(255, 255, 255, 0.6)"] {
+	color: #374151 !important;
+}
+
+body.light-mode [style*="color: rgba(255, 255, 255, 0.5)"],
+body.light-mode [style*="color: rgba(255, 255, 255, 0.4)"] {
+	color: #6b7280 !important;
+}
+
+body.light-mode [style*="color: rgba(255, 255, 255, 0.35)"],
+body.light-mode [style*="color: rgba(255, 255, 255, 0.3)"],
+body.light-mode [style*="color: rgba(255, 255, 255, 0.25)"] {
+	color: #9ca3af !important;
+}
+
+body.light-mode [style*="color: rgba(255, 255, 255, 0.2)"] {
+	color: #d1d5db !important;
+}
+
+/* Semi-transparent backgrounds */
+body.light-mode .bg-white\/5,
+body.light-mode .bg-white\/8,
+body.light-mode [style*="background-color: rgba(255, 255, 255, 0.03)"],
+body.light-mode [style*="background-color: rgba(255, 255, 255, 0.05)"],
+body.light-mode [style*="background-color: rgba(255, 255, 255, 0.08)"] {
+	background-color: #f3f4f6 !important;
+}
+
+body.light-mode .bg-white\/10,
+body.light-mode [style*="background-color: rgba(255, 255, 255, 0.1)"] {
+	background-color: #e5e7eb !important;
+}
+
+body.light-mode .bg-white\/20,
+body.light-mode [style*="background-color: rgba(255, 255, 255, 0.2)"] {
+	background-color: #d1d5db !important;
+}
+
+/* Borders */
+body.light-mode .border-white\/10,
+body.light-mode .border-white\/8,
+body.light-mode [class*="border-white"],
+body.light-mode [style*="border-color: rgba(255, 255, 255"] {
+	border-color: #e5e7eb !important;
+}
+
+/* Inputs and textareas */
+body.light-mode input,
+body.light-mode textarea,
+body.light-mode select {
+	color: #000000 !important;
+	background-color: #f9fafb !important;
+	border-color: #d1d5db !important;
+}
+
+body.light-mode input::placeholder,
+body.light-mode textarea::placeholder {
+	color: #9ca3af !important;
+}
+
+/* Toggle switches */
+body.light-mode [role="switch"] {
+	background-color: #d1d5db !important;
+}
+
+body.light-mode [role="switch"][aria-checked="true"] {
+	background-color: #000000 !important;
+}
+
+body.light-mode [role="switch"] > span {
+	background-color: #ffffff !important;
+}
+
+/* Hover states */
+body.light-mode .hover\:bg-white\/5:hover,
+body.light-mode [class*="hover:bg-white"]:hover {
+	background-color: #e5e7eb !important;
+}
+
+body.light-mode .hover\:text-white:hover:not(button.bg-white *),
+body.light-mode [class*="hover:text-white"]:hover:not(button.bg-white *) {
+	color: #000000 !important;
+}
+
+/* SVG icons inherit color */
+body.light-mode svg {
+	color: inherit !important;
+}
+
+/* Modals and drawers */
+body.light-mode [class*="bg-[#222]"],
+body.light-mode [style*="background-color: rgb(34, 34, 34)"] {
+	background-color: #fafafa !important;
+	border-color: #e5e7eb !important;
+}
+
+/* Mobile drawers - Vaul drawer backgrounds */
+body.light-mode [class*="bg-[#0a0a0a]"],
+body.light-mode [style*="background-color: #0a0a0a"],
+body.light-mode [style*="background-color: rgb(10, 10, 10)"] {
+	background-color: #fafafa !important;
+}
+
+/* Drawer overlays */
+body.light-mode [class*="bg-black/60"] {
+	background-color: rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Reaction picker */
+body.light-mode .bg-\[\#222\] {
+	background-color: #fafafa !important;
+	border-color: #e5e7eb !important;
+	box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1) !important;
+}
+
 @theme {
 	--color-surface-0: #0c0c0e;
 	--color-surface-1: #111113;
@@ -42,17 +305,28 @@ html {
 body {
 	margin: 0;
 	padding: 0;
+	width: 100%;
 	height: 100%;
 	height: 100dvh;
-	height: -webkit-fill-available;
+	position: fixed;
+	inset: 0;
 	overflow: hidden;
 	font-family: var(--font-sans);
-	background: var(--color-surface-0);
+	background: #000000;
 	color: var(--color-text-primary);
 	-webkit-font-smoothing: antialiased;
 	-moz-osx-font-smoothing: grayscale;
 	touch-action: manipulation;
 	-webkit-tap-highlight-color: transparent;
+}
+
+*, *::before, *::after {
+	box-sizing: border-box;
+}
+
+button, a, input, textarea, select, [role="button"] {
+	-webkit-touch-callout: none;
+	touch-action: manipulation;
 }
 
 * {
@@ -75,6 +349,14 @@ body {
 	background: rgba(255,255,255,0.14);
 }
 
+.scrollbar-hide {
+	-ms-overflow-style: none;
+	scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+	display: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
 	*, *::before, *::after {
 		animation-duration: 0.01ms !important;
@@ -83,14 +365,120 @@ body {
 	}
 }
 
+/* Smooth Transitions for Interactive Elements */
+button, a, input, textarea, select, [role="button"] {
+	transition: all 150ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+button:active, [role="button"]:active {
+	transform: scale(0.98);
+}
+
+/* Micro-interactions */
+.hover-lift {
+	transition: transform 200ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.hover-lift:hover {
+	transform: translateY(-2px);
+	box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+}
+
+.hover-scale {
+	transition: transform 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.hover-scale:hover {
+	transform: scale(1.05);
+}
+
+.hover-glow {
+	transition: box-shadow 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.hover-glow:hover {
+	box-shadow: 0 0 20px rgba(255, 255, 255, 0.1);
+}
+
+/* Focus States */
+*:focus-visible {
+	outline: 2px solid rgba(255, 255, 255, 0.3);
+	outline-offset: 2px;
+	transition: outline 150ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+body.light-mode *:focus-visible {
+	outline-color: rgba(0, 0, 0, 0.3);
+}
+
+/* Loading States */
+.loading-shimmer {
+	position: relative;
+	overflow: hidden;
+}
+
+.loading-shimmer::after {
+	content: '';
+	position: absolute;
+	inset: 0;
+	background: linear-gradient(90deg, transparent, rgba(255,255,255,0.05), transparent);
+	background-size: 200% 100%;
+	animation: shimmer 1.5s infinite;
+}
+
+body.light-mode .loading-shimmer::after {
+	background: linear-gradient(90deg, transparent, rgba(0,0,0,0.03), transparent);
+}
+
+/* Stagger Animations */
+.stagger-fade-in > * {
+	animation: fade-in 200ms cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+
+.stagger-fade-in > *:nth-child(1) { animation-delay: 0ms; }
+.stagger-fade-in > *:nth-child(2) { animation-delay: 50ms; }
+.stagger-fade-in > *:nth-child(3) { animation-delay: 100ms; }
+.stagger-fade-in > *:nth-child(4) { animation-delay: 150ms; }
+.stagger-fade-in > *:nth-child(5) { animation-delay: 200ms; }
+.stagger-fade-in > *:nth-child(n+6) { animation-delay: 250ms; }
+
+/* Modern Animations - 150-250ms for optimal UX */
 @keyframes fade-in {
-	from { opacity: 0; transform: translateY(12px); }
+	from { opacity: 0; transform: translateY(8px); }
 	to { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes slide-up {
-	from { transform: translateY(100%); }
-	to { transform: translateY(0); }
+	from { 
+		opacity: 0;
+		transform: translateY(100%); 
+	}
+	to { 
+		opacity: 1;
+		transform: translateY(0); 
+	}
+}
+
+@keyframes slide-down {
+	from { 
+		opacity: 0;
+		transform: translateY(-12px); 
+	}
+	to { 
+		opacity: 1;
+		transform: translateY(0); 
+	}
+}
+
+@keyframes scale-in {
+	from { 
+		opacity: 0;
+		transform: scale(0.95); 
+	}
+	to { 
+		opacity: 1;
+		transform: scale(1); 
+	}
 }
 
 @keyframes pulse {
@@ -98,25 +486,102 @@ body {
 	50% { opacity: 0.8; }
 }
 
+@keyframes pulse-subtle {
+	0%, 100% { opacity: 1; }
+	50% { opacity: 0.7; }
+}
+
 @keyframes toast-in {
 	from { opacity: 0; transform: translateY(8px) scale(0.96); }
 	to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
+@keyframes shimmer {
+	0% { background-position: -200% 0; }
+	100% { background-position: 200% 0; }
+}
+
+@keyframes bounce-subtle {
+	0%, 100% { transform: translateY(0); }
+	50% { transform: translateY(-4px); }
+}
+
+@keyframes spin {
+	from { transform: rotate(0deg); }
+	to { transform: rotate(360deg); }
+}
+
+/* Animation Classes */
 .animate-fade-in {
-	animation: fade-in 0.4s ease-out;
+	animation: fade-in 200ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .animate-slide-up {
-	animation: slide-up 0.3s ease-out;
+	animation: slide-up 250ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.animate-slide-down {
+	animation: slide-down 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.animate-scale-in {
+	animation: scale-in 200ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .animate-pulse-skeleton {
 	animation: pulse 1.5s ease-in-out infinite;
 }
 
+.animate-pulse-subtle {
+	animation: pulse-subtle 2s ease-in-out infinite;
+}
+
 .animate-toast {
-	animation: toast-in 0.3s ease-out;
+	animation: toast-in 250ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.animate-shimmer {
+	background: linear-gradient(90deg, transparent, rgba(255,255,255,0.05), transparent);
+	background-size: 200% 100%;
+	animation: shimmer 1.5s infinite;
+}
+
+.animate-bounce-subtle {
+	animation: bounce-subtle 1s ease-in-out infinite;
+}
+
+.animate-spin {
+	animation: spin 1s linear infinite;
+}
+
+/* Username colors - keep them but ensure readability */
+body.light-mode [style*="color: #7c3aed"],
+body.light-mode [style*="color: #2563eb"],
+body.light-mode [style*="color: #e11d48"],
+body.light-mode [style*="color: #059669"],
+body.light-mode [style*="color: #d97706"],
+body.light-mode [style*="color: #db2777"] {
+	/* Keep the colors but they're already visible */
+}
+
+/* Ensure all paragraph and div text is black */
+body.light-mode p,
+body.light-mode div:not(button.bg-white *):not(.bg-white *) {
+	color: inherit !important;
+}
+
+/* Message area backgrounds - default dark */
+.message-area-container,
+.message-area-header,
+.message-area-messages {
+	background-color: #000000;
+}
+
+/* Message area backgrounds - light mode */
+body.light-mode .message-area-container,
+body.light-mode .message-area-header,
+body.light-mode .message-area-messages {
+	background-color: #fafafa !important;
 }
 
 /* Native-feeling tap feedback */

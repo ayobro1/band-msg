@@ -1,6 +1,7 @@
 import { json } from "@sveltejs/kit";
 import { getSessionToken } from "$lib/server/auth";
-import { startTyping, stopTyping, getTypingUsers } from "$lib/server/db";
+import { startTyping, stopTyping, getTypingUsers, getUserBySession } from "$lib/server/db";
+import { triggerTyping } from "$lib/server/pusher";
 
 export async function POST({ request, cookies }: any) {
   const sessionToken = getSessionToken(cookies);
@@ -21,17 +22,31 @@ export async function POST({ request, cookies }: any) {
     return json({ error: "Missing channelId" }, { status: 400 });
   }
 
+  // Get user info for Pusher event
+  const user = await getUserBySession(sessionToken);
+  if (!user) {
+    return json({ error: "User not found" }, { status: 401 });
+  }
+
   if (action === "stop") {
     const result = await stopTyping({ sessionToken, channelId });
     if (result.ok === false) {
       return json({ error: result.error }, { status: result.code });
     }
+    
+    // Trigger Pusher event
+    triggerTyping(channelId, user.username, false);
+    
     return json(result.value);
   } else {
     const result = await startTyping({ sessionToken, channelId });
     if (result.ok === false) {
       return json({ error: result.error }, { status: result.code });
     }
+    
+    // Trigger Pusher event
+    triggerTyping(channelId, user.username, true);
+    
     return json(result.value);
   }
 };

@@ -1,4 +1,4 @@
-const CACHE_NAME = "band-chat-v7";
+const CACHE_NAME = "band-chat-v10";
 const OFFLINE_URL = "/offline.html";
 const STATIC_ASSETS = [
   "/",
@@ -7,6 +7,7 @@ const STATIC_ASSETS = [
   "/icons/icon-192.svg",
   "/icons/icon-512.svg",
   "/icons/icon-maskable.svg",
+  "/notification-icon.png",
 ];
 
 self.addEventListener("install", (event) => {
@@ -26,7 +27,7 @@ self.addEventListener("activate", (event) => {
 
 // Push notification handler
 self.addEventListener("push", (event) => {
-  let data = { title: "Band Chat", body: "New message", icon: "/icons/icon-192.svg" };
+  let data = { title: "Band Chat", body: "New message", icon: "/notification-icon.png" };
   try {
     if (event.data) {
       data = Object.assign(data, event.data.json());
@@ -40,8 +41,8 @@ self.addEventListener("push", (event) => {
   event.waitUntil(
     self.registration.showNotification(data.title, {
       body: data.body,
-      icon: data.icon || "/icons/icon-192.svg",
-      badge: "/icons/icon-192.svg",
+      icon: data.icon || "/notification-icon.png",
+      badge: "/notification-icon.png",
       tag: data.tag || "band-chat-notification",
       data: data.url ? { url: data.url } : {},
     })

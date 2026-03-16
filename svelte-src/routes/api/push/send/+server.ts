@@ -13,18 +13,23 @@ const toJson = (body: unknown, status = 200) =>
 const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY;
 const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY;
 
-if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) {
+if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
+  webPush.setVapidDetails(
+    'mailto:admin@bandchat.local',
+    VAPID_PUBLIC_KEY,
+    VAPID_PRIVATE_KEY
+  );
+} else {
   console.warn('VAPID keys not configured. Push notifications will not work.');
 }
 
-webPush.setVapidDetails(
-  'mailto:admin@bandchat.local',
-  VAPID_PUBLIC_KEY || '',
-  VAPID_PRIVATE_KEY || ''
-);
-
 export const POST = async ({ request, cookies }: any) => {
   try {
+    // Check if VAPID keys are configured
+    if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) {
+      return toJson({ error: "Push notifications not configured" }, 503);
+    }
+
     const sessionToken = getSessionToken(cookies);
     if (!sessionToken) {
       return toJson({ error: "Unauthorized" }, 401);

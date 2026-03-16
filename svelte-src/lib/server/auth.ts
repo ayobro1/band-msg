@@ -36,7 +36,7 @@ export function getCsrfToken(cookies: any): string | null {
 
 export function setCsrfCookie(cookies: any, token: string): void {
   cookies.set(CSRF_COOKIE, token, {
-    httpOnly: false,
+    httpOnly: false, // Must be false so JavaScript can read it
     secure: resolveSecureCookie(),
     sameSite: resolveSameSiteCookie(),
     path: "/",

@@ -1,0 +1,231 @@
+
+> band-chat@0.1.0 check
+> svelte-kit sync && svelte-check --tsconfig ./tsconfig.json
+
+The `config.kit.files.assets` option is deprecated, and will be removed in a future version
+The `config.kit.files.hooks.server` option is deprecated, and will be removed in a future version
+The `config.kit.files.lib` option is deprecated, and will be removed in a future version
+The `config.kit.files.routes` option is deprecated, and will be removed in a future version
+The `config.kit.files.appTemplate` option is deprecated, and will be removed in a future version
+The `config.kit.files.assets` option is deprecated, and will be removed in a future version
+The `config.kit.files.hooks.server` option is deprecated, and will be removed in a future version
+The `config.kit.files.lib` option is deprecated, and will be removed in a future version
+The `config.kit.files.routes` option is deprecated, and will be removed in a future version
+The `config.kit.files.appTemplate` option is deprecated, and will be removed in a future version
+Loading svelte-check in workspace: c:\Users\nolan\band-msg
+Getting Svelte diagnostics...
+
+c:\Users\nolan\band-msg\[32msvelte-src\routes\api\auth\google\callback\+server.ts[39m:92:56
+[31mError[39m: Property 'length' does not exist on type 'any[][] | Record<string, any>[] | FullQueryResults<boolean>'.
+  Property 'length' does not exist on type 'FullQueryResults<boolean>'. 
+[36m
+    console.log('Existing users found:', existingUsers.[35mlength[36m);[39m
+
+c:\Users\nolan\band-msg\[32msvelte-src\routes\api\auth\google\callback\+server.ts[39m:96:23
+[31mError[39m: Property 'length' does not exist on type 'any[][] | Record<string, any>[] | FullQueryResults<boolean>'.
+  Property 'length' does not exist on type 'FullQueryResults<boolean>'. 
+[36m    
+    if (existingUsers.[35mlength[36m > 0) {
+      user = existingUsers[0];[39m
+
+c:\Users\nolan\band-msg\[32mconvex\auth.ts[39m:2:27
+[31mError[39m: 'QueryCtx' is a type and must be imported using a type-only import when 'verbatimModuleSyntax' is enabled. 
+[36mimport { v } from "convex/values";
+import { mutation, query, [35mQueryCtx[36m } from "./_generated/server";[39m
+
+c:\Users\nolan\band-msg\[32msvelte-src\routes\api\auth\set-username\+server.ts[39m:10:26
+[31mError[39m: Property 'session' does not exist on type 'Locals'. 
+[36mexport const POST: RequestHandler = async ({ request, locals }) => {
+  const session = locals.[35msession[36m;
+  const user = locals.user;[39m
+
+c:\Users\nolan\band-msg\[32msvelte-src\routes\api\auth\set-username\+server.ts[39m:11:23
+[31mError[39m: Property 'user' does not exist on type 'Locals'. 
+[36m  const session = locals.session;
+  const user = locals.[35muser[36m;[39m
+
+c:\Users\nolan\band-msg\[32msvelte-src\routes\api\auth\set-username\+server.ts[39m:39:23
+[31mError[39m: Property 'length' does not exist on type 'any[][] | Record<string, any>[] | FullQueryResults<boolean>'.
+  Property 'length' does not exist on type 'FullQueryResults<boolean>'. 
+[36m
+    if (existingUsers.[35mlength[36m > 0) {
+      return json({ error: 'Username is already taken' }, { status: 400 });[39m
+
+c:\Users\nolan\band-msg\[32msvelte-src\routes\api\channels\+server.ts[39m:48:5
+[31mError[39m: Object literal may only specify known properties, and 'memberIds' does not exist in type '{ sessionToken: string; name: string; description: string; isPrivate?: boolean; }'. 
+[36m    isPrivate,
+    [35mmemberIds[36m
+  });[39m
+
+c:\Users\nolan\band-msg\[32msvelte-src\routes\api\debug\session\+server.ts[39m:9:37
+[31mError[39m: Property 'sessionToken' does not exist on type 'Locals'. 
+[36m  return json({
+    hasLocalsSessionToken: !!locals.[35msessionToken[36m,
+    hasCookieSessionToken: !!cookieToken,[39m
+
+c:\Users\nolan\band-msg\[32msvelte-src\routes\api\presence\+server.ts[39m:6:31
+[31mError[39m: Property 'sessionToken' does not exist on type 'Locals'. 
+[36mexport const POST: RequestHandler = async ({ request, locals }) => {
+  const sessionToken = locals.[35msessionToken[36m;[39m
+
+c:\Users\nolan\band-msg\[32msvelte-src\routes\api\presence\+server.ts[39m:22:35
+[31mError[39m: Property 'error' does not exist on type 'Result<{ ok: true; }>'.
+  Property 'error' does not exist on type '{ ok: true; value: { ok: true; }; }'. 
+[36m    if (!result.ok) {
+      return json({ error: result.[35merror[36m }, { status: result.code });
+    }[39m
+
+c:\Users\nolan\band-msg\[32msvelte-src\routes\api\presence\+server.ts[39m:22:61
+[31mError[39m: Property 'code' does not exist on type 'Result<{ ok: true; }>'.
+  Property 'code' does not exist on type '{ ok: true; value: { ok: true; }; }'. 
+[36m    if (!result.ok) {
+      return json({ error: result.error }, { status: result.[35mcode[36m });
+    }[39m
+
+c:\Users\nolan\band-msg\[32msvelte-src\routes\api\reactions\+server.ts[39m:37:44
+[31mError[39m: Property 'channelId' does not exist on type '{ ok: true; }'. 
+[36m    const reactionsResult = await getMessageReactions({ sessionToken, messageId });
+    if (reactionsResult.ok && result.value.[35mchannelId[36m) {
+      triggerReactionUpdate(result.value.channelId, messageId, reactionsResult.value);[39m
+
+c:\Users\nolan\band-msg\[32msvelte-src\routes\api\reactions\+server.ts[39m:38:42
+[31mError[39m: Property 'channelId' does not exist on type '{ ok: true; }'. 
+[36m    if (reactionsResult.ok && result.value.channelId) {
+      triggerReactionUpdate(result.value.[35mchannelId[36m, messageId, reactionsResult.value);
+    }[39m
+
+c:\Users\nolan\band-msg\[32msvelte-src\routes\api\reactions\+server.ts[39m:50:44
+[31mError[39m: Property 'channelId' does not exist on type '{ reactionId: string; }'. 
+[36m    const reactionsResult = await getMessageReactions({ sessionToken, messageId });
+    if (reactionsResult.ok && result.value.[35mchannelId[36m) {
+      triggerReactionUpdate(result.value.channelId, messageId, reactionsResult.value);[39m
+
+c:\Users\nolan\band-msg\[32msvelte-src\routes\api\reactions\+server.ts[39m:51:42
+[31mError[39m: Property 'channelId' does not exist on type '{ reactionId: string; }'. 
+[36m    if (reactionsResult.ok && result.value.channelId) {
+      triggerReactionUpdate(result.value.[35mchannelId[36m, messageId, reactionsResult.value);
+    }[39m
+
+c:\Users\nolan\band-msg\[32msvelte-src\lib\components\AdminPanel.svelte[39m:34:11
+[31mError[39m: Argument of type '() => Promise<Unsubscriber>' is not assignable to parameter of type '() => Promise<never> | (() => any)'.
+  Type 'Promise<Unsubscriber>' is not assignable to type 'Promise<never> | (() => any)'.
+    Type 'Promise<Unsubscriber>' is not assignable to type 'Promise<never>'.
+      Type 'Unsubscriber' is not assignable to type 'never'. (ts)
+[36m
+  onMount([35masync () => {[36m
+    // Get session token from store[39m
+
+c:\Users\nolan\band-msg\[32msvelte-src\lib\components\AdminPanel.svelte[39m:101:88
+[31mError[39m: Type 'string' is not assignable to type 'Id<"signupRequests">'.
+  Type 'string' is not assignable to type '{ __tableName: "signupRequests"; }'. (ts)
+[36m    try {
+      const result = await convex.mutation(api.signupRequests.approve, { sessionToken, [35mrequestId[36m });
+      console.log('[AdminPanel] Signup request approved successfully:', result);[39m
+
+c:\Users\nolan\band-msg\[32msvelte-src\lib\components\AdminPanel.svelte[39m:116:87
+[31mError[39m: Type 'string' is not assignable to type 'Id<"signupRequests">'.
+  Type 'string' is not assignable to type '{ __tableName: "signupRequests"; }'. (ts)
+[36m    try {
+      const result = await convex.mutation(api.signupRequests.reject, { sessionToken, [35mrequestId[36m });
+      console.log('[AdminPanel] Signup request rejected successfully:', result);[39m
+
+c:\Users\nolan\band-msg\[32msvelte-src\lib\components\AdminPanel.svelte[39m:130:67
+[31mError[39m: Type 'string' is not assignable to type 'Id<"users">'.
+  Type 'string' is not assignable to type '{ __tableName: "users"; }'. (ts)
+[36m    try {
+      await convex.mutation(api.auth.approveUser, { sessionToken, [35muserId[36m });
+      await loadPendingUsers();[39m
+
+c:\Users\nolan\band-msg\[32msvelte-src\lib\components\AdminPanel.svelte[39m:142:66
+[31mError[39m: Type 'string' is not assignable to type 'Id<"users">'.
+  Type 'string' is not assignable to type '{ __tableName: "users"; }'. (ts)
+[36m    try {
+      await convex.mutation(api.auth.rejectUser, { sessionToken, [35muserId[36m });
+      await loadPendingUsers();[39m
+
+c:\Users\nolan\band-msg\[32msvelte-src\lib\components\AdminPanel.svelte[39m:154:67
+[31mError[39m: Type 'string' is not assignable to type 'Id<"users">'.
+  Type 'string' is not assignable to type '{ __tableName: "users"; }'. (ts)
+[36m    try {
+      await convex.mutation(api.auth.promoteUser, { sessionToken, [35muserId[36m });
+      await loadAllUsers();[39m
+
+c:\Users\nolan\band-msg\[32msvelte-src\lib\components\AdminPanel.svelte[39m:165:66
+[31mError[39m: Type 'string' is not assignable to type 'Id<"users">'.
+  Type 'string' is not assignable to type '{ __tableName: "users"; }'. (ts)
+[36m    try {
+      await convex.mutation(api.auth.demoteUser, { sessionToken, [35muserId[36m });
+      await loadAllUsers();[39m
+
+c:\Users\nolan\band-msg\[32msvelte-src\lib\components\Calendar.svelte[39m:141:17
+[33mWarn[39m: A form label must be associated with a control
+https://svelte.dev/e/a11y_label_has_associated_control (svelte)
+[36m              <div>
+                [35m<label class="block text-xs font-medium text-white/40 mb-1 px-1">Starts</label>[36m
+                <input[39m
+
+c:\Users\nolan\band-msg\[32msvelte-src\lib\components\Calendar.svelte[39m:149:17
+[33mWarn[39m: A form label must be associated with a control
+https://svelte.dev/e/a11y_label_has_associated_control (svelte)
+[36m              <div>
+                [35m<label class="block text-xs font-medium text-white/40 mb-1 px-1">Ends</label>[36m
+                <input[39m
+
+c:\Users\nolan\band-msg\[32msvelte-src\lib\components\GiphyPicker.svelte[39m:64:11
+[33mWarn[39m: Avoid using autofocus
+https://svelte.dev/e/a11y_autofocus (svelte)
+[36m          class="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 pl-9 pr-4 text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-white/30 transition-colors"
+          [35mautofocus[36m
+        />[39m
+
+c:\Users\nolan\band-msg\[32msvelte-src\lib\components\AuthScreen.svelte[39m:128:13
+[33mWarn[39m: A form label must be associated with a control
+https://svelte.dev/e/a11y_label_has_associated_control (svelte)
+[36m            <span class="bar"></span>
+            [35m<label class="label">
+              <span class="label-char" style="--index: 0">U</span>
+              <span class="label-char" style="--index: 1">s</span>
+              <span class="label-char" style="--index: 2">e</span>
+              <span class="label-char" style="--index: 3">r</span>
+              <span class="label-char" style="--index: 4">n</span>
+              <span class="label-char" style="--index: 5">a</span>
+              <span class="label-char" style="--index: 6">m</span>
+              <span class="label-char" style="--index: 7">e</span>
+            </label>[36m
+          </div>[39m
+
+c:\Users\nolan\band-msg\[32msvelte-src\lib\components\AuthScreen.svelte[39m:150:13
+[33mWarn[39m: A form label must be associated with a control
+https://svelte.dev/e/a11y_label_has_associated_control (svelte)
+[36m            <span class="bar"></span>
+            [35m<label class="label">
+              <span class="label-char" style="--index: 0">P</span>
+              <span class="label-char" style="--index: 1">a</span>
+              <span class="label-char" style="--index: 2">s</span>
+              <span class="label-char" style="--index: 3">s</span>
+              <span class="label-char" style="--index: 4">w</span>
+              <span class="label-char" style="--index: 5">o</span>
+              <span class="label-char" style="--index: 6">r</span>
+              <span class="label-char" style="--index: 7">d</span>
+            </label>[36m
+          </div>[39m
+
+c:\Users\nolan\band-msg\[32msvelte-src\lib\components\UsernameSetup.svelte[39m:112:13
+[33mWarn[39m: A form label must be associated with a control
+https://svelte.dev/e/a11y_label_has_associated_control (svelte)
+[36m            <span class="bar"></span>
+            [35m<label class="label">
+              <span class="label-char" style="--index: 0">U</span>
+              <span class="label-char" style="--index: 1">s</span>
+              <span class="label-char" style="--index: 2">e</span>
+              <span class="label-char" style="--index: 3">r</span>
+              <span class="label-char" style="--index: 4">n</span>
+              <span class="label-char" style="--index: 5">a</span>
+              <span class="label-char" style="--index: 6">m</span>
+              <span class="label-char" style="--index: 7">e</span>
+            </label>[36m
+          </div>[39m
+
+====================================
+[31msvelte-check found 22 errors and 6 warnings in 12 files
+[39m
