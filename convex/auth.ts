@@ -328,3 +328,32 @@ export const heartbeat = mutation({
     return { success: true };
   },
 });
+
+// Admin: Manually approve user by username
+export const approveUserByUsername = mutation({
+  args: {
+    sessionToken: v.string(),
+    username: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const admin = await getUserByToken(ctx, args.sessionToken);
+    if (!admin || admin.role !== "admin") {
+      throw new Error("Unauthorized");
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_username", (q) => q.eq("username", args.username.trim().toLowerCase()))
+      .first();
+
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    await ctx.db.patch(user._id, {
+      status: "approved",
+    });
+
+    return { success: true, userId: user._id };
+  },
+});
