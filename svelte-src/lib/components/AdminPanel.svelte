@@ -222,11 +222,9 @@
 </Drawer.Root>
 
 <!-- Desktop Modal -->
-<!-- svelte-ignore a11y_click_events_have_key_events -->
-<!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="hidden md:flex fixed inset-0 z-[200] items-center justify-center" style="padding-top: env(safe-area-inset-top);" on:click={(e) => { if (!isLoading && e.target === e.currentTarget) onClose(); }}>
+<div class="hidden md:flex fixed inset-0 z-[200] items-center justify-center" style="padding-top: env(safe-area-inset-top);">
   <!-- Overlay Background -->
-  <div class="absolute inset-0 bg-black/80 pointer-events-none"></div>
+  <div class="absolute inset-0 bg-black/80"></div>
   
   <!-- Modal Content -->
   <div class="relative bg-black border border-white/10 rounded-2xl w-full max-w-lg max-h-[85vh] flex flex-col z-10">
