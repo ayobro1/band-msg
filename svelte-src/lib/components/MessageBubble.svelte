@@ -111,7 +111,10 @@
   }
 
   function handleTouchEnd(e: TouchEvent) {
-    if (touchTimer) clearTimeout(touchTimer);
+    // Only clear timer if menu hasn't been triggered yet
+    if (touchTimer && !showContextMenu) {
+      clearTimeout(touchTimer);
+    }
     
     // Handle double-tap on images
     const target = e.target as HTMLElement;
@@ -138,7 +141,10 @@
   }
 
   function handleTouchMove() {
-    if (touchTimer) clearTimeout(touchTimer);
+    // Only cancel timer if menu isn't showing yet
+    if (touchTimer && !showContextMenu) {
+      clearTimeout(touchTimer);
+    }
   }
 
   async function handleReactionClick(emoji: string, name?: string) {
