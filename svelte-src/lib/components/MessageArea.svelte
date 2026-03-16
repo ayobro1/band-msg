@@ -381,22 +381,35 @@
       <div class="flex-1 overflow-y-auto">
         <div class="sticky top-0 bg-[#0a0a0a] border-b border-white/10 px-4 py-4 flex items-center justify-between">
           <h2 class="text-lg font-semibold text-white">Channels</h2>
-          {#if $authStore.user?.role === 'admin'}
+          <div class="flex items-center gap-2">
+            {#if $authStore.user?.role === 'admin'}
+              <button
+                type="button"
+                on:click|stopPropagation={() => {
+                  showMobileChannels = false;
+                  showCreateChannel = true;
+                }}
+                class="p-2 rounded-lg text-white/40 hover:text-white hover:bg-white/5 transition-colors touch-manipulation"
+                aria-label="Create Channel"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="12" y1="5" x2="12" y2="19" />
+                  <line x1="5" y1="12" x2="19" y2="12" />
+                </svg>
+              </button>
+            {/if}
             <button
               type="button"
-              on:click|stopPropagation={() => {
-                showMobileChannels = false;
-                showCreateChannel = true;
-              }}
+              on:click={() => showMobileChannels = false}
               class="p-2 rounded-lg text-white/40 hover:text-white hover:bg-white/5 transition-colors touch-manipulation"
-              aria-label="Create Channel"
+              aria-label="Close"
             >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <line x1="12" y1="5" x2="12" y2="19" />
-                <line x1="5" y1="12" x2="19" y2="12" />
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
               </svg>
             </button>
-          {/if}
+          </div>
         </div>
         <div class="p-4">
           <h3 class="text-xs font-semibold text-white/25 uppercase tracking-widest px-2 mb-2">
@@ -428,8 +441,19 @@
     <Drawer.Overlay class="fixed inset-0 bg-black/60 z-40" />
     <Drawer.Content class="fixed top-0 bottom-0 right-0 w-80 max-w-[85vw] flex flex-col bg-[#0a0a0a] z-50 border-l border-white/10" style="padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom);">
       <div class="flex-1 overflow-y-auto">
-        <div class="sticky top-0 bg-[#0a0a0a] border-b border-white/10 px-4 py-4">
+        <div class="sticky top-0 bg-[#0a0a0a] border-b border-white/10 px-4 py-4 flex items-center justify-between">
           <h2 class="text-lg font-semibold text-white">Band Members</h2>
+          <button
+            type="button"
+            on:click={() => showMobileMembers = false}
+            class="p-2 rounded-lg text-white/40 hover:text-white hover:bg-white/5 transition-colors touch-manipulation"
+            aria-label="Close"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
         </div>
         <div class="p-4">
           {#each Object.entries(grouped) as [status, users]}
