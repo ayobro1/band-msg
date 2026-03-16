@@ -1,11 +1,8 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { convex } from '../convex';
-  import { api } from '../../../convex/_generated/api';
-  import type { Id } from '../../../convex/_generated/dataModel';
+  import { apiGet, apiPost } from '../utils/api';
   import { authStore } from '../stores/auth';
   import { channelStore } from '../stores/channels';
-  import { convexMessageStore as messageStore } from '../stores/convexMessages';
   import { parseMarkdown } from '$lib/markdown';
   import Avatar from './Avatar.svelte';
   import Input from './Input.svelte';
@@ -17,16 +14,6 @@
   let replyInput = '';
   let isLoading = false;
   let messageContainer: HTMLDivElement;
-
-  function getCookie(name: string): string {
-    if (typeof document === 'undefined') return '';
-    const prefix = `${encodeURIComponent(name)}=`;
-    const found = document.cookie
-      .split(';')
-      .map(part => part.trim())
-      .find(part => part.startsWith(prefix));
-    return found ? decodeURIComponent(found.slice(prefix.length)) : '';
-  }
 
   function getAvatarColor(name: string): string {
     const colors = ['#7c3aed', '#2563eb', '#e11d48', '#059669', '#d97706', '#db2777'];
@@ -51,16 +38,11 @@
   async function loadReplies() {
     isLoading = true;
     try {
-      const sessionToken = getCookie('band_chat_session');
-      if (!sessionToken) return;
-
-      const threadReplies = await convex.query(api.messages.getThread, {
-        messageId: parentMessage.id as Id<"messages">,
-        sessionToken
-      });
-      
-      replies = threadReplies;
-      setTimeout(scrollToBottom, 100);
+      const res = await apiGet(`/api/threads/${parentMessage.id}`);
+      if (res.ok) {
+        replies = await res.json();
+        setTimeout(scrollToBottom, 100);
+      }
     } catch (error) {
       console.error('Failed to load replies:', error);
     } finally {
@@ -72,18 +54,16 @@
     if (!replyInput.trim() || !$channelStore.selectedChannelId) return;
 
     try {
-      const sessionToken = getCookie('band_chat_session');
-      if (!sessionToken) return;
-
-      await convex.mutation(api.messages.send, {
-        channelId: $channelStore.selectedChannelId as Id<"channels">,
+      const res = await apiPost('/api/messages', {
+        channelId: $channelStore.selectedChannelId,
         content: replyInput,
-        sessionToken,
-        replyToId: parentMessage.id as Id<"messages">
+        replyToId: parentMessage.id
       });
 
-      replyInput = '';
-      await loadReplies();
+      if (res.ok) {
+        replyInput = '';
+        await loadReplies();
+      }
     } catch (error) {
       console.error('Failed to send reply:', error);
     }

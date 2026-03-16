@@ -3,7 +3,7 @@
   import { Drawer } from 'vaul-svelte';
   import { authStore } from '../stores/auth';
   import { channelStore } from '../stores/channels';
-  import { convexMessageStore as messageStore } from '../stores/convexMessages';
+  import { messageStore } from '../stores/messages';
   import { memberStore } from '../stores/members';
   import { themeStore } from '../stores/theme';
   import MessageBubble from './MessageBubble.svelte';

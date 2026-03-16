@@ -49,6 +49,7 @@ function createConvexMessageStore() {
       
       const sessionToken = getCookie('band_chat_session');
       if (!sessionToken) {
+        console.error('[Convex] No session token');
         update(state => ({ ...state, isLoading: false }));
         return;
       }
@@ -58,14 +59,20 @@ function createConvexMessageStore() {
         unsubscribe();
       }
 
-      // Subscribe to real-time messages
-      unsubscribe = convex.onUpdate(
-        api.messages.list,
-        { channelId: channelId as Id<"channels">, sessionToken },
-        (messages) => {
-          set({ messages, isLoading: false });
-        }
-      );
+      try {
+        // Subscribe to real-time messages
+        unsubscribe = convex.onUpdate(
+          api.messages.list,
+          { channelId: channelId as Id<"channels">, sessionToken },
+          (messages) => {
+            console.log('[Convex] Loaded messages:', messages);
+            set({ messages, isLoading: false });
+          }
+        );
+      } catch (error) {
+        console.error('[Convex] Error loading messages:', error);
+        update(state => ({ ...state, isLoading: false }));
+      }
     },
 
     async sendMessage(channelId: string, content: string) {

@@ -1,6 +1,6 @@
 <script lang="ts">
   import { channelStore } from '../stores/channels';
-  import { convexMessageStore as messageStore } from '../stores/convexMessages';
+  import { messageStore } from '../stores/messages';
   import { authStore } from '../stores/auth';
   import { apiPost } from '../utils/api';
   import CreateChannel from './CreateChannel.svelte';

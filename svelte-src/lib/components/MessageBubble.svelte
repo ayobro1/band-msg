@@ -1,6 +1,6 @@
 <script lang="ts">
   import { authStore } from '../stores/auth';
-  import { convexMessageStore as messageStore } from '../stores/convexMessages';
+  import { messageStore } from '../stores/messages';
   import { channelStore } from '../stores/channels';
   import { parseMarkdown } from '$lib/markdown';
   import Avatar from './Avatar.svelte';
