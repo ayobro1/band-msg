@@ -37,6 +37,8 @@
       sessionToken = state.sessionToken;
     });
 
+    console.log('[AdminPanel] Mounted with session token:', !!sessionToken);
+
     if (sessionToken) {
       await loadSignupRequests();
       await loadPendingUsers();
@@ -49,9 +51,11 @@
   async function loadSignupRequests() {
     if (!sessionToken) return;
     
+    console.log('[AdminPanel] Loading signup requests...');
     isLoading = true;
     try {
       const requests = await convex.query(api.signupRequests.getAll, { sessionToken });
+      console.log('[AdminPanel] Signup requests loaded:', requests);
       signupRequests = requests;
     } catch (error) {
       console.error('[AdminPanel] Failed to load signup requests:', error);
@@ -63,9 +67,11 @@
   async function loadPendingUsers() {
     if (!sessionToken) return;
     
+    console.log('[AdminPanel] Loading pending users...');
     isLoading = true;
     try {
       const users = await convex.query(api.auth.getPendingUsers, { sessionToken });
+      console.log('[AdminPanel] Pending users loaded:', users);
       pendingUsers = users;
     } catch (error) {
       console.error('[AdminPanel] Failed to load pending users:', error);
@@ -77,8 +83,10 @@
   async function loadAllUsers() {
     if (!sessionToken) return;
     
+    console.log('[AdminPanel] Loading all users...');
     try {
       const users = await convex.query(api.auth.getAllUsers, { sessionToken });
+      console.log('[AdminPanel] All users loaded:', users);
       allUsers = users;
     } catch (error) {
       console.error('[AdminPanel] Failed to load all users:', error);
