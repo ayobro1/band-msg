@@ -181,16 +181,16 @@
 </Drawer.Root>
 
 <!-- Desktop Modal Version -->
-<div class="hidden md:flex fixed inset-0 z-[200] items-center justify-center p-4">
-  <!-- svelte-ignore a11y_click_events_have_key_events -->
-  <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div
-    class="absolute inset-0 bg-black/80"
-    transition:fade={{ duration: 150 }}
-    on:click={onClose}
-  ></div>
+<!-- svelte-ignore a11y_click_events_have_key_events -->
+<!-- svelte-ignore a11y_no_static_element_interactions -->
+<div 
+  class="hidden md:block fixed inset-0 bg-black/80 z-[200]"
+  transition:fade={{ duration: 150 }}
+  on:click={onClose}
+></div>
+<div class="hidden md:flex fixed inset-0 z-[201] items-center justify-center p-4 pointer-events-none">
   <div 
-    class="relative bg-[#2a2a2a] border border-white/30 w-full max-w-[400px] rounded-2xl shadow-2xl p-6"
+    class="relative bg-[#2a2a2a] border border-white/30 w-full max-w-[400px] rounded-2xl shadow-2xl p-6 pointer-events-auto"
     role="dialog"
     aria-modal="true"
     on:click|stopPropagation
@@ -316,16 +316,16 @@
   </div>
   
   <!-- Member Selector Modal (Desktop) -->
-  <div class="hidden md:flex fixed inset-0 z-[300] items-center justify-center p-4">
-    <!-- svelte-ignore a11y_click_events_have_key_events -->
-    <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div
-      class="absolute inset-0 bg-black/80"
-      transition:fade={{ duration: 150 }}
-      on:click={() => showMemberSelector = false}
-    ></div>
+  <!-- svelte-ignore a11y_click_events_have_key_events -->
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div
+    class="hidden md:block fixed inset-0 bg-black/80 z-[300]"
+    transition:fade={{ duration: 150 }}
+    on:click={() => showMemberSelector = false}
+  ></div>
+  <div class="hidden md:flex fixed inset-0 z-[301] items-center justify-center p-4 pointer-events-none">
     <div 
-      class="relative bg-[#2a2a2a] border border-white/30 w-full max-w-[500px] h-[600px] rounded-2xl shadow-2xl overflow-hidden flex flex-col"
+      class="relative bg-[#2a2a2a] border border-white/30 w-full max-w-[500px] h-[600px] rounded-2xl shadow-2xl overflow-hidden flex flex-col pointer-events-auto"
       role="dialog"
       aria-modal="true"
       on:click|stopPropagation

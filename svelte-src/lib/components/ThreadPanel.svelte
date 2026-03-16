@@ -231,7 +231,7 @@
   <div class="absolute inset-0 bg-black/60"></div>
   
   <div 
-    class="relative w-full max-w-2xl h-full bg-[#0a0a0a] border-l border-white/10 flex flex-col animate-slide-left z-10"
+    class="relative w-full max-w-2xl h-full bg-[#2a2a2a] border-l border-white/20 flex flex-col animate-slide-left z-10"
     style="padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom);"
   >
     <!-- Header -->

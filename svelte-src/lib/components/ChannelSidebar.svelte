@@ -238,7 +238,7 @@
   <div class="fixed inset-0 bg-black/60 z-[200] flex items-center justify-center" on:click={() => { showDeleteConfirm = false; channelToDelete = null; }}>
     <!-- svelte-ignore a11y_click_events_have_key_events -->
     <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div class="bg-[#0a0a0a] border border-white/10 rounded-2xl p-6 max-w-sm mx-4" on:click|stopPropagation>
+    <div class="bg-[#2a2a2a] border border-white/30 rounded-2xl p-6 max-w-sm mx-4" on:click|stopPropagation>
       <h3 class="text-lg font-bold text-white mb-2">Delete Channel</h3>
       <p class="text-sm text-white/60 mb-4">
         Are you sure you want to delete <span class="text-white font-semibold">#{channelToDelete.name}</span>? This action cannot be undone.

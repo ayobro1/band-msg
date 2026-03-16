@@ -165,6 +165,14 @@ export const sendPushNotifications = action({
                 return;
               }
 
+              console.log("[sendPushNotifications] iOS subscription keys:", {
+                endpoint: endpoint.substring(0, 50),
+                p256dhKeyLength: sub.p256dhKey.length,
+                authKeyLength: sub.authKey.length,
+                p256dhSample: sub.p256dhKey.substring(0, 20),
+                authSample: sub.authKey.substring(0, 20)
+              });
+
               // Create push subscription object with proper key format
               const pushSubscription = {
                 endpoint: endpoint,

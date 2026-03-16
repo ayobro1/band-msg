@@ -112,10 +112,15 @@ export async function requestNotificationPermission(): Promise<string | null> {
       const p256dh = subscriptionJSON.keys?.p256dh || '';
       const auth = subscriptionJSON.keys?.auth || '';
       
-      console.log('iOS push subscription:', {
+      console.log('iOS push subscription details:', {
         hasEndpoint: !!endpoint,
         hasP256dh: !!p256dh,
-        hasAuth: !!auth
+        hasAuth: !!auth,
+        endpointLength: endpoint.length,
+        p256dhLength: p256dh.length,
+        authLength: auth.length,
+        p256dhSample: p256dh.substring(0, 20),
+        authSample: auth.substring(0, 20)
       });
       
       // Store the full subscription data

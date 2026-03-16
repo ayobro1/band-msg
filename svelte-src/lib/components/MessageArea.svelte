@@ -481,9 +481,9 @@
 <Drawer.Root bind:open={showMobileChannels} direction="left">
   <Drawer.Portal>
     <Drawer.Overlay class="fixed inset-0 bg-black/60 z-40" />
-    <Drawer.Content class="fixed top-0 bottom-0 left-0 w-80 max-w-[85vw] flex flex-col bg-[#0a0a0a] z-50 border-r border-white/10" style="padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom);">
+    <Drawer.Content class="fixed top-0 bottom-0 left-0 w-80 max-w-[85vw] flex flex-col bg-[#2a2a2a] z-50 border-r border-white/20" style="padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom);">
       <div class="flex-1 overflow-y-auto">
-        <div class="sticky top-0 bg-[#0a0a0a] border-b border-white/10 px-4 py-4 flex items-center justify-between">
+        <div class="sticky top-0 bg-[#2a2a2a] border-b border-white/20 px-4 py-4 flex items-center justify-between">
           <h2 class="text-lg font-semibold text-white">Channels</h2>
           <div class="flex items-center gap-2">
             {#if $authStore.user?.role === 'admin'}
@@ -543,9 +543,9 @@
 <Drawer.Root bind:open={showMobileMembers} direction="right">
   <Drawer.Portal>
     <Drawer.Overlay class="fixed inset-0 bg-black/60 z-40" />
-    <Drawer.Content class="fixed top-0 bottom-0 right-0 w-80 max-w-[85vw] flex flex-col bg-[#0a0a0a] z-50 border-l border-white/10" style="padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom);">
+    <Drawer.Content class="fixed top-0 bottom-0 right-0 w-80 max-w-[85vw] flex flex-col bg-[#2a2a2a] z-50 border-l border-white/20" style="padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom);">
       <div class="flex-1 overflow-y-auto">
-        <div class="sticky top-0 bg-[#0a0a0a] border-b border-white/10 px-4 py-4 flex items-center justify-between">
+        <div class="sticky top-0 bg-[#2a2a2a] border-b border-white/20 px-4 py-4 flex items-center justify-between">
           <h2 class="text-lg font-semibold text-white">Band Members</h2>
           <button
             type="button"

@@ -83,7 +83,7 @@
       on:click={onClose}
     />
     <Drawer.Content
-      class="fixed bottom-0 left-0 right-0 z-[200] flex flex-col bg-[#0a0a0a] rounded-t-[20px] max-h-[96vh] md:hidden outline-none"
+      class="fixed bottom-0 left-0 right-0 z-[200] flex flex-col bg-[#2a2a2a] rounded-t-[20px] max-h-[96vh] md:hidden outline-none"
       style="padding-bottom: env(safe-area-inset-bottom);"
     >
       <div class="flex-1 overflow-y-auto w-full max-w-md mx-auto relative px-4 pb-6">
@@ -161,7 +161,7 @@
   <!-- svelte-ignore a11y_click_events_have_key_events -->
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div class="absolute inset-0 bg-black/80" transition:fade={{ duration: 150 }} on:click={onClose}></div>
-  <div class="relative bg-[#0a0a0a] border border-white/10 w-full max-w-[400px] rounded-2xl shadow-2xl p-6" role="dialog" aria-modal="true">
+  <div class="relative bg-[#2a2a2a] border border-white/30 w-full max-w-[400px] rounded-2xl shadow-2xl p-6" role="dialog" aria-modal="true">
     <div class="flex items-center justify-between mb-6">
       <div>
         <h2 class="text-[20px] font-bold text-white tracking-tight">Channel Settings</h2>
