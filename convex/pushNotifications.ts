@@ -16,6 +16,8 @@ export const sendPushNotifications = action({
   },
   handler: async (ctx, args) => {
     try {
+      console.log("[sendPushNotifications] Starting notification send for message:", args.messageId);
+      
       // Get channel info
       const channel = await ctx.runQuery(api.messages.getChannelInfo, {
         channelId: args.channelId,
@@ -26,11 +28,15 @@ export const sendPushNotifications = action({
         return;
       }
 
+      console.log("[sendPushNotifications] Channel found:", channel.name);
+
       // Get all push subscriptions for users in this channel (except the author)
       const subscriptions = await ctx.runQuery(api.messages.getPushSubscriptionsForChannel, {
         channelId: args.channelId,
         excludeUserId: args.authorId,
       });
+
+      console.log(`[sendPushNotifications] Found ${subscriptions.length} subscriptions`);
 
       if (subscriptions.length === 0) {
         console.log("[sendPushNotifications] No subscriptions found");
@@ -43,18 +49,27 @@ export const sendPushNotifications = action({
         ? `${args.authorName} replied: ${args.content.substring(0, 100)}`
         : `${args.authorName}: ${args.content.substring(0, 100)}`;
 
-      console.log(`[sendPushNotifications] Sending to ${subscriptions.length} subscriptions`);
+      console.log(`[sendPushNotifications] Notification: "${notificationTitle}" - "${notificationBody}"`);
 
       // Get Firebase credentials from environment
       const projectId = process.env.FIREBASE_ADMIN_PROJECT_ID;
       const clientEmail = process.env.FIREBASE_ADMIN_CLIENT_EMAIL;
       const privateKey = process.env.FIREBASE_ADMIN_PRIVATE_KEY;
 
+      console.log("[sendPushNotifications] Credentials check:", {
+        hasProjectId: !!projectId,
+        hasClientEmail: !!clientEmail,
+        hasPrivateKey: !!privateKey,
+        privateKeyLength: privateKey?.length
+      });
+
       if (!projectId || !clientEmail || !privateKey) {
         console.error("[sendPushNotifications] Firebase Admin credentials not configured");
         return;
       }
 
+      console.log("[sendPushNotifications] Getting OAuth2 access token...");
+      
       // Get OAuth2 access token using service account
       const accessToken = await getAccessToken(clientEmail, privateKey);
       
@@ -62,6 +77,8 @@ export const sendPushNotifications = action({
         console.error("[sendPushNotifications] Failed to get access token");
         return;
       }
+
+      console.log("[sendPushNotifications] Access token obtained successfully");
 
       // Send to each FCM token using HTTP v1 API
       const results = await Promise.allSettled(
@@ -105,9 +122,15 @@ export const sendPushNotifications = action({
 
             if (!response.ok) {
               const errorText = await response.text();
-              console.error("[sendPushNotifications] FCM error:", response.status, errorText);
+              console.error("[sendPushNotifications] FCM error:", {
+                status: response.status,
+                statusText: response.statusText,
+                error: errorText,
+                token: fcmToken.substring(0, 30) + "..."
+              });
             } else {
-              console.log("[sendPushNotifications] Sent to:", fcmToken.substring(0, 20) + "...");
+              const result = await response.json();
+              console.log("[sendPushNotifications] Successfully sent to:", fcmToken.substring(0, 30) + "...", result);
             }
           } catch (error: any) {
             console.error("[sendPushNotifications] Error sending to subscription:", error.message);
