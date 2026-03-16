@@ -23,16 +23,6 @@ type MessageState = {
   isLoading: boolean;
 };
 
-function getCookie(name: string): string {
-  if (typeof document === 'undefined') return '';
-  const prefix = `${encodeURIComponent(name)}=`;
-  const found = document.cookie
-    .split(';')
-    .map(part => part.trim())
-    .find(part => part.startsWith(prefix));
-  return found ? decodeURIComponent(found.slice(prefix.length)) : '';
-}
-
 function createConvexMessageStore() {
   const { subscribe, set, update } = writable<MessageState>({
     messages: [],
@@ -40,30 +30,34 @@ function createConvexMessageStore() {
   });
 
   let unsubscribe: (() => void) | null = null;
+  let currentSessionToken: string | null = null;
 
   return {
     subscribe,
 
+    setSessionToken(token: string | null) {
+      currentSessionToken = token;
+    },
+
     async loadMessages(channelId: string) {
       update(state => ({ ...state, isLoading: true }));
       
-      const sessionToken = getCookie('band_chat_session');
-      if (!sessionToken) {
+      if (!currentSessionToken) {
         console.error('[Convex] No session token');
         update(state => ({ ...state, isLoading: false }));
         return;
       }
 
-      // Unsubscribe from previous channel
-      if (unsubscribe) {
-        unsubscribe();
-      }
-
       try {
+        // Unsubscribe from previous channel
+        if (unsubscribe) {
+          unsubscribe();
+        }
+
         // Subscribe to real-time messages
         unsubscribe = convex.onUpdate(
           api.messages.list,
-          { channelId: channelId as Id<"channels">, sessionToken },
+          { channelId: channelId as Id<"channels">, sessionToken: currentSessionToken },
           (messages) => {
             console.log('[Convex] Loaded messages:', messages);
             set({ messages, isLoading: false });
@@ -76,8 +70,7 @@ function createConvexMessageStore() {
     },
 
     async sendMessage(channelId: string, content: string) {
-      const sessionToken = getCookie('band_chat_session');
-      if (!sessionToken) {
+      if (!currentSessionToken) {
         return { success: false, error: 'Not authenticated' };
       }
 
@@ -85,7 +78,7 @@ function createConvexMessageStore() {
         await convex.mutation(api.messages.send, {
           channelId: channelId as Id<"channels">,
           content,
-          sessionToken
+          sessionToken: currentSessionToken
         });
         return { success: true };
       } catch (error: any) {
@@ -94,15 +87,14 @@ function createConvexMessageStore() {
     },
 
     async deleteMessage(messageId: string, channelId: string) {
-      const sessionToken = getCookie('band_chat_session');
-      if (!sessionToken) {
+      if (!currentSessionToken) {
         return { success: false };
       }
 
       try {
         await convex.mutation(api.messages.remove, {
           messageId: messageId as Id<"messages">,
-          sessionToken
+          sessionToken: currentSessionToken
         });
         return { success: true };
       } catch (error) {
@@ -111,14 +103,13 @@ function createConvexMessageStore() {
     },
 
     async addReaction(messageId: string, emoji: string, channelId: string) {
-      const sessionToken = getCookie('band_chat_session');
-      if (!sessionToken) return;
+      if (!currentSessionToken) return;
 
       try {
         await convex.mutation(api.reactions.add, {
           messageId: messageId as Id<"messages">,
           emoji,
-          sessionToken
+          sessionToken: currentSessionToken
         });
       } catch (error) {
         console.error('Failed to add reaction:', error);
@@ -126,14 +117,13 @@ function createConvexMessageStore() {
     },
 
     async removeReaction(messageId: string, emoji: string, channelId: string) {
-      const sessionToken = getCookie('band_chat_session');
-      if (!sessionToken) return;
+      if (!currentSessionToken) return;
 
       try {
         await convex.mutation(api.reactions.remove, {
           messageId: messageId as Id<"messages">,
           emoji,
-          sessionToken
+          sessionToken: currentSessionToken
         });
       } catch (error) {
         console.error('Failed to remove reaction:', error);

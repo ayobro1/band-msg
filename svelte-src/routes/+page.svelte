@@ -10,14 +10,22 @@
   import { authStore } from '../lib/stores/auth';
   import { channelStore } from '../lib/stores/channels';
   import { messageStore } from '../lib/stores/messages';
+  import { convexMessageStore } from '../lib/stores/convexMessages';
   import { memberStore } from '../lib/stores/members';
   import { themeStore } from '../lib/stores/theme';
   import { pusherStore } from '../lib/stores/pusher';
+
+  export let data;
 
   let showPWAGuide = false;
   let showUsernameSetup = false;
 
   onMount(async () => {
+    // Set session token for Convex
+    if (data.sessionToken) {
+      convexMessageStore.setSessionToken(data.sessionToken);
+    }
+
     // Initialize theme
     themeStore.init();
     
