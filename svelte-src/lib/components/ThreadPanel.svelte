@@ -18,15 +18,8 @@
   let isLoading = false;
   let messageContainer: HTMLDivElement;
 
-  function getCookie(name: string): string {
-    if (typeof document === 'undefined') return '';
-    const prefix = `${encodeURIComponent(name)}=`;
-    const found = document.cookie
-      .split(';')
-      .map(part => part.trim())
-      .find(part => part.startsWith(prefix));
-    return found ? decodeURIComponent(found.slice(prefix.length)) : '';
-  }
+  // Get session token from convexMessageStore which already has it
+  $: sessionToken = $convexMessageStore.sessionToken;
 
   function getAvatarColor(name: string): string {
     const colors = ['#7c3aed', '#2563eb', '#e11d48', '#059669', '#d97706', '#db2777'];
@@ -51,7 +44,6 @@
   async function loadReplies() {
     isLoading = true;
     try {
-      const sessionToken = getCookie('band_chat_session');
       if (!sessionToken) {
         console.error('[ThreadPanel] No session token');
         return;
@@ -65,7 +57,7 @@
       replies = threadReplies;
       setTimeout(scrollToBottom, 100);
     } catch (error) {
-      console.error('Failed to load replies:', error);
+      console.error('[ThreadPanel] Failed to load replies:', error);
     } finally {
       isLoading = false;
     }
@@ -75,7 +67,6 @@
     if (!replyInput.trim()) return;
 
     try {
-      const sessionToken = getCookie('band_chat_session');
       if (!sessionToken) {
         console.error('[ThreadPanel] No session token');
         return;
@@ -127,6 +118,7 @@
   <div 
     class="w-full max-w-2xl h-full bg-[#0a0a0a] border-l border-white/10 flex flex-col animate-slide-left"
     on:click|stopPropagation
+    style="padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom);"
   >
     <!-- Header -->
     <div class="h-14 flex items-center justify-between px-4 border-b border-white/10 shrink-0">
@@ -134,7 +126,7 @@
       <button
         type="button"
         on:click={onClose}
-        class="p-2 rounded-lg text-white/40 hover:text-white hover:bg-white/5 transition-colors"
+        class="p-2 rounded-lg text-white/40 hover:text-white hover:bg-white/5 transition-colors touch-manipulation"
         aria-label="Close thread"
       >
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">

@@ -21,12 +21,14 @@ type Message = {
 type MessageState = {
   messages: Message[];
   isLoading: boolean;
+  sessionToken: string | null;
 };
 
 function createConvexMessageStore() {
   const { subscribe, set, update } = writable<MessageState>({
     messages: [],
-    isLoading: false
+    isLoading: false,
+    sessionToken: null
   });
 
   let unsubscribe: (() => void) | null = null;
@@ -37,6 +39,7 @@ function createConvexMessageStore() {
 
     setSessionToken(token: string | null) {
       currentSessionToken = token;
+      update(state => ({ ...state, sessionToken: token }));
     },
 
     async loadMessages(channelId: string) {
@@ -60,7 +63,7 @@ function createConvexMessageStore() {
           { channelId: channelId as Id<"channels">, sessionToken: currentSessionToken },
           (messages) => {
             console.log('[Convex] Loaded messages:', messages);
-            set({ messages, isLoading: false });
+            set({ messages, isLoading: false, sessionToken: currentSessionToken });
           }
         );
       } catch (error) {
