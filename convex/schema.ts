@@ -70,4 +70,14 @@ export default defineSchema({
   })
     .index("by_channel", ["channelId"])
     .index("by_expires", ["expiresAt"]),
+
+  pushSubscriptions: defineTable({
+    userId: v.id("users"),
+    endpoint: v.string(),
+    p256dhKey: v.string(),
+    authKey: v.string(),
+    createdAt: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_endpoint", ["endpoint"]),
 });

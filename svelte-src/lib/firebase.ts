@@ -116,20 +116,26 @@ export async function subscribeToPushNotifications(): Promise<{ success: boolean
       return { success: false, error: 'Failed to get FCM token' };
     }
     
-    // FCM uses a simple token format, not web push subscription format
-    // Send token to backend using apiPost (includes CSRF)
-    const response = await apiPost('/api/push/subscribe', { 
-      fcmToken: token,
-      // For compatibility with web push format, send dummy values
-      endpoint: 'fcm',
+    const { convex } = await import('./convex');
+    const { api } = await import('../../convex/_generated/api');
+    const { convexMessageStore } = await import('./stores/convexMessages');
+    
+    let sessionToken = '';
+    const unsubscribe = convexMessageStore.subscribe(state => {
+      sessionToken = state.sessionToken;
+    });
+    unsubscribe();
+
+    if (!sessionToken) {
+      return { success: false, error: 'Not authenticated' };
+    }
+
+    await convex.mutation(api.pushSubscriptions.subscribe, {
+      sessionToken,
+      endpoint: token,
       p256dhKey: 'fcm',
       authKey: 'fcm'
     });
-    
-    if (!response.ok) {
-      const data = await response.json();
-      return { success: false, error: data.error || 'Failed to subscribe' };
-    }
     
     return { success: true };
   } catch (error: any) {
@@ -141,12 +147,21 @@ export async function subscribeToPushNotifications(): Promise<{ success: boolean
 // Unsubscribe from push notifications
 export async function unsubscribeFromPushNotifications(): Promise<{ success: boolean; error?: string }> {
   try {
-    const response = await apiPost('/api/push/unsubscribe', {});
+    const { convex } = await import('./convex');
+    const { api } = await import('../../convex/_generated/api');
+    const { convexMessageStore } = await import('./stores/convexMessages');
     
-    if (!response.ok) {
-      const data = await response.json();
-      return { success: false, error: data.error || 'Failed to unsubscribe' };
+    let sessionToken = '';
+    const unsubscribe = convexMessageStore.subscribe(state => {
+      sessionToken = state.sessionToken;
+    });
+    unsubscribe();
+
+    if (!sessionToken) {
+      return { success: false, error: 'Not authenticated' };
     }
+
+    await convex.mutation(api.pushSubscriptions.unsubscribe, { sessionToken });
     
     return { success: true };
   } catch (error: any) {
@@ -160,11 +175,19 @@ export async function isPushSubscribed(): Promise<boolean> {
   if (!browser) return false;
   
   try {
-    const response = await fetch('/api/push/subscription');
-    if (!response.ok) return false;
+    const { convex } = await import('./convex');
+    const { api } = await import('../../convex/_generated/api');
+    const { convexMessageStore } = await import('./stores/convexMessages');
     
-    const data = await response.json();
-    return data.subscribed === true;
+    let sessionToken = '';
+    convexMessageStore.subscribe(state => {
+      sessionToken = state.sessionToken;
+    })();
+
+    if (!sessionToken) return false;
+
+    const result = await convex.query(api.pushSubscriptions.isSubscribed, { sessionToken });
+    return result.subscribed === true;
   } catch (error) {
     console.error('Error checking subscription status:', error);
     return false;
