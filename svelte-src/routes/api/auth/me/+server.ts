@@ -1,4 +1,4 @@
-import { getUserBySession } from "$lib/server/db";
+import { getSessionUser } from "$lib/server/db";
 
 const toJson = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -12,7 +12,7 @@ export const GET = async ({ locals }: any) => {
       return toJson({ error: "unauthorized" }, 401);
     }
 
-    const user = await getUserBySession(locals.sessionToken);
+    const user = await getSessionUser(locals.sessionToken);
 
     if (!user) {
       return toJson({ error: "unauthorized" }, 401);

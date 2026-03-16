@@ -147,7 +147,8 @@
     }
   }
 
-  $: isAuthenticated = !!me;
+  $: isAuthenticated = !!me && me.status === "approved";
+  $: isPendingApproval = !!me && me.status === "pending";
   $: myPresence = members.find(m => m.username === me?.username)?.presenceStatus || 'online';
   $: filteredEmojis = emojiSearchQuery
     ? REACTION_ICONS.filter(e => e.label.toLowerCase().includes(emojiSearchQuery.toLowerCase()))
@@ -314,8 +315,42 @@
   async function register() {
     const res = await apiPost("/api/auth/register", { username: registerUsername, password: registerPassword });
     if (!res.ok) { showToast(await readApiError(res, "Registration failed"), "error"); return; }
+    // Auto-login after registration
+    loginUsername = registerUsername;
+    loginPassword = registerPassword;
     registerUsername = ""; registerPassword = "";
-    showToast("Registered successfully.", "success");
+    await login();
+  }
+
+  let approvalPollInterval: ReturnType<typeof setInterval> | null = null;
+
+  function startApprovalPolling() {
+    if (approvalPollInterval) return;
+    approvalPollInterval = setInterval(async () => {
+      await refreshMe();
+      if (me?.status === "approved") {
+        stopApprovalPolling();
+        showToast("Account approved! Welcome in.", "success");
+        await refreshServers();
+        await refreshChannels();
+        await refreshMembers();
+        await refreshPendingUsers();
+        startMainPolling();
+      }
+    }, 3000);
+  }
+
+  function stopApprovalPolling() {
+    if (approvalPollInterval) { clearInterval(approvalPollInterval); approvalPollInterval = null; }
+  }
+
+  function startMainPolling() {
+    if (refreshInterval) return;
+    refreshInterval = setInterval(async () => {
+      await refreshMessages();
+      await refreshTyping();
+      await refreshMembers();
+    }, 2000);
   }
 
   async function login() {
@@ -330,6 +365,12 @@
       const authState = await refreshMe();
       if (!authState.ok || !me) { loginPassword = attemptedPassword; showToast(authState.error || "Signed in response received, but session was not established.", "error"); return; }
       loginPassword = "";
+
+      if (me.status === "pending") {
+        startApprovalPolling();
+        return;
+      }
+
       await refreshServers();
       await refreshChannels();
       if (typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window) {
@@ -341,6 +382,7 @@
   }
 
   async function logout() {
+    stopApprovalPolling();
     await apiPost("/api/auth/logout", {});
     await apiPost("/api/presence", { status: "offline" });
     headerSessionToken = ""; me = null; servers = []; channels = []; messages = []; events = []; members = [];
@@ -648,20 +690,21 @@
     }
 
     await refreshMe();
-    await refreshServers();
-    await refreshChannels();
-    await refreshMembers();
-    await refreshPendingUsers();
 
-    refreshInterval = setInterval(async () => {
-      await refreshMessages();
-      await refreshTyping();
+    if (me?.status === "pending") {
+      startApprovalPolling();
+    } else if (me) {
+      await refreshServers();
+      await refreshChannels();
       await refreshMembers();
-    }, 2000);
+      await refreshPendingUsers();
+      startMainPolling();
+    }
   });
 
   onDestroy(() => {
     if (refreshInterval) clearInterval(refreshInterval);
+    stopApprovalPolling();
     if (typingTimeout) clearTimeout(typingTimeout);
     if (toastTimeout) clearTimeout(toastTimeout);
     if (longPressTimer) clearTimeout(longPressTimer);
@@ -672,8 +715,37 @@
   <title>Band Chat</title>
 </svelte:head>
 
+<!-- ==================== PENDING APPROVAL SCREEN ==================== -->
+{#if isPendingApproval}
+  <div class="flex h-full items-center justify-center bg-surface-0 px-6 py-10 sm:px-10">
+    <div class="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 h-[600px] w-[600px] rounded-full bg-accent/[0.04] blur-[120px]"></div>
+
+    <div class="animate-fade-in relative w-full max-w-[440px] rounded-3xl border border-border bg-surface-1 px-8 py-10 sm:px-10 sm:py-12 shadow-2xl shadow-black/30">
+      <div class="text-center">
+        <div class="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-surface-3 shadow-lg shadow-black/10">
+          <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" class="text-text-tertiary">
+            <circle cx="12" cy="12" r="10"/>
+            <polyline points="12 6 12 12 16 14"/>
+          </svg>
+        </div>
+        <h1 class="text-2xl font-bold tracking-tight text-text-primary">Waiting for approval</h1>
+        <p class="mt-3 text-[14px] leading-relaxed text-text-tertiary">
+          Your account <strong class="text-text-secondary">{me?.username}</strong> has been created. An admin needs to approve your access before you can join.
+        </p>
+        <div class="mt-6 flex items-center justify-center gap-2 text-[13px] text-text-tertiary">
+          <div class="h-1.5 w-1.5 animate-pulse rounded-full bg-accent"></div>
+          Checking automatically...
+        </div>
+        <button
+          class="mt-8 text-[13px] font-medium text-text-tertiary transition-colors hover:text-text-secondary"
+          on:click={logout}
+        >Sign out</button>
+      </div>
+    </div>
+  </div>
+
 <!-- ==================== AUTH SCREEN ==================== -->
-{#if !isAuthenticated}
+{:else if !isAuthenticated}
   <div class="flex h-full items-center justify-center bg-surface-0 px-6 py-10 sm:px-10">
     <!-- Subtle radial glow behind the card -->
     <div class="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 h-[600px] w-[600px] rounded-full bg-accent/[0.04] blur-[120px]"></div>
