@@ -125,21 +125,21 @@
 
   async function handleReactionClick(emoji: string, name?: string) {
     showReactionPicker = false;
-    if (!$channelStore.selectedChannelId) return;
+    if (!$convexChannelStore.selectedChannelId) return;
     
     const reaction = message.reactions?.find((r: any) => r.emoji === emoji);
     const hasReacted = reaction?.users.includes($authStore.user?.username);
     
     if (hasReacted) {
-      await messageStore.removeReaction(message.id, emoji, $channelStore.selectedChannelId);
+      await messageStore.removeReaction(message.id, emoji, $convexChannelStore.selectedChannelId);
     } else {
-      await messageStore.addReaction(message.id, emoji, $channelStore.selectedChannelId);
+      await messageStore.addReaction(message.id, emoji, $convexChannelStore.selectedChannelId);
     }
   }
 
   async function handleDelete() {
-    if (!$channelStore.selectedChannelId) return;
-    await messageStore.deleteMessage(message.id, $channelStore.selectedChannelId);
+    if (!$convexChannelStore.selectedChannelId) return;
+    await messageStore.deleteMessage(message.id, $convexChannelStore.selectedChannelId);
   }
 </script>
 
