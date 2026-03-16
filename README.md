@@ -439,8 +439,8 @@ This project is licensed under the MIT License. See the `LICENSE` file for detai
 
 * Inspired by Discord
 * Built with SvelteKit
-* Database by Neon
-* Deployed on Vercel
+* Database by CONVEX THE BEST DB
+* Deployed on Vercel GOAT
 
 ---
 
