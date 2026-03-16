@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { mutation, query, QueryCtx } from "./_generated/server";
+import { mutation, query, type QueryCtx } from "./_generated/server";
 
 export async function getUserByToken(ctx: QueryCtx, token: string) {
   const session = await ctx.db
@@ -355,5 +355,75 @@ export const approveUserByUsername = mutation({
     });
 
     return { success: true, userId: user._id };
+  },
+});
+
+// Sync external user and session (e.g. from Google Auth)
+export const syncExternalUser = mutation({
+  args: {
+    username: v.string(),
+    externalId: v.string(),
+    role: v.string(),
+    status: v.string(),
+    needsUsernameSetup: v.boolean(),
+    sessionToken: v.string(),
+    expiresAt: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const username = args.username.trim().toLowerCase();
+
+    // Check if user exists by username
+    let user = await ctx.db
+      .query("users")
+      .withIndex("by_username", (q) => q.eq("username", username))
+      .first();
+
+    if (user) {
+      // Update existing user
+      await ctx.db.patch(user._id, {
+        googleId: args.externalId,
+        role: args.role as any,
+        status: args.status as any,
+        needsUsernameSetup: args.needsUsernameSetup,
+      });
+    } else {
+      // Create new user
+      const userId = await ctx.db.insert("users", {
+        username,
+        googleId: args.externalId,
+        role: args.role as any,
+        status: args.status as any,
+        needsUsernameSetup: args.needsUsernameSetup,
+        presenceStatus: "offline",
+        lastSeen: Date.now(),
+        createdAt: Date.now(),
+      });
+      user = await ctx.db.get(userId);
+    }
+
+    if (!user) throw new Error("Failed to sync user");
+
+    // Check for existing session
+    const existingSession = await ctx.db
+      .query("sessions")
+      .withIndex("by_token", (q) => q.eq("token", args.sessionToken))
+      .first();
+
+    if (!existingSession) {
+      // Create session
+      await ctx.db.insert("sessions", {
+        token: args.sessionToken,
+        userId: user._id,
+        expiresAt: args.expiresAt,
+        createdAt: Date.now(),
+      });
+    }
+
+    return {
+      userId: user._id,
+      username: user.username,
+      role: user.role,
+      status: user.status,
+    };
   },
 });

@@ -2,7 +2,12 @@ import { redirect } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getSqlClient } from '$lib/server/db';
 import { createSessionToken, setSessionCookie, expiresAtMs } from '$lib/server/auth';
+import { ConvexHttpClient } from "convex/browser";
+import { api } from "../../../../../../../convex/_generated/api";
 import crypto from 'node:crypto';
+
+const CONVEX_URL = process.env.CONVEX_URL || process.env.PUBLIC_CONVEX_URL || "";
+const convex = new ConvexHttpClient(CONVEX_URL);
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || '';
@@ -83,11 +88,11 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
 
     // Check if user exists by Google ID or email
     console.log('Checking if user exists...');
-    const existingUsers = await sql`
+    const existingUsers = (await sql`
       SELECT * FROM users 
       WHERE google_id = ${googleUser.id} OR username = ${googleUser.email}
       LIMIT 1
-    `;
+    `) as any[];
 
     console.log('Existing users found:', existingUsers.length);
 
@@ -122,7 +127,7 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
       
       await sql`
         INSERT INTO users (id, username, google_id, role, status, needs_username_setup, created_at)
-        VALUES (${userId}, ${tempUsername}, ${googleUser.id}, 'member', 'approved', true, ${now})
+        VALUES (${userId}, ${tempUsername}, ${googleUser.id}, 'member', 'pending', true, ${now})
       `;
       
       user = {
@@ -130,11 +135,11 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
         username: tempUsername,
         google_id: googleUser.id,
         role: 'member',
-        status: 'approved',
+        status: 'pending',
         needs_username_setup: true
       };
       
-      console.log('New user created successfully');
+      console.log('New user created successfully (pending approval)');
     }
 
     // Create session
@@ -147,7 +152,25 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
       VALUES (${sessionToken}, ${user.id}, ${expiresAt}, ${Date.now()})
     `;
     
-    console.log('Session created:', sessionToken.substring(0, 10) + '...');
+    console.log('Session created in SQL:', sessionToken.substring(0, 10) + '...');
+    
+    // Sync to Convex
+    console.log('Syncing to Convex...');
+    try {
+      await convex.mutation(api.auth.syncExternalUser, {
+        username: user.username,
+        externalId: user.google_id || '',
+        role: user.role,
+        status: user.status,
+        needsUsernameSetup: user.needs_username_setup || false,
+        sessionToken,
+        expiresAt
+      });
+      console.log('Convex sync successful');
+    } catch (syncError) {
+      console.error('Convex sync failed:', syncError);
+      // We still set the cookie and redirect, but the user might have issues until they retry
+    }
     
     setSessionCookie(cookies, sessionToken);
 

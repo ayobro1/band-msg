@@ -88,6 +88,40 @@ export const POST = async ({ request, cookies }: any) => {
 
       setSessionCookie(cookies, sessionToken);
       
+      // Sync to SQL so /api/auth/me works
+      try {
+        const { getSqlClient } = await import('$lib/server/db');
+        const sql = getSqlClient();
+        
+        // Find or create user in SQL
+        let sqlUser = await sql`SELECT id FROM users WHERE username = ${user.username} LIMIT 1`;
+        let sqlUserId = sqlUser[0]?.id;
+        
+        if (!sqlUserId) {
+          const crypto = await import('node:crypto');
+          sqlUserId = crypto.randomUUID();
+          await sql`
+            INSERT INTO users (id, username, role, status, created_at)
+            VALUES (${sqlUserId}, ${user.username}, ${user.role}, ${user.status}, ${Date.now()})
+          `;
+        } else {
+          // Update status/role if needed
+          await sql`
+            UPDATE users 
+            SET role = ${user.role}, status = ${user.status}
+            WHERE id = ${sqlUserId}
+          `;
+        }
+        
+        // Create session in SQL
+        await sql`
+          INSERT INTO sessions (token, user_id, expires_at, created_at)
+          VALUES (${sessionToken}, ${sqlUserId}, ${expiresAtMs()}, ${Date.now()})
+        `;
+      } catch (sqlError) {
+        console.error('[Login] SQL sync failed:', sqlError);
+      }
+      
       // Return user data with session token
       return toJson({
         ...user,

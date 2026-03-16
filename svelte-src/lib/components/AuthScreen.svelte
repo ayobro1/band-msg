@@ -90,6 +90,17 @@
             </svg>
             {error}
           </div>
+        {:else if $authStore.user?.status === 'pending'}
+          <div class="mb-4 px-4 py-3 rounded-xl bg-blue-500/10 border border-blue-500/30 text-blue-400 text-sm animate-slide-down flex flex-col gap-1">
+            <div class="flex items-center gap-2 font-semibold">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/>
+                <polyline points="12 6 12 12 16 14"/>
+              </svg>
+              Approval Pending
+            </div>
+            <p class="text-xs opacity-70">Your account is waiting for admin approval. Please check back later.</p>
+          </div>
         {/if}
 
         <!-- Google Sign In Button -->

@@ -50,12 +50,12 @@
     }
     
     // Check if user needs to set username
-    if ($authStore.user?.needsUsernameSetup) {
+    if ($authStore.user?.needsUsernameSetup && $authStore.user?.status === 'approved') {
       showUsernameSetup = true;
       return;
     }
     
-    if ($authStore.user) {
+    if ($authStore.user && $authStore.user.status === 'approved') {
       // Connect to Pusher for real-time updates (will remove later)
       pusherStore.connect();
       
@@ -111,16 +111,18 @@
     // Reload user data
     await authStore.checkAuth();
     
-    // Connect to Pusher
-    pusherStore.connect();
-    
-    // Load initial data
-    await convexChannelStore.loadChannels();
-    await memberStore.loadMembers();
-    
-    // Load messages for selected channel
-    if ($convexChannelStore.selectedChannelId) {
-      await convexMessageStore.loadMessages($convexChannelStore.selectedChannelId);
+    if ($authStore.user?.status === 'approved') {
+      // Connect to Pusher
+      pusherStore.connect();
+      
+      // Load initial data
+      await convexChannelStore.loadChannels();
+      await memberStore.loadMembers();
+      
+      // Load messages for selected channel
+      if ($convexChannelStore.selectedChannelId) {
+        await convexMessageStore.loadMessages($convexChannelStore.selectedChannelId);
+      }
     }
   }
 </script>
@@ -131,12 +133,12 @@
 
 {#if showPWAGuide}
   <PWAInstallGuide on:skip={handlePWAGuideComplete} on:done={handlePWAGuideComplete} />
-{:else if showUsernameSetup}
+{:else if showUsernameSetup && $authStore.user?.status === 'approved'}
   <UsernameSetup 
     suggestedUsername={$authStore.user?.username || ''} 
     on:complete={handleUsernameSetupComplete} 
   />
-{:else if !$authStore.user}
+{:else if !$authStore.user || $authStore.user?.status === 'pending'}
   <AuthScreen />
 {:else}
   <div class="fixed inset-0 flex overflow-hidden bg-black text-white antialiased">

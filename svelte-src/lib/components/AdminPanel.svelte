@@ -4,7 +4,9 @@
   import { fade } from 'svelte/transition';
   import { convex } from '../convex';
   import { api } from '../../../convex/_generated/api';
+  import type { Id } from '../../../convex/_generated/dataModel';
   import { convexMessageStore } from '../stores/convexMessages';
+  import { apiPost } from '../utils/api';
 
   export let onClose: () => void;
 
@@ -31,19 +33,18 @@
   let activeTab: 'requests' | 'pending' | 'users' = 'requests';
   let sessionToken = '';
 
-  onMount(async () => {
+  onMount(() => {
     // Get session token from store
-    const unsubscribe = convexMessageStore.subscribe(state => {
+    const unsubscribe = convexMessageStore.subscribe(async state => {
       sessionToken = state.sessionToken;
+      console.log('[AdminPanel] Session token updated:', !!sessionToken);
+
+      if (sessionToken) {
+        await loadSignupRequests();
+        await loadPendingUsers();
+        await loadAllUsers();
+      }
     });
-
-    console.log('[AdminPanel] Mounted with session token:', !!sessionToken);
-
-    if (sessionToken) {
-      await loadSignupRequests();
-      await loadPendingUsers();
-      await loadAllUsers();
-    }
 
     return unsubscribe;
   });
@@ -98,7 +99,10 @@
     
     console.log('[AdminPanel] Approving signup request:', requestId);
     try {
-      const result = await convex.mutation(api.signupRequests.approve, { sessionToken, requestId });
+      const result = await convex.mutation(api.signupRequests.approve, { 
+        sessionToken, 
+        requestId: requestId as Id<"signupRequests"> 
+      });
       console.log('[AdminPanel] Signup request approved successfully:', result);
       // Reload the list to remove the approved request
       await loadSignupRequests();
@@ -113,7 +117,10 @@
     
     console.log('[AdminPanel] Rejecting signup request:', requestId);
     try {
-      const result = await convex.mutation(api.signupRequests.reject, { sessionToken, requestId });
+      const result = await convex.mutation(api.signupRequests.reject, { 
+        sessionToken, 
+        requestId: requestId as Id<"signupRequests"> 
+      });
       console.log('[AdminPanel] Signup request rejected successfully:', result);
       // Reload the list to remove the rejected request
       await loadSignupRequests();
@@ -123,11 +130,17 @@
     }
   }
 
-  async function approveUser(userId: string) {
+  async function approveUser(userId: string, username: string) {
     if (!sessionToken) return;
     
     try {
-      await convex.mutation(api.auth.approveUser, { sessionToken, userId });
+      await convex.mutation(api.auth.approveUser, { 
+        sessionToken, 
+        userId: userId as Id<"users"> 
+      });
+      // Also approve in SQL via SvelteKit API
+      await apiPost('/api/admin/users/approve', { username });
+      
       await loadPendingUsers();
       await loadAllUsers();
     } catch (error) {
@@ -135,11 +148,17 @@
     }
   }
 
-  async function rejectUser(userId: string) {
+  async function rejectUser(userId: string, username: string) {
     if (!sessionToken) return;
     
     try {
-      await convex.mutation(api.auth.rejectUser, { sessionToken, userId });
+      await convex.mutation(api.auth.rejectUser, { 
+        sessionToken, 
+        userId: userId as Id<"users"> 
+      });
+      // Also reject in SQL via SvelteKit API
+      await apiPost('/api/admin/users/reject', { username });
+      
       await loadPendingUsers();
       await loadAllUsers();
     } catch (error) {
@@ -147,22 +166,34 @@
     }
   }
 
-  async function promoteUser(userId: string) {
+  async function promoteUser(userId: string, username: string) {
     if (!sessionToken) return;
     
     try {
-      await convex.mutation(api.auth.promoteUser, { sessionToken, userId });
+      await convex.mutation(api.auth.promoteUser, { 
+        sessionToken, 
+        userId: userId as Id<"users"> 
+      });
+      // Also promote in SQL
+      await apiPost('/api/admin/users/promote', { username });
+      
       await loadAllUsers();
     } catch (error) {
       console.error('[AdminPanel] Failed to promote user:', error);
     }
   }
 
-  async function demoteUser(userId: string) {
+  async function demoteUser(userId: string, username: string) {
     if (!sessionToken) return;
     
     try {
-      await convex.mutation(api.auth.demoteUser, { sessionToken, userId });
+      await convex.mutation(api.auth.demoteUser, { 
+        sessionToken, 
+        userId: userId as Id<"users"> 
+      });
+      // Also demote in SQL
+      await apiPost('/api/admin/users/demote', { username });
+      
       await loadAllUsers();
     } catch (error) {
       console.error('[AdminPanel] Failed to demote user:', error);
@@ -301,14 +332,14 @@
                     <div class="flex gap-2 shrink-0">
                       <button
                         type="button"
-                        on:click={() => approveUser(user.id)}
+                        on:click={() => approveUser(user.id, user.username)}
                         class="px-3 py-1.5 bg-white text-black rounded-lg hover:bg-white/90 transition-colors text-xs font-semibold"
                       >
                         Approve
                       </button>
                       <button
                         type="button"
-                        on:click={() => rejectUser(user.id)}
+                        on:click={() => rejectUser(user.id, user.username)}
                         class="px-3 py-1.5 bg-white/10 text-white rounded-lg hover:bg-white/20 transition-colors text-xs font-medium"
                       >
                         Reject
@@ -344,7 +375,7 @@
                       {#if user.role === 'admin'}
                         <button
                           type="button"
-                          on:click={() => demoteUser(user.id)}
+                          on:click={() => demoteUser(user.id, user.username)}
                           class="px-3 py-1.5 bg-white/10 text-white rounded-lg hover:bg-white/20 transition-colors text-xs font-medium"
                         >
                           Demote
@@ -352,7 +383,7 @@
                       {:else}
                         <button
                           type="button"
-                          on:click={() => promoteUser(user.id)}
+                          on:click={() => promoteUser(user.id, user.username)}
                           class="px-3 py-1.5 bg-white text-black rounded-lg hover:bg-white/90 transition-colors text-xs font-semibold"
                         >
                           Promote
@@ -494,14 +525,14 @@
                   <div class="flex gap-2 shrink-0">
                     <button
                       type="button"
-                      on:click={() => approveUser(user.id)}
+                      on:click={() => approveUser(user.id, user.username)}
                       class="px-3 py-1.5 bg-white text-black rounded-lg hover:bg-white/90 transition-colors text-xs font-semibold"
                     >
                       Approve
                     </button>
                     <button
                       type="button"
-                      on:click={() => rejectUser(user.id)}
+                      on:click={() => rejectUser(user.id, user.username)}
                       class="px-3 py-1.5 bg-white/10 text-white rounded-lg hover:bg-white/20 transition-colors text-xs font-medium"
                     >
                       Reject
@@ -537,7 +568,7 @@
                     {#if user.role === 'admin'}
                       <button
                         type="button"
-                        on:click={() => demoteUser(user.id)}
+                        on:click={() => demoteUser(user.id, user.username)}
                         class="px-3 py-1.5 bg-white/10 text-white rounded-lg hover:bg-white/20 transition-colors text-xs font-medium"
                       >
                         Demote
@@ -545,7 +576,7 @@
                     {:else}
                       <button
                         type="button"
-                        on:click={() => promoteUser(user.id)}
+                        on:click={() => promoteUser(user.id, user.username)}
                         class="px-3 py-1.5 bg-white text-black rounded-lg hover:bg-white/90 transition-colors text-xs font-semibold"
                       >
                         Promote
