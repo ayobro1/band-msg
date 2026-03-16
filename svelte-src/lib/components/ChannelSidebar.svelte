@@ -3,6 +3,7 @@
   import { convexChannelStore } from '../stores/convexChannels';
   import { convexMessageStore } from '../stores/convexMessages';
   import { authStore } from '../stores/auth';
+  import { notificationStore } from '../stores/notificationStore';
   import { apiPost } from '../utils/api';
   import { convex } from '../convex';
   import { api } from '../../../convex/_generated/api';
@@ -13,39 +14,17 @@
   let showCreateChannel = false;
   let showSettingsModal = false;
   let settingsChannel: any = null;
-  let mutedChannelIds = new Set<string>();
   let showDeleteConfirm = false;
   let channelToDelete: any = null;
   let touchTimer: ReturnType<typeof setTimeout> | null = null;
   
   onMount(async () => {
-    try {
-      const res = await fetch('/api/channels/current/mute');
-      if (res.ok) {
-        const ids = await res.json();
-        mutedChannelIds = new Set(ids);
-      }
-    } catch (e) {
-      console.error(e);
-    }
+    await notificationStore.init();
   });
 
   async function toggleMute(e: Event, channelId: string) {
     e.stopPropagation();
-    try {
-      const isMuted = mutedChannelIds.has(channelId);
-      const res = await apiPost(`/api/channels/${channelId}/mute`, { muted: !isMuted });
-      if (res.ok) {
-        if (isMuted) {
-          mutedChannelIds.delete(channelId);
-        } else {
-          mutedChannelIds.add(channelId);
-        }
-        mutedChannelIds = new Set(mutedChannelIds); // trigger reactivity
-      }
-    } catch (err) {
-      console.error(err);
-    }
+    await notificationStore.toggleChannelMute(channelId);
   }
 
   function openSettings(e: Event, channel: any) {
@@ -213,11 +192,11 @@
               {/if}
               <button 
                 on:click={(e) => toggleMute(e, channel.id)}
-                class="p-1 rounded mix-blend-normal transition-all duration-200 hover:scale-110 active:scale-95 {mutedChannelIds.has(channel.id) ? 'text-white opacity-100' : 'text-white/40 hover:text-white'}"
-                aria-label={mutedChannelIds.has(channel.id) ? "Unmute Channel" : "Mute Channel"}
-                title={mutedChannelIds.has(channel.id) ? "Unmute Channel" : "Mute Channel"}
+                class="p-1 rounded mix-blend-normal transition-all duration-200 hover:scale-110 active:scale-95 {$notificationStore.mutedChannelIds.has(channel.id) ? 'text-white opacity-100' : 'text-white/40 hover:text-white'}"
+                aria-label={$notificationStore.mutedChannelIds.has(channel.id) ? "Unmute Channel" : "Mute Channel"}
+                title={$notificationStore.mutedChannelIds.has(channel.id) ? "Unmute Channel" : "Mute Channel"}
               >
-                {#if mutedChannelIds.has(channel.id)}
+                {#if $notificationStore.mutedChannelIds.has(channel.id)}
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M11 5L6 9H2v6h4l5 4V5z"/>
                     <line x1="23" y1="9" x2="17" y2="15"/>

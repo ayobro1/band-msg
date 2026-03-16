@@ -176,6 +176,7 @@ export async function isPushSubscribed(): Promise<boolean> {
   
   try {
     console.log('[Firebase] Checking push subscription status...');
+    await initializeFirebase();
     const { convex } = await import('./convex');
     const { api } = await import('../../convex/_generated/api');
     const { convexMessageStore } = await import('./stores/convexMessages');

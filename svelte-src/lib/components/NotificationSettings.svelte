@@ -1,103 +1,31 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
-  import { initializeFirebase, subscribeToPushNotifications, unsubscribeFromPushNotifications, isPushSubscribed } from '../firebase';
+  import { onMount, onDestroy } from 'svelte';
+  import { notificationStore } from '../stores/notificationStore';
   import { convexChannelStore } from '../stores/convexChannels';
-  import { apiPost, apiGet } from '../utils/api';
   import Spinner from './Spinner.svelte';
   
   export let onClose: () => void;
   
-  let isSubscribed = false;
-  let isLoading = false;
-  let notificationPermission: NotificationPermission = 'default';
-  let error = '';
-  let mutedChannelIds = new Set<string>();
-  
   onMount(async () => {
     console.log('[NotificationSettings] Component mounted');
-    
-    // Initialize Firebase
-    await initializeFirebase();
-    
-    if ('Notification' in window) {
-      notificationPermission = Notification.permission;
-      console.log('[NotificationSettings] Notification permission:', notificationPermission);
-      
-      const subscribed = await isPushSubscribed();
-      console.log('[NotificationSettings] Is subscribed:', subscribed);
-      isSubscribed = subscribed;
-    }
-    
-    await loadMutedChannels();
+    await notificationStore.init();
+  });
+
+  onDestroy(() => {
+    notificationStore.setError(null);
   });
   
-  async function loadMutedChannels() {
-    try {
-      const res = await apiGet('/api/channels/current/mute');
-      if (res.ok) {
-        const ids = await res.json();
-        mutedChannelIds = new Set(ids);
-      }
-    } catch (e) {
-      console.error('Failed to load muted channels:', e);
-    }
-  }
-  
   async function handleToggleNotifications() {
-    console.log('[NotificationSettings] Toggle clicked, current state:', isSubscribed);
-    isLoading = true;
-    error = '';
-    
-    try {
-      if (isSubscribed) {
-        console.log('[NotificationSettings] Unsubscribing...');
-        const result = await unsubscribeFromPushNotifications();
-        console.log('[NotificationSettings] Unsubscribe result:', result);
-        if (result.success) {
-          isSubscribed = false;
-        } else {
-          error = result.error || 'Failed to unsubscribe from notifications';
-        }
-      } else {
-        console.log('[NotificationSettings] Subscribing...');
-        const result = await subscribeToPushNotifications();
-        console.log('[NotificationSettings] Subscribe result:', result);
-        if (result.success) {
-          isSubscribed = true;
-          notificationPermission = 'granted';
-        } else {
-          error = result.error || 'Failed to subscribe to notifications';
-        }
-      }
-    } catch (err) {
-      console.error('Notification toggle error:', err);
-      error = 'An error occurred. Please try again.';
-    }
-    
-    isLoading = false;
+    await notificationStore.toggleNotifications();
   }
   
   async function toggleChannelMute(channelId: string) {
-    try {
-      const isMuted = mutedChannelIds.has(channelId);
-      const res = await apiPost(`/api/channels/${channelId}/mute`, { muted: !isMuted });
-      
-      if (res.ok) {
-        if (isMuted) {
-          mutedChannelIds.delete(channelId);
-        } else {
-          mutedChannelIds.add(channelId);
-        }
-        mutedChannelIds = new Set(mutedChannelIds);
-      }
-    } catch (err) {
-      console.error('Failed to toggle channel mute:', err);
-    }
+    await notificationStore.toggleChannelMute(channelId);
   }
   
   async function testNotification() {
-    if (notificationPermission !== 'granted') {
-      error = 'Please enable notifications first';
+    if ($notificationStore.permission !== 'granted') {
+      notificationStore.setError('Please enable notifications first');
       return;
     }
     
@@ -112,7 +40,7 @@
       });
     } catch (err) {
       console.error('Test notification error:', err);
-      error = 'Failed to show test notification';
+      notificationStore.setError('Failed to show test notification');
     }
   }
 </script>
@@ -148,9 +76,9 @@
 
     <!-- Content -->
     <div class="flex-1 overflow-y-auto p-4 space-y-5 scrollbar-hide" style="padding-bottom: max(1rem, env(safe-area-inset-bottom));">
-      {#if error}
+      {#if $notificationStore.error}
         <div class="px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm">
-          {error}
+          {$notificationStore.error}
         </div>
       {/if}
 
@@ -165,21 +93,21 @@
         <button
           type="button"
           on:click={handleToggleNotifications}
-          disabled={isLoading || notificationPermission === 'denied'}
-          class="relative inline-flex h-6 w-11 items-center rounded-full transition-all duration-200 shrink-0 {isSubscribed ? 'bg-white' : 'bg-white/20'} disabled:opacity-50 disabled:cursor-not-allowed hover:scale-105 active:scale-95"
+          disabled={$notificationStore.isLoading || $notificationStore.permission === 'denied'}
+          class="relative inline-flex h-6 w-11 items-center rounded-full transition-all duration-200 shrink-0 {$notificationStore.isSubscribed ? 'bg-white' : 'bg-white/20'} disabled:opacity-50 disabled:cursor-not-allowed hover:scale-105 active:scale-95"
           aria-label="Toggle push notifications"
         >
-          {#if isLoading}
+          {#if $notificationStore.isLoading}
             <span class="absolute inset-0 flex items-center justify-center">
               <Spinner size="sm" />
             </span>
           {:else}
-            <span class="inline-block h-4 w-4 transform rounded-full bg-black transition-all duration-200 {isSubscribed ? 'translate-x-6' : 'translate-x-1'}"></span>
+            <span class="inline-block h-4 w-4 transform rounded-full bg-black transition-all duration-200 {$notificationStore.isSubscribed ? 'translate-x-6' : 'translate-x-1'}"></span>
           {/if}
         </button>
       </div>
 
-      {#if notificationPermission === 'denied'}
+      {#if $notificationStore.permission === 'denied'}
         <div class="px-3 py-2.5 rounded-xl bg-white/5 border border-white/10">
           <p class="text-xs text-white/50 leading-relaxed">
             Notifications are blocked. Enable them in your browser settings.
@@ -187,7 +115,7 @@
         </div>
       {/if}
 
-      {#if isSubscribed}
+      {#if $notificationStore.isSubscribed}
         <div class="pt-4 border-t border-white/8">
           <button
             type="button"
@@ -221,10 +149,10 @@
                 <button
                   type="button"
                   on:click={() => toggleChannelMute(channel.id)}
-                  class="relative inline-flex h-5 w-9 items-center rounded-full transition-all duration-200 shrink-0 hover:scale-105 active:scale-95 {mutedChannelIds.has(channel.id) ? 'bg-white/20' : 'bg-white'}"
+                  class="relative inline-flex h-5 w-9 items-center rounded-full transition-all duration-200 shrink-0 hover:scale-105 active:scale-95 {$notificationStore.mutedChannelIds.has(channel.id) ? 'bg-white/20' : 'bg-white'}"
                   aria-label="Toggle notifications for {channel.name}"
                 >
-                  <span class="inline-block h-3.5 w-3.5 transform rounded-full bg-black transition-all duration-200 {mutedChannelIds.has(channel.id) ? 'translate-x-1' : 'translate-x-5'}"></span>
+                  <span class="inline-block h-3.5 w-3.5 transform rounded-full bg-black transition-all duration-200 {$notificationStore.mutedChannelIds.has(channel.id) ? 'translate-x-1' : 'translate-x-5'}"></span>
                 </button>
               </div>
             {/each}
