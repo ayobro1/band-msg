@@ -194,6 +194,7 @@
     class="relative bg-[#0a0a0a] border border-white/10 w-full max-w-[400px] rounded-2xl shadow-2xl p-6"
     role="dialog"
     aria-modal="true"
+    on:click|stopPropagation
   >
     <div class="flex items-center justify-between mb-6">
       <h2 class="text-[20px] font-bold text-white tracking-tight">Create Channel</h2>
@@ -293,25 +294,27 @@
 
 <!-- Member Selector Modal (Mobile - Drawer) -->
 {#if showMemberSelector}
-  <Drawer.Root open={true} onOpenChange={(o) => !o && (showMemberSelector = false)}>
-    <Drawer.Portal>
-      <Drawer.Overlay
-        class="fixed inset-0 bg-black/80 z-[300]"
-        transition={fade}
-        transitionConfig={{ duration: 150 }}
-      />
-      <Drawer.Content
-        class="fixed bottom-0 left-0 right-0 z-[300] flex flex-col bg-[#0a0a0a] rounded-t-[20px] h-[85vh] md:hidden outline-none"
-        style="padding-bottom: env(safe-area-inset-bottom);"
-      >
-        <div class="mx-auto w-12 h-1.5 flex-shrink-0 rounded-full bg-white/10 my-3"></div>
-        <MemberSelector 
-          bind:selectedMemberIds 
-          onClose={() => showMemberSelector = false}
+  <div class="md:hidden">
+    <Drawer.Root open={true} onOpenChange={(o) => !o && (showMemberSelector = false)}>
+      <Drawer.Portal>
+        <Drawer.Overlay
+          class="fixed inset-0 bg-black/80 z-[300]"
+          transition={fade}
+          transitionConfig={{ duration: 150 }}
         />
-      </Drawer.Content>
-    </Drawer.Portal>
-  </Drawer.Root>
+        <Drawer.Content
+          class="fixed bottom-0 left-0 right-0 z-[300] flex flex-col bg-[#0a0a0a] rounded-t-[20px] h-[85vh] outline-none"
+          style="padding-bottom: env(safe-area-inset-bottom);"
+        >
+          <div class="mx-auto w-12 h-1.5 flex-shrink-0 rounded-full bg-white/10 my-3"></div>
+          <MemberSelector 
+            bind:selectedMemberIds 
+            onClose={() => showMemberSelector = false}
+          />
+        </Drawer.Content>
+      </Drawer.Portal>
+    </Drawer.Root>
+  </div>
   
   <!-- Member Selector Modal (Desktop) -->
   <div class="hidden md:flex fixed inset-0 z-[300] items-center justify-center p-4">
@@ -326,6 +329,7 @@
       class="relative bg-[#0a0a0a] border border-white/10 w-full max-w-[500px] h-[600px] rounded-2xl shadow-2xl overflow-hidden flex flex-col"
       role="dialog"
       aria-modal="true"
+      on:click|stopPropagation
     >
       <MemberSelector 
         bind:selectedMemberIds 

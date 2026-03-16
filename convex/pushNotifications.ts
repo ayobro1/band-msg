@@ -159,12 +159,18 @@ export const sendPushNotifications = action({
                 vapidPrivateKey
               );
 
-              // Create push subscription object
+              // Validate keys exist
+              if (!sub.p256dhKey || !sub.authKey) {
+                console.error("[sendPushNotifications] Missing encryption keys for iOS subscription");
+                return;
+              }
+
+              // Create push subscription object with proper key format
               const pushSubscription = {
                 endpoint: endpoint,
                 keys: {
-                  p256dh: sub.p256dhKey || '',
-                  auth: sub.authKey || ''
+                  p256dh: sub.p256dhKey,
+                  auth: sub.authKey
                 }
               };
 
@@ -189,7 +195,11 @@ export const sendPushNotifications = action({
                 console.error("[sendPushNotifications] Native Web Push error:", {
                   error: error.message,
                   statusCode: error.statusCode,
-                  endpoint: endpoint.substring(0, 50) + "..."
+                  endpoint: endpoint.substring(0, 50) + "...",
+                  hasP256dh: !!sub.p256dhKey,
+                  hasAuth: !!sub.authKey,
+                  p256dhLength: sub.p256dhKey?.length,
+                  authLength: sub.authKey?.length
                 });
               }
             }
