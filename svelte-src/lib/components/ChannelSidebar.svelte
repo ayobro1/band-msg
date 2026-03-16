@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { convexChannelStore } from '../stores/convexChannels';
-  import { convexMessageStore as messageStore } from '../stores/convexMessages';
+  import { convexMessageStore } from '../stores/convexMessages';
   import { authStore } from '../stores/auth';
   import { apiPost } from '../utils/api';
   import { convex } from '../convex';
@@ -56,7 +56,7 @@
 
   async function selectChannel(channelId: string) {
     convexChannelStore.selectChannel(channelId);
-    await messageStore.loadMessages(channelId);
+    await convexMessageStore.loadMessages(channelId);
   }
 
   function handleContextMenu(e: MouseEvent, channel: any) {
