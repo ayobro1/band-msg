@@ -1,6 +1,10 @@
 import { json } from "@sveltejs/kit";
 import { getSessionToken } from "$lib/server/auth";
-import { getSqlClient } from "$lib/server/db";
+import { ConvexHttpClient } from "convex/browser";
+import { api } from "../../../../convex/_generated/api";
+
+const CONVEX_URL = process.env.CONVEX_URL || process.env.PUBLIC_CONVEX_URL || "";
+const convex = new ConvexHttpClient(CONVEX_URL);
 
 export async function GET({ url, cookies, locals }: any) {
   const sessionToken = locals.sessionToken ?? getSessionToken(cookies);
@@ -8,26 +12,10 @@ export async function GET({ url, cookies, locals }: any) {
     return json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // For simplicity, just return all approved users with their presence status
   try {
-    const sql = getSqlClient();
-
-    // Mark users as offline if they haven't been seen in 2 minutes
-    const twoMinutesAgo = Date.now() - 2 * 60 * 1000;
-    await sql`
-      UPDATE users
-      SET presence_status = 'offline'
-      WHERE presence_status != 'offline'
-        AND (last_seen_at IS NULL OR last_seen_at < ${twoMinutesAgo})
-    `;
-
-    const users = await sql`
-      SELECT id, username, role, presence_status as "presenceStatus"
-      FROM users
-      WHERE status = 'approved'
-      ORDER BY username
-    `;
-
+    // Fetch all approved users from Convex
+    const users = await convex.query(api.auth.getApprovedUsers, { sessionToken });
+    
     return json({ members: users });
   } catch (error) {
     console.error('Failed to fetch members:', error);

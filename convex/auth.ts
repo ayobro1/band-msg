@@ -31,6 +31,29 @@ export const getUser = query({
   },
 });
 
+// Get all approved users (for member list)
+export const getApprovedUsers = query({
+  args: { sessionToken: v.string() },
+  handler: async (ctx, args) => {
+    const user = await getUserByToken(ctx, args.sessionToken);
+    if (!user) {
+      throw new Error("Unauthorized");
+    }
+
+    const users = await ctx.db
+      .query("users")
+      .filter((q) => q.eq(q.field("status"), "approved"))
+      .collect();
+
+    return users.map(u => ({
+      id: u._id,
+      username: u.username,
+      role: u.role,
+      presenceStatus: u.presenceStatus || "offline",
+    }));
+  },
+});
+
 // Admin: Get all users
 export const getAllUsers = query({
   args: { sessionToken: v.string() },
@@ -46,7 +69,8 @@ export const getAllUsers = query({
       username: u.username,
       email: u.email,
       role: u.role,
-      status: u.status,
+      status: u.status || "pending",
+      presenceStatus: u.presenceStatus || "offline",
       createdAt: u.createdAt,
       needsUsernameSetup: u.needsUsernameSetup || false,
     }));
