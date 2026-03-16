@@ -79,7 +79,7 @@
       transitionConfig={{ duration: 150 }}
     />
     <Drawer.Content
-      class="fixed bottom-0 left-0 right-0 z-[200] flex flex-col bg-[#1a1a1a] rounded-t-[20px] max-h-[96vh] md:hidden outline-none"
+      class="fixed bottom-0 left-0 right-0 z-[200] flex flex-col bg-[#2a2a2a] rounded-t-[20px] max-h-[96vh] md:hidden outline-none"
       style="padding-bottom: env(safe-area-inset-bottom);"
     >
       <div class="flex-1 overflow-y-auto w-full max-w-md mx-auto relative px-4 pb-6">
@@ -109,7 +109,7 @@
                 bind:value={name}
                 placeholder="new-channel"
                 maxlength={32}
-                class="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 pl-8 pr-4 text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-white/30 transition-colors"
+                class="w-full bg-white/10 border border-white/20 rounded-xl py-2.5 pl-8 pr-4 text-sm text-white placeholder:text-white/40 focus:outline-none focus:border-white/40 transition-colors"
               />
             <p class="text-[11px] text-white/30 pl-1">Only lowercase letters, numbers, and hyphens.</p>
           </div>
@@ -121,11 +121,11 @@
               bind:value={description}
               placeholder="What's this channel about?"
               maxlength={100}
-              class="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 px-4 text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-white/30 transition-colors"
+              class="w-full bg-white/10 border border-white/20 rounded-xl py-2.5 px-4 text-sm text-white placeholder:text-white/40 focus:outline-none focus:border-white/40 transition-colors"
             />
           </div>
 
-          <div class="flex items-center justify-between p-3 bg-white/5 border border-white/10 rounded-xl mt-2">
+          <div class="flex items-center justify-between p-3 bg-white/10 border border-white/20 rounded-xl mt-2">
             <div>
               <h4 class="text-sm font-bold text-white">Private Channel</h4>
               <p class="text-[11px] text-white/40 mt-0.5">Only selected members can see and message here.</p>
@@ -146,7 +146,7 @@
             <button
               type="button"
               on:click={() => showMemberSelector = true}
-              class="w-full p-3 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 transition-all duration-200 text-left hover:scale-[1.01] active:scale-99"
+              class="w-full p-3 bg-white/10 border border-white/20 rounded-xl hover:bg-white/15 transition-all duration-200 text-left hover:scale-[1.01] active:scale-99"
             >
               <div class="flex items-center justify-between">
                 <div>
@@ -190,7 +190,7 @@
     on:click={onClose}
   ></div>
   <div 
-    class="relative bg-[#1a1a1a] border border-white/20 w-full max-w-[400px] rounded-2xl shadow-2xl p-6"
+    class="relative bg-[#2a2a2a] border border-white/30 w-full max-w-[400px] rounded-2xl shadow-2xl p-6"
     role="dialog"
     aria-modal="true"
     on:click|stopPropagation
@@ -221,7 +221,7 @@
             bind:value={name}
             placeholder="new-channel"
             maxlength={32}
-            class="pl-7 w-full bg-white/5 border border-white/10 rounded-xl py-2.5 pr-4 text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-white/30 transition-colors"
+            class="pl-7 w-full bg-white/10 border border-white/20 rounded-xl py-2.5 pr-4 text-sm text-white placeholder:text-white/40 focus:outline-none focus:border-white/40 transition-colors"
           />
         </div>
         <p class="text-[11px] text-white/30 pl-1">Only lowercase letters, numbers, and hyphens.</p>
@@ -302,7 +302,7 @@
           transitionConfig={{ duration: 150 }}
         />
         <Drawer.Content
-          class="fixed bottom-0 left-0 right-0 z-[300] flex flex-col bg-[#1a1a1a] rounded-t-[20px] h-[85vh] outline-none"
+          class="fixed bottom-0 left-0 right-0 z-[300] flex flex-col bg-[#2a2a2a] rounded-t-[20px] h-[85vh] outline-none"
           style="padding-bottom: env(safe-area-inset-bottom);"
         >
           <div class="mx-auto w-12 h-1.5 flex-shrink-0 rounded-full bg-white/10 my-3"></div>
@@ -325,7 +325,7 @@
       on:click={() => showMemberSelector = false}
     ></div>
     <div 
-      class="relative bg-[#1a1a1a] border border-white/20 w-full max-w-[500px] h-[600px] rounded-2xl shadow-2xl overflow-hidden flex flex-col"
+      class="relative bg-[#2a2a2a] border border-white/30 w-full max-w-[500px] h-[600px] rounded-2xl shadow-2xl overflow-hidden flex flex-col"
       role="dialog"
       aria-modal="true"
       on:click|stopPropagation
