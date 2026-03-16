@@ -14,6 +14,7 @@ import type * as debug from "../debug.js";
 import type * as fixUserStatus from "../fixUserStatus.js";
 import type * as messages from "../messages.js";
 import type * as migrations from "../migrations.js";
+import type * as pushNotifications from "../pushNotifications.js";
 import type * as pushSubscriptions from "../pushSubscriptions.js";
 import type * as reactions from "../reactions.js";
 import type * as signupRequests from "../signupRequests.js";
@@ -31,6 +32,7 @@ declare const fullApi: ApiFromModules<{
   fixUserStatus: typeof fixUserStatus;
   messages: typeof messages;
   migrations: typeof migrations;
+  pushNotifications: typeof pushNotifications;
   pushSubscriptions: typeof pushSubscriptions;
   reactions: typeof reactions;
   signupRequests: typeof signupRequests;

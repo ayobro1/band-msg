@@ -157,14 +157,67 @@
   <!-- svelte-ignore a11y_click_events_have_key_events -->
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div class="fixed inset-0 z-40" on:click|stopPropagation={() => showReactionPicker = false} on:touchstart|stopPropagation={() => showReactionPicker = false}></div>
+  <div class="absolute z-50 -top-10 left-12 flex items-center gap-1 bg-[#222] border border-white/10 rounded-full px-2 py-1.5 shadow-2xl animate-scale-in">
+    {#each QUICK_REACTIONS as reaction}
+      <button
+        type="button"
+        on:click|stopPropagation={() => handleReactionClick(reaction.emoji, reaction.name)}
+        class="w-9 h-9 rounded-full flex items-center justify-center hover:bg-white/10 transition-all duration-200 transform hover:scale-110 active:scale-95 touch-manipulation origin-center text-white"
+      >
+        {@html getReactionSvg(reaction.name)}
+      </button>
+    {/each}
+  </div>
 {/if}
 
 {#if showContextMenu}
   <!-- svelte-ignore a11y_click_events_have_key_events -->
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div class="fixed inset-0 z-40" on:click|stopPropagation={() => showContextMenu = false} on:touchstart|stopPropagation={() => showContextMenu = false}></div>
+  <div 
+    class="fixed z-50 bg-[#222] border border-white/10 rounded-xl shadow-2xl py-1 min-w-[160px] animate-scale-in"
+    style="left: {contextMenuX}px; top: {contextMenuY}px;"
+  >
+    {#if onOpenThread}
+      <button
+        type="button"
+        on:click|stopPropagation={() => { showContextMenu = false; onOpenThread && onOpenThread(message); }}
+        class="w-full px-4 py-2 text-left text-sm text-white hover:bg-white/10 transition-colors flex items-center gap-2"
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+        </svg>
+        Reply in thread
+      </button>
+    {/if}
+    <button
+      type="button"
+      on:click|stopPropagation={() => { showContextMenu = false; showReactionPicker = true; }}
+      class="w-full px-4 py-2 text-left text-sm text-white hover:bg-white/10 transition-colors flex items-center gap-2"
+    >
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="10"/>
+        <path d="M8 14s1.5 2 4 2 4-2 4-2"/>
+        <line x1="9" y1="9" x2="9.01" y2="9"/>
+        <line x1="15" y1="9" x2="15.01" y2="9"/>
+      </svg>
+      Add reaction
+    </button>
+    {#if isOwn}
+      <button
+        type="button"
+        on:click|stopPropagation={() => { showContextMenu = false; handleDelete(); }}
+        class="w-full px-4 py-2 text-left text-sm text-red-400 hover:bg-white/10 transition-colors flex items-center gap-2"
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="3 6 5 6 21 6" />
+          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+        </svg>
+        Delete message
+      </button>
+    {/if}
+  </div>
 {/if}
-
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div 
   class="group relative px-4 md:px-5 {showHeader ? 'mt-4 pt-1' : 'mt-0.5'}"
@@ -174,66 +227,6 @@
   on:touchcancel={handleTouchEnd}
   on:contextmenu={handleContextMenu}
 >
-  {#if showContextMenu}
-    <div 
-      class="fixed z-50 bg-[#222] border border-white/10 rounded-xl shadow-2xl py-1 min-w-[160px] animate-scale-in"
-      style="left: {contextMenuX}px; top: {contextMenuY}px;"
-    >
-      {#if onOpenThread}
-        <button
-          type="button"
-          on:click|stopPropagation={() => { showContextMenu = false; onOpenThread && onOpenThread(message); }}
-          class="w-full px-4 py-2 text-left text-sm text-white hover:bg-white/10 transition-colors flex items-center gap-2"
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-          </svg>
-          Reply in thread
-        </button>
-      {/if}
-      <button
-        type="button"
-        on:click|stopPropagation={() => { showContextMenu = false; showReactionPicker = true; }}
-        class="w-full px-4 py-2 text-left text-sm text-white hover:bg-white/10 transition-colors flex items-center gap-2"
-      >
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="12" cy="12" r="10"/>
-          <path d="M8 14s1.5 2 4 2 4-2 4-2"/>
-          <line x1="9" y1="9" x2="9.01" y2="9"/>
-          <line x1="15" y1="9" x2="15.01" y2="9"/>
-        </svg>
-        Add reaction
-      </button>
-      {#if isOwn}
-        <button
-          type="button"
-          on:click|stopPropagation={() => { showContextMenu = false; handleDelete(); }}
-          class="w-full px-4 py-2 text-left text-sm text-red-400 hover:bg-white/10 transition-colors flex items-center gap-2"
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <polyline points="3 6 5 6 21 6" />
-            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-          </svg>
-          Delete message
-        </button>
-      {/if}
-    </div>
-  {/if}
-  
-  {#if showReactionPicker}
-    <div class="absolute z-50 -top-10 left-12 flex items-center gap-1 bg-[#222] border border-white/10 rounded-full px-2 py-1.5 shadow-2xl animate-scale-in">
-      {#each QUICK_REACTIONS as reaction}
-        <button
-          type="button"
-          on:click|stopPropagation={() => handleReactionClick(reaction.emoji, reaction.name)}
-          class="w-9 h-9 rounded-full flex items-center justify-center hover:bg-white/10 transition-all duration-200 transform hover:scale-110 active:scale-95 touch-manipulation origin-center text-white"
-        >
-          {@html getReactionSvg(reaction.name)}
-        </button>
-      {/each}
-    </div>
-  {/if}
-
   <div class="flex gap-3">
     <!-- Avatar -->
     {#if showHeader}

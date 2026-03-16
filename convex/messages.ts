@@ -1,5 +1,6 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { mutation, query, action } from "./_generated/server";
+import { api } from "./_generated/api";
 import { getUserByToken } from "./auth";
 
 export const list = query({
@@ -130,6 +131,16 @@ export const send = mutation({
       createdAt: Date.now(),
     });
 
+    // Schedule push notification action (runs async, doesn't block message send)
+    await ctx.scheduler.runAfter(0, api.pushNotifications.sendPushNotifications, {
+      messageId,
+      channelId: args.channelId,
+      authorId: user._id,
+      authorName: user.username,
+      content,
+      isReply: !!args.replyToId,
+    });
+
     return { messageId };
   },
 });
@@ -182,5 +193,81 @@ export const getThread = query({
     );
 
     return repliesWithAuthors;
+  },
+});
+
+// Helper query to get channel info
+export const getChannelInfo = query({
+  args: { channelId: v.id("channels") },
+  handler: async (ctx, args) => {
+    return await ctx.db.get(args.channelId);
+  },
+});
+
+// Helper query to get push subscriptions for a channel
+export const getPushSubscriptionsForChannel = query({
+  args: {
+    channelId: v.id("channels"),
+    excludeUserId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    const channel = await ctx.db.get(args.channelId);
+    if (!channel) return [];
+
+    // Get all users who should receive notifications
+    let userIds: any[] = [];
+
+    if (channel.isPrivate) {
+      // For private channels, get members
+      const members = await ctx.db
+        .query("channelMembers")
+        .withIndex("by_channel", (q) => q.eq("channelId", args.channelId))
+        .filter((q) => q.and(
+          q.eq(q.field("canRead"), true),
+          q.eq(q.field("isMuted"), false),
+          q.neq(q.field("userId"), args.excludeUserId)
+        ))
+        .collect();
+
+      userIds = members.map((m) => m.userId);
+    } else {
+      // For public channels, get all approved users except author
+      const allUsers = await ctx.db
+        .query("users")
+        .filter((q) => q.and(
+          q.eq(q.field("status"), "approved"),
+          q.neq(q.field("_id"), args.excludeUserId)
+        ))
+        .collect();
+
+      userIds = allUsers.map((u) => u._id);
+
+      // Filter out users who muted this channel
+      const mutedMembers = await ctx.db
+        .query("channelMembers")
+        .withIndex("by_channel", (q) => q.eq("channelId", args.channelId))
+        .filter((q) => q.eq(q.field("isMuted"), true))
+        .collect();
+
+      const mutedUserIds = new Set(mutedMembers.map((m) => m.userId));
+      userIds = userIds.filter((id) => !mutedUserIds.has(id));
+    }
+
+    // Get push subscriptions for these users
+    const subscriptions = await Promise.all(
+      userIds.map(async (userId) => {
+        const sub = await ctx.db
+          .query("pushSubscriptions")
+          .withIndex("by_user", (q) => q.eq("userId", userId))
+          .first();
+        return sub;
+      })
+    );
+
+    return subscriptions.filter((s) => s !== null).map((s) => ({
+      endpoint: s!.endpoint,
+      p256dhKey: s!.p256dhKey,
+      authKey: s!.authKey,
+    }));
   },
 });
