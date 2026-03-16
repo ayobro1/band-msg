@@ -9,14 +9,14 @@
   import type { Id } from '../../../convex/_generated/dataModel';
   import CreateChannel from './CreateChannel.svelte';
   import ChannelSettings from './ChannelSettings.svelte';
+
+  let showCreateChannel = false;
   let showSettingsModal = false;
   let settingsChannel: any = null;
   let mutedChannelIds = new Set<string>();
   let showDeleteConfirm = false;
   let channelToDelete: any = null;
   let touchTimer: ReturnType<typeof setTimeout> | null = null;
-  
-  import { onMount } from 'svelte';
   
   onMount(async () => {
     try {
