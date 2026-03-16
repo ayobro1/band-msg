@@ -1,12 +1,14 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import { convexChannelStore } from '../stores/convexChannels';
   import { convexMessageStore as messageStore } from '../stores/convexMessages';
   import { authStore } from '../stores/auth';
   import { apiPost } from '../utils/api';
+  import { convex } from '../convex';
+  import { api } from '../../../convex/_generated/api';
+  import type { Id } from '../../../convex/_generated/dataModel';
   import CreateChannel from './CreateChannel.svelte';
   import ChannelSettings from './ChannelSettings.svelte';
-
-  let showCreateChannel = false;
   let showSettingsModal = false;
   let settingsChannel: any = null;
   let mutedChannelIds = new Set<string>();
@@ -84,14 +86,22 @@
     if (!channelToDelete) return;
     
     try {
-      const res = await apiPost(`/api/channels/${channelToDelete.id}/delete`, {});
-      if (res.ok) {
-        await convexChannelStore.loadChannels();
-        if ($convexChannelStore.selectedChannelId === channelToDelete.id) {
-          const firstChannel = $convexChannelStore.channels[0];
-          if (firstChannel) {
-            await selectChannel(firstChannel.id);
-          }
+      const sessionToken = $convexMessageStore.sessionToken;
+      if (!sessionToken) {
+        console.error('No session token');
+        return;
+      }
+
+      await convex.mutation(api.channels.remove, {
+        channelId: channelToDelete.id as Id<"channels">,
+        sessionToken
+      });
+
+      await convexChannelStore.loadChannels();
+      if ($convexChannelStore.selectedChannelId === channelToDelete.id) {
+        const firstChannel = $convexChannelStore.channels[0];
+        if (firstChannel) {
+          await selectChannel(firstChannel.id);
         }
       }
     } catch (err) {

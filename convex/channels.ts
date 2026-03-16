@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { query } from "./_generated/server";
+import { mutation, query } from "./_generated/server";
 import { getUserByToken } from "./auth";
 
 export const list = query({
@@ -57,5 +57,45 @@ export const list = query({
     );
 
     return channels.filter((c) => c !== null);
+  },
+});
+
+export const remove = mutation({
+  args: {
+    channelId: v.id("channels"),
+    sessionToken: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const user = await getUserByToken(ctx, args.sessionToken);
+    if (!user) throw new Error("Unauthorized");
+    if (user.role !== "admin") throw new Error("Admin access required");
+
+    const channel = await ctx.db.get(args.channelId);
+    if (!channel) throw new Error("Channel not found");
+
+    // Delete all messages in the channel
+    const messages = await ctx.db
+      .query("messages")
+      .withIndex("by_channel", (q) => q.eq("channelId", args.channelId))
+      .collect();
+    
+    for (const message of messages) {
+      await ctx.db.delete(message._id);
+    }
+
+    // Delete all channel members
+    const members = await ctx.db
+      .query("channelMembers")
+      .withIndex("by_channel", (q) => q.eq("channelId", args.channelId))
+      .collect();
+    
+    for (const member of members) {
+      await ctx.db.delete(member._id);
+    }
+
+    // Delete the channel
+    await ctx.db.delete(args.channelId);
+
+    return { deleted: true };
   },
 });
