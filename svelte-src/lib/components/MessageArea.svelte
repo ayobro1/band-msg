@@ -26,6 +26,7 @@
   let showNotificationSettings = false;
   let showGiphy = false;
   let showCreateChannel = false;
+  let showSettingsMenu = false;
   let shouldAutoScroll = true;
   let previousMessageCount = 0;
   let showThread = false;
@@ -186,11 +187,113 @@
         </p>
       </div>
     </div>
-    <div class="flex items-center gap-1 relative">
+    <div class="flex items-center gap-0.5 relative">
+      <!-- Compact menu for small screens -->
+      <div class="sm:hidden relative">
+        <button
+          type="button"
+          on:click={() => showSettingsMenu = !showSettingsMenu}
+          class="p-1.5 rounded-lg transition-colors text-white/40 hover:text-white hover:bg-white/5 touch-manipulation cursor-pointer relative"
+          style="z-index: 101; pointer-events: auto;"
+          title="Menu"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="1"/>
+            <circle cx="12" cy="5" r="1"/>
+            <circle cx="12" cy="19" r="1"/>
+          </svg>
+        </button>
+        
+        {#if showSettingsMenu}
+          <!-- svelte-ignore a11y_click_events_have_key_events -->
+          <!-- svelte-ignore a11y_no_static_element_interactions -->
+          <div class="fixed inset-0 z-[150]" on:click={() => showSettingsMenu = false}></div>
+          <div class="absolute right-0 top-full mt-2 w-48 bg-black border border-white/10 rounded-xl shadow-xl z-[151] py-2">
+            <button
+              type="button"
+              on:click={() => { showMobileMembers = true; showSettingsMenu = false; }}
+              class="w-full px-4 py-2.5 text-left text-sm text-white/70 hover:bg-white/5 hover:text-white flex items-center gap-3"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                <circle cx="9" cy="7" r="4" />
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+              </svg>
+              Members
+            </button>
+            <button
+              type="button"
+              on:click={() => { themeStore.toggle(); showSettingsMenu = false; }}
+              class="w-full px-4 py-2.5 text-left text-sm text-white/70 hover:bg-white/5 hover:text-white flex items-center gap-3"
+            >
+              {#if $themeStore === 'dark'}
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="5"/>
+                  <line x1="12" y1="1" x2="12" y2="3"/>
+                  <line x1="12" y1="21" x2="12" y2="23"/>
+                  <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+                  <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+                  <line x1="1" y1="12" x2="3" y2="12"/>
+                  <line x1="21" y1="12" x2="23" y2="12"/>
+                  <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+                  <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+                </svg>
+                Light Mode
+              {:else}
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                </svg>
+                Dark Mode
+              {/if}
+            </button>
+            <button
+              type="button"
+              on:click={() => { showNotificationSettings = true; showSettingsMenu = false; }}
+              class="w-full px-4 py-2.5 text-left text-sm text-white/70 hover:bg-white/5 hover:text-white flex items-center gap-3"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+              </svg>
+              Notifications
+            </button>
+            <button
+              type="button"
+              on:click={() => { showCalendar = true; showSettingsMenu = false; }}
+              class="w-full px-4 py-2.5 text-left text-sm text-white/70 hover:bg-white/5 hover:text-white flex items-center gap-3"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                <line x1="16" y1="2" x2="16" y2="6" />
+                <line x1="8" y1="2" x2="8" y2="6" />
+                <line x1="3" y1="10" x2="21" y2="10" />
+              </svg>
+              Calendar
+            </button>
+            {#if $authStore.user?.role === 'admin'}
+              <button
+                type="button"
+                on:click={() => { showAdminPanel = true; showSettingsMenu = false; }}
+                class="w-full px-4 py-2.5 text-left text-sm text-white/70 hover:bg-white/5 hover:text-white flex items-center gap-3"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" />
+                  <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                </svg>
+                Admin Panel
+              </button>
+            {/if}
+          </div>
+        {/if}
+      </div>
+
+      <!-- Individual icons for larger screens -->
+      <div class="hidden sm:flex items-center gap-0.5">
       <button
         type="button"
         on:click={() => showMobileMembers = true}
-        class="lg:hidden p-2 rounded-lg transition-colors text-white/40 hover:text-white hover:bg-white/5 touch-manipulation cursor-pointer relative"
+        class="lg:hidden p-1.5 rounded-lg transition-colors text-white/40 hover:text-white hover:bg-white/5 touch-manipulation cursor-pointer relative"
         style="z-index: 101; pointer-events: auto;"
         title="Show Members"
       >
@@ -204,7 +307,7 @@
       <button
         type="button"
         on:click={() => themeStore.toggle()}
-        class="p-2 rounded-lg transition-all duration-200 text-white/40 hover:text-white hover:bg-white/5 hover:scale-110 active:scale-95 touch-manipulation cursor-pointer relative"
+        class="p-1.5 rounded-lg transition-all duration-200 text-white/40 hover:text-white hover:bg-white/5 hover:scale-110 active:scale-95 touch-manipulation cursor-pointer relative"
         style="z-index: 101; pointer-events: auto;"
         title="Toggle Theme"
       >
@@ -229,7 +332,7 @@
       <button
         type="button"
         on:click|stopPropagation={() => { showNotificationSettings = true; }}
-        class="p-2 rounded-lg transition-all duration-200 text-white/40 hover:text-white hover:bg-white/5 hover:scale-110 active:scale-95 touch-manipulation cursor-pointer relative"
+        class="p-1.5 rounded-lg transition-all duration-200 text-white/40 hover:text-white hover:bg-white/5 hover:scale-110 active:scale-95 touch-manipulation cursor-pointer relative"
         style="z-index: 101; pointer-events: auto;"
         title="Notifications"
       >
@@ -241,7 +344,7 @@
       <button
         type="button"
         on:click|stopPropagation={() => { showCalendar = true; }}
-        class="p-2 rounded-lg transition-all duration-200 text-white/40 hover:text-white hover:bg-white/5 hover:scale-110 active:scale-95 touch-manipulation cursor-pointer relative"
+        class="p-1.5 rounded-lg transition-all duration-200 text-white/40 hover:text-white hover:bg-white/5 hover:scale-110 active:scale-95 touch-manipulation cursor-pointer relative"
         style="z-index: 101; pointer-events: auto;"
         title="Calendar"
       >
@@ -256,7 +359,7 @@
         <button
           type="button"
           on:click|stopPropagation={() => { showAdminPanel = true; }}
-          class="p-2 rounded-lg transition-all duration-200 text-white/40 hover:text-white hover:bg-white/5 hover:scale-110 active:scale-95 touch-manipulation cursor-pointer relative"
+          class="p-1.5 rounded-lg transition-all duration-200 text-white/40 hover:text-white hover:bg-white/5 hover:scale-110 active:scale-95 touch-manipulation cursor-pointer relative"
           style="z-index: 101; pointer-events: auto;"
           title="Admin Panel"
         >
@@ -275,7 +378,7 @@
             memberStore.toggleUserList();
           }
         }}
-        class="p-2 rounded-lg transition-colors {$memberStore.showUserList ? 'text-white bg-white/10' : 'text-white/40 hover:text-white hover:bg-white/5'} relative"
+        class="p-1.5 rounded-lg transition-colors {$memberStore.showUserList ? 'text-white bg-white/10' : 'text-white/40 hover:text-white hover:bg-white/5'} relative"
         style="z-index: 101; pointer-events: auto;"
         title="Members"
       >
@@ -286,6 +389,7 @@
           <path d="M16 3.13a4 4 0 0 1 0 7.75" />
         </svg>
       </button>
+      </div>
     </div>
   </div>
 
