@@ -24,20 +24,13 @@
   onMount(async () => {
     // Set session token for Convex
     if (data.sessionToken) {
+      console.log('[Page] Setting session token for Convex');
       convexMessageStore.setSessionToken(data.sessionToken);
       convexChannelStore.setSessionToken(data.sessionToken);
     }
 
     // Initialize theme
     themeStore.init();
-    
-    // Check if user is authenticated first
-    await authStore.checkAuth();
-    
-    // Load channels from Convex
-    if ($authStore.isAuthenticated) {
-      await convexChannelStore.loadChannels();
-    }
     
     // Check if user is authenticated first
     await authStore.checkAuth();
@@ -64,16 +57,20 @@
     }
     
     if ($authStore.user) {
-      // Connect to Pusher for real-time updates
+      // Connect to Pusher for real-time updates (will remove later)
       pusherStore.connect();
       
-      // Load initial data
-      await channelStore.loadChannels();
+      // Load initial data from Convex
+      console.log('[Page] Loading channels from Convex');
+      await convexChannelStore.loadChannels();
+      console.log('[Page] Channels loaded:', $convexChannelStore.channels);
+      
       await memberStore.loadMembers();
       
       // Load messages for selected channel
-      if ($channelStore.selectedChannelId) {
-        await messageStore.loadMessages($channelStore.selectedChannelId);
+      if ($convexChannelStore.selectedChannelId) {
+        console.log('[Page] Loading messages for channel:', $convexChannelStore.selectedChannelId);
+        await convexMessageStore.loadMessages($convexChannelStore.selectedChannelId);
       }
     }
   });
