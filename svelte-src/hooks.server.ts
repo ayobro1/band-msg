@@ -97,7 +97,7 @@ export const handle = async ({ event, resolve }: any) => {
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: https: blob:", // Allow images from any HTTPS source
     "font-src 'self'",
-    "connect-src 'self' https://firebaseinstallations.googleapis.com https://fcmregistrations.googleapis.com https://fcm.googleapis.com https://va.vercel-scripts.com https://oceanic-barracuda-40.convex.cloud https://oceanic-barracuda-40.convex.site", // Allow Firebase, Convex API calls
+    "connect-src 'self' https://firebaseinstallations.googleapis.com https://fcmregistrations.googleapis.com https://fcm.googleapis.com https://va.vercel-scripts.com https://oceanic-barracuda-40.convex.cloud https://oceanic-barracuda-40.convex.site wss://oceanic-barracuda-40.convex.cloud wss://ws-us3.pusher.com https://sockjs-us3.pusher.com", // Allow Firebase, Convex, Pusher API calls and WebSockets
     "media-src 'self'",
     "object-src 'none'",
     "frame-ancestors 'none'",
