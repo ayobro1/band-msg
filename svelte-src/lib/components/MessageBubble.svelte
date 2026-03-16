@@ -177,8 +177,52 @@
   <!-- svelte-ignore a11y_click_events_have_key_events -->
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div class="fixed inset-0 z-40" on:click|stopPropagation={() => showContextMenu = false} on:touchstart|stopPropagation={() => showContextMenu = false}></div>
+  
+  <!-- Mobile: bottom sheet style -->
+  <div class="fixed md:hidden left-4 right-4 bottom-4 z-50 bg-[#222] border border-white/10 rounded-xl shadow-2xl py-1 animate-slide-up">
+    {#if onOpenThread}
+      <button
+        type="button"
+        on:click|stopPropagation={() => { showContextMenu = false; onOpenThread && onOpenThread(message); }}
+        class="w-full px-4 py-3 text-left text-sm text-white hover:bg-white/10 transition-colors flex items-center gap-3"
+      >
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+        </svg>
+        Reply in thread
+      </button>
+    {/if}
+    <button
+      type="button"
+      on:click|stopPropagation={() => { showContextMenu = false; showReactionPicker = true; }}
+      class="w-full px-4 py-3 text-left text-sm text-white hover:bg-white/10 transition-colors flex items-center gap-3"
+    >
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="10"/>
+        <path d="M8 14s1.5 2 4 2 4-2 4-2"/>
+        <line x1="9" y1="9" x2="9.01" y2="9"/>
+        <line x1="15" y1="9" x2="15.01" y2="9"/>
+      </svg>
+      Add reaction
+    </button>
+    {#if isOwn}
+      <button
+        type="button"
+        on:click|stopPropagation={() => { showContextMenu = false; handleDelete(); }}
+        class="w-full px-4 py-3 text-left text-sm text-red-400 hover:bg-white/10 transition-colors flex items-center gap-3"
+      >
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="3 6 5 6 21 6" />
+          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+        </svg>
+        Delete message
+      </button>
+    {/if}
+  </div>
+
+  <!-- Desktop: at cursor position -->
   <div 
-    class="fixed z-50 bg-[#222] border border-white/10 rounded-xl shadow-2xl py-1 min-w-[160px] animate-scale-in"
+    class="hidden md:block fixed z-50 bg-[#222] border border-white/10 rounded-xl shadow-2xl py-1 min-w-[160px] animate-scale-in"
     style="left: {contextMenuX}px; top: {contextMenuY}px;"
   >
     {#if onOpenThread}
