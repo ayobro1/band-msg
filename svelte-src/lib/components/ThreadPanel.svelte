@@ -226,12 +226,12 @@
 </Drawer.Root>
 
 <!-- Desktop Panel (full height, right side) -->
-<div class="hidden md:flex fixed inset-0 z-[200] items-center justify-end">
-  <!-- Overlay background -->
-  <div class="absolute inset-0 bg-black/60"></div>
-  
+<!-- svelte-ignore a11y_click_events_have_key_events -->
+<!-- svelte-ignore a11y_no_static_element_interactions -->
+<div class="hidden md:block fixed inset-0 bg-black/60 z-[200]" on:click={onClose}></div>
+<div class="hidden md:flex fixed inset-0 z-[201] items-center justify-end pointer-events-none">
   <div 
-    class="relative w-full max-w-2xl h-full bg-[#2a2a2a] border-l border-white/20 flex flex-col animate-slide-left z-10"
+    class="relative w-full max-w-2xl h-full bg-[#2a2a2a] border-l border-white/20 flex flex-col animate-slide-left pointer-events-auto"
     style="padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom);"
   >
     <!-- Header -->
