@@ -293,6 +293,7 @@
       <!-- Reply in thread button -->
       {#if onOpenThread}
         <button
+          type="button"
           on:click={() => onOpenThread && onOpenThread(message)}
           class="p-2 text-white/30 hover:text-white hover:bg-white/5 rounded-lg transition-all"
           aria-label="Reply in thread"
@@ -307,7 +308,8 @@
       <!-- Delete button for own messages -->
       {#if isOwn}
         <button
-          on:click={handleDelete}
+          type="button"
+          on:click|stopPropagation={handleDelete}
           class="p-2 text-white/30 hover:text-white hover:bg-white/5 rounded-lg transition-all"
           aria-label="Delete message"
         >
