@@ -3,9 +3,8 @@
 import { v } from "convex/values";
 import { action } from "./_generated/server";
 import { api } from "./_generated/api";
-import webpush from "web-push";
 
-// Action to send push notifications (runs in Node.js environment)
+// Action to send push notifications via Firebase Cloud Messaging HTTP v1 API
 export const sendPushNotifications = action({
   args: {
     messageId: v.id("messages"),
@@ -44,61 +43,74 @@ export const sendPushNotifications = action({
         ? `${args.authorName} replied: ${args.content.substring(0, 100)}`
         : `${args.authorName}: ${args.content.substring(0, 100)}`;
 
-      const payload = JSON.stringify({
-        title: notificationTitle,
-        body: notificationBody,
-        icon: "/notification-icon.png",
-        badge: "/notification-icon.png",
-        tag: args.channelId,
-        data: {
-          channelId: args.channelId,
-          messageId: args.messageId,
-          url: "/",
-        },
-      });
-
       console.log(`[sendPushNotifications] Sending to ${subscriptions.length} subscriptions`);
 
-      // Get VAPID keys from environment
-      const vapidPublicKey = process.env.VITE_FIREBASE_VAPID_KEY;
-      const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
-      const vapidSubject = process.env.VAPID_SUBJECT || "mailto:admin@bandchat.local";
+      // Get Firebase credentials from environment
+      const projectId = process.env.FIREBASE_ADMIN_PROJECT_ID;
+      const clientEmail = process.env.FIREBASE_ADMIN_CLIENT_EMAIL;
+      const privateKey = process.env.FIREBASE_ADMIN_PRIVATE_KEY;
 
-      if (!vapidPublicKey || !vapidPrivateKey) {
-        console.error("[sendPushNotifications] VAPID keys not configured");
-        console.error("Public key:", vapidPublicKey ? "present" : "missing");
-        console.error("Private key:", vapidPrivateKey ? "present" : "missing");
+      if (!projectId || !clientEmail || !privateKey) {
+        console.error("[sendPushNotifications] Firebase Admin credentials not configured");
         return;
       }
 
-      // Configure web-push
-      webpush.setVapidDetails(
-        vapidSubject,
-        vapidPublicKey,
-        vapidPrivateKey
-      );
+      // Get OAuth2 access token using service account
+      const accessToken = await getAccessToken(clientEmail, privateKey);
+      
+      if (!accessToken) {
+        console.error("[sendPushNotifications] Failed to get access token");
+        return;
+      }
 
-      // Send to each subscription
+      // Send to each FCM token using HTTP v1 API
       const results = await Promise.allSettled(
         subscriptions.map(async (sub) => {
           try {
-            await webpush.sendNotification(
+            const fcmToken = sub.endpoint;
+
+            const response = await fetch(
+              `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`,
               {
-                endpoint: sub.endpoint,
-                keys: {
-                  p256dh: sub.p256dhKey,
-                  auth: sub.authKey,
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  "Authorization": `Bearer ${accessToken}`,
                 },
-              },
-              payload
+                body: JSON.stringify({
+                  message: {
+                    token: fcmToken,
+                    notification: {
+                      title: notificationTitle,
+                      body: notificationBody,
+                    },
+                    data: {
+                      channelId: args.channelId,
+                      messageId: args.messageId,
+                    },
+                    webpush: {
+                      notification: {
+                        icon: "/notification-icon.png",
+                        badge: "/notification-icon.png",
+                        tag: args.channelId,
+                      },
+                      fcm_options: {
+                        link: "/",
+                      },
+                    },
+                  },
+                }),
+              }
             );
-            console.log("[sendPushNotifications] Sent to:", sub.endpoint.substring(0, 50) + "...");
+
+            if (!response.ok) {
+              const errorText = await response.text();
+              console.error("[sendPushNotifications] FCM error:", response.status, errorText);
+            } else {
+              console.log("[sendPushNotifications] Sent to:", fcmToken.substring(0, 20) + "...");
+            }
           } catch (error: any) {
             console.error("[sendPushNotifications] Error sending to subscription:", error.message);
-            // If subscription is invalid (410 Gone), we should remove it
-            if (error.statusCode === 410) {
-              console.log("[sendPushNotifications] Subscription expired (410), should be removed");
-            }
           }
         })
       );
@@ -110,3 +122,73 @@ export const sendPushNotifications = action({
     }
   },
 });
+
+// Generate OAuth2 access token from service account
+async function getAccessToken(clientEmail: string, privateKey: string): Promise<string | null> {
+  try {
+    const now = Math.floor(Date.now() / 1000);
+    const expiry = now + 3600; // 1 hour
+
+    // Create JWT header and payload
+    const header = {
+      alg: "RS256",
+      typ: "JWT",
+    };
+
+    const payload = {
+      iss: clientEmail,
+      sub: clientEmail,
+      aud: "https://oauth2.googleapis.com/token",
+      iat: now,
+      exp: expiry,
+      scope: "https://www.googleapis.com/auth/firebase.messaging",
+    };
+
+    // Encode header and payload
+    const encodedHeader = base64UrlEncode(JSON.stringify(header));
+    const encodedPayload = base64UrlEncode(JSON.stringify(payload));
+    const signatureInput = `${encodedHeader}.${encodedPayload}`;
+
+    // Sign with private key using Web Crypto API
+    const signature = await signRS256(signatureInput, privateKey);
+    const jwt = `${signatureInput}.${signature}`;
+
+    // Exchange JWT for access token
+    const response = await fetch("https://oauth2.googleapis.com/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
+        assertion: jwt,
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      console.error("[getAccessToken] Failed to get access token:", error);
+      return null;
+    }
+
+    const data = await response.json();
+    return data.access_token;
+  } catch (error) {
+    console.error("[getAccessToken] Error:", error);
+    return null;
+  }
+}
+
+// Base64 URL encode
+function base64UrlEncode(str: string): string {
+  const base64 = Buffer.from(str).toString("base64");
+  return base64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+}
+
+// Sign with RS256
+async function signRS256(data: string, privateKey: string): Promise<string> {
+  const crypto = await import("crypto");
+  const sign = crypto.createSign("RSA-SHA256");
+  sign.update(data);
+  sign.end();
+  const signature = sign.sign(privateKey);
+  return base64UrlEncode(signature.toString("base64"));
+}

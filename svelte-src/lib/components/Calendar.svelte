@@ -1,6 +1,9 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { apiGet, apiPost } from '../utils/api';
+  import { convex } from '../convex';
+  import { api } from '../../../convex/_generated/api';
+  import type { Id } from '../../../convex/_generated/dataModel';
+  import { convexMessageStore } from '../stores/convexMessages';
 
   export let onClose: () => void;
 
@@ -18,6 +21,7 @@
   let isLoading = false;
   let showCreateForm = false;
   let editingEvent: Event | null = null;
+  let sessionToken = '';
   
   let newEventTitle = '';
   let newEventDescription = '';
@@ -26,41 +30,52 @@
   let newEventEndsAt = '';
 
   onMount(async () => {
-    await loadEvents();
+    const unsubscribe = convexMessageStore.subscribe(state => {
+      sessionToken = state.sessionToken;
+      if (sessionToken) {
+        loadEvents();
+      }
+    });
+    return unsubscribe;
   });
 
   async function loadEvents() {
+    if (!sessionToken) return;
     isLoading = true;
     try {
-      const res = await apiGet('/api/events');
-      if (res.ok) {
-        events = await res.json();
-      }
+      events = await convex.query(api.events.list, { sessionToken });
+    } catch (error) {
+      console.error('[Calendar] Failed to load events:', error);
     } finally {
       isLoading = false;
     }
   }
 
   async function createEvent() {
-    if (!newEventTitle || !newEventStartsAt || !newEventEndsAt) return;
+    if (!newEventTitle || !newEventStartsAt || !newEventEndsAt || !sessionToken) return;
 
-    const endpoint = editingEvent ? `/api/events/${editingEvent.id}` : '/api/events';
-    const method = editingEvent ? 'PUT' : 'POST';
+    try {
+      if (editingEvent) {
+        await convex.mutation(api.events.update, {
+          sessionToken,
+          eventId: editingEvent.id as Id<"events">,
+          title: newEventTitle,
+          description: newEventDescription || undefined,
+          location: newEventLocation || undefined,
+          startsAt: new Date(newEventStartsAt).getTime(),
+          endsAt: new Date(newEventEndsAt).getTime(),
+        });
+      } else {
+        await convex.mutation(api.events.create, {
+          sessionToken,
+          title: newEventTitle,
+          description: newEventDescription || undefined,
+          location: newEventLocation || undefined,
+          startsAt: new Date(newEventStartsAt).getTime(),
+          endsAt: new Date(newEventEndsAt).getTime(),
+        });
+      }
 
-    const res = await fetch(endpoint, {
-      method,
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({
-        title: newEventTitle,
-        description: newEventDescription,
-        location: newEventLocation,
-        startsAt: new Date(newEventStartsAt).getTime(),
-        endsAt: new Date(newEventEndsAt).getTime(),
-      }),
-    });
-
-    if (res.ok) {
       newEventTitle = '';
       newEventDescription = '';
       newEventLocation = '';
@@ -69,6 +84,9 @@
       showCreateForm = false;
       editingEvent = null;
       await loadEvents();
+    } catch (error) {
+      console.error('[Calendar] Failed to save event:', error);
+      alert('Failed to save event');
     }
   }
 
@@ -93,15 +111,17 @@
   }
 
   async function deleteEvent(eventId: string) {
-    if (!confirm('Delete this event?')) return;
+    if (!confirm('Delete this event?') || !sessionToken) return;
 
-    const res = await fetch(`/api/events/${eventId}`, {
-      method: 'DELETE',
-      credentials: 'include',
-    });
-
-    if (res.ok) {
+    try {
+      await convex.mutation(api.events.remove, {
+        sessionToken,
+        eventId: eventId as Id<"events">,
+      });
       await loadEvents();
+    } catch (error) {
+      console.error('[Calendar] Failed to delete event:', error);
+      alert('Failed to delete event');
     }
   }
 

@@ -93,4 +93,16 @@ export default defineSchema({
   })
     .index("by_username", ["username"])
     .index("by_status", ["status", "createdAt"]),
+
+  events: defineTable({
+    title: v.string(),
+    description: v.optional(v.string()),
+    location: v.optional(v.string()),
+    startsAt: v.number(),
+    endsAt: v.number(),
+    createdBy: v.id("users"),
+    createdAt: v.number(),
+  })
+    .index("by_created_by", ["createdBy"])
+    .index("by_starts_at", ["startsAt"]),
 });

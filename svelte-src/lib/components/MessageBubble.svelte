@@ -288,8 +288,8 @@
       {/if}
     </div>
 
-    <!-- Action buttons -->
-    <div class="flex items-center gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+    <!-- Action buttons - desktop only -->
+    <div class="hidden md:flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
       <!-- Reply in thread button -->
       {#if onOpenThread}
         <button
