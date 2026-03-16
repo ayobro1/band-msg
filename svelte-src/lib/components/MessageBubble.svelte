@@ -89,8 +89,13 @@
   }
 
   function handleTouchStart(e: TouchEvent) {
-    // Prevent default to stop iOS text selection
-    e.preventDefault();
+    // Only prevent default on non-scrollable elements
+    const target = e.target as HTMLElement;
+    const isScrollable = target.closest('.overflow-y-auto, .overflow-auto, [style*="overflow"]');
+    
+    if (!isScrollable) {
+      e.preventDefault();
+    }
     
     if (touchTimer) clearTimeout(touchTimer);
     
@@ -268,7 +273,7 @@
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div 
   class="group relative px-4 md:px-5 {showHeader ? 'mt-4 pt-1' : 'mt-0.5'}"
-  style="user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;"
+  style="-webkit-user-select: none; -webkit-touch-callout: none;"
   on:touchstart={handleTouchStart}
   on:touchend={handleTouchEnd}
   on:touchmove={handleTouchMove}
