@@ -161,8 +161,10 @@
   <!-- svelte-ignore a11y_click_events_have_key_events -->
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div class="fixed inset-0 bg-black/80 z-[200]" on:click={onClose}></div>
-  <div class="fixed inset-0 z-[201] flex items-center justify-center p-4 pointer-events-none">
-    <div class="relative bg-[#2a2a2a] border border-white/30 w-full max-w-[400px] rounded-2xl shadow-2xl p-6 pointer-events-auto" role="dialog" aria-modal="true">
+  <div class="fixed inset-0 z-[201] flex items-center justify-center p-4">
+    <!-- svelte-ignore a11y_click_events_have_key_events -->
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div class="relative bg-[#2a2a2a] border border-white/30 w-full max-w-[400px] rounded-2xl shadow-2xl p-6" role="dialog" aria-modal="true" on:click|stopPropagation>
     <div class="flex items-center justify-between mb-6">
       <div>
         <h2 class="text-[20px] font-bold text-white tracking-tight">Channel Settings</h2>

@@ -224,9 +224,11 @@
   <!-- svelte-ignore a11y_click_events_have_key_events -->
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div class="fixed inset-0 bg-black/80 z-[200]" style="padding-top: env(safe-area-inset-top);" on:click={() => { if (!isLoading) onClose(); }}></div>
-  <div class="fixed inset-0 z-[201] flex items-center justify-center pointer-events-none" style="padding-top: env(safe-area-inset-top);">
+  <div class="fixed inset-0 z-[201] flex items-center justify-center" style="padding-top: env(safe-area-inset-top);">
+    <!-- svelte-ignore a11y_click_events_have_key_events -->
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
     <!-- Modal Content -->
-    <div class="relative bg-black border border-white/10 rounded-2xl w-full max-w-lg max-h-[85vh] flex flex-col pointer-events-auto">
+    <div class="relative bg-black border border-white/10 rounded-2xl w-full max-w-lg max-h-[85vh] flex flex-col" on:click|stopPropagation>
     <div class="flex items-center justify-between px-4 py-3 border-b border-white/10 shrink-0">
       <h2 class="text-lg font-bold text-white">Admin Settings</h2>
       <button type="button" on:click={() => { if (!isLoading) onClose(); }} disabled={isLoading} class="p-2 rounded-lg text-white/40 hover:text-white hover:bg-white/5 transition-colors disabled:opacity-50" aria-label="Close">

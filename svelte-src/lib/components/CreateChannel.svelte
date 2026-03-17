@@ -188,9 +188,11 @@
     class="fixed inset-0 bg-black/80 z-[200]"
     on:click={onClose}
   ></div>
-  <div class="fixed inset-0 z-[201] flex items-center justify-center p-4 pointer-events-none">
+  <div class="fixed inset-0 z-[201] flex items-center justify-center p-4">
+    <!-- svelte-ignore a11y_click_events_have_key_events -->
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div 
-      class="relative bg-[#2a2a2a] border border-white/30 w-full max-w-[400px] rounded-2xl shadow-2xl p-6 pointer-events-auto"
+      class="relative bg-[#2a2a2a] border border-white/30 w-full max-w-[400px] rounded-2xl shadow-2xl p-6"
       role="dialog"
       aria-modal="true"
       on:click|stopPropagation
@@ -324,9 +326,11 @@
       class="fixed inset-0 bg-black/80 z-[300]"
       on:click={() => showMemberSelector = false}
     ></div>
-    <div class="fixed inset-0 z-[301] flex items-center justify-center p-4 pointer-events-none">
+    <div class="fixed inset-0 z-[301] flex items-center justify-center p-4">
+      <!-- svelte-ignore a11y_click_events_have_key_events -->
+      <!-- svelte-ignore a11y_no_static_element_interactions -->
       <div 
-        class="relative bg-[#2a2a2a] border border-white/30 w-full max-w-[500px] h-[600px] rounded-2xl shadow-2xl overflow-hidden flex flex-col pointer-events-auto"
+        class="relative bg-[#2a2a2a] border border-white/30 w-full max-w-[500px] h-[600px] rounded-2xl shadow-2xl overflow-hidden flex flex-col"
         role="dialog"
         aria-modal="true"
         on:click|stopPropagation
