@@ -1,6 +1,57 @@
 import { v } from "convex/values";
 import { mutation, query, type QueryCtx } from "./_generated/server";
 
+// Debug function to check session and user
+export const debugSession = query({
+  args: { sessionToken: v.string() },
+  handler: async (ctx, args) => {
+    console.log('[debugSession] Checking session token:', args.sessionToken.substring(0, 10) + '...');
+    
+    const session = await ctx.db
+      .query("sessions")
+      .withIndex("by_token", (q) => q.eq("token", args.sessionToken))
+      .first();
+    
+    console.log('[debugSession] Session found:', !!session);
+    if (session) {
+      console.log('[debugSession] Session details:', {
+        userId: session.userId,
+        expiresAt: session.expiresAt,
+        expired: session.expiresAt < Date.now(),
+        createdAt: session.createdAt
+      });
+      
+      const user = await ctx.db.get(session.userId);
+      console.log('[debugSession] User found:', !!user);
+      if (user) {
+        console.log('[debugSession] User details:', {
+          id: user._id,
+          username: user.username,
+          role: user.role,
+          status: user.status
+        });
+        
+        return {
+          sessionValid: true,
+          sessionExpired: session.expiresAt < Date.now(),
+          user: {
+            id: user._id,
+            username: user.username,
+            role: user.role,
+            status: user.status
+          }
+        };
+      }
+    }
+    
+    return {
+      sessionValid: false,
+      sessionExpired: false,
+      user: null
+    };
+  },
+});
+
 export async function getUserByToken(ctx: QueryCtx, token: string) {
   const session = await ctx.db
     .query("sessions")

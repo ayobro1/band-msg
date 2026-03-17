@@ -31,24 +31,35 @@
   let sessionToken = '';
 
   onMount(() => {
+    console.log('[AdminPanel] Component mounted');
+    
     // Try to get session token from store first
     const unsubscribe = convexMessageStore.subscribe(async state => {
+      console.log('[AdminPanel] Store state changed:', {
+        hasSessionToken: !!state.sessionToken,
+        sessionTokenPreview: state.sessionToken ? state.sessionToken.substring(0, 10) + '...' : 'none'
+      });
       sessionToken = state.sessionToken;
       if (sessionToken) {
+        console.log('[AdminPanel] Got session token from store, loading data...');
         await loadData();
       }
     });
     
     // If no session token from store, try to get from cookies as fallback
     if (!sessionToken) {
+      console.log('[AdminPanel] No session token from store, trying cookies...');
       // Get session token from cookies as fallback
       const cookies = document.cookie.split(';');
       const sessionCookie = cookies.find(c => c.trim().startsWith('session='));
       if (sessionCookie) {
         sessionToken = sessionCookie.split('=')[1];
+        console.log('[AdminPanel] Got session token from cookies:', sessionToken ? sessionToken.substring(0, 10) + '...' : 'none');
         if (sessionToken) {
           loadData();
         }
+      } else {
+        console.error('[AdminPanel] No session cookie found');
       }
     }
     
@@ -61,17 +72,59 @@
       return;
     }
     console.log('[AdminPanel] Loading data with session token:', sessionToken.substring(0, 10) + '...');
+    
+    // First, let's debug the session
+    try {
+      console.log('[AdminPanel] Debugging session...');
+      const debugInfo = await convex.query(api.auth.debugSession, { sessionToken });
+      console.log('[AdminPanel] Debug info:', debugInfo);
+      
+      if (!debugInfo.sessionValid) {
+        console.error('[AdminPanel] Session is not valid');
+        return;
+      }
+      
+      if (debugInfo.sessionExpired) {
+        console.error('[AdminPanel] Session is expired');
+        return;
+      }
+      
+      if (!debugInfo.user) {
+        console.error('[AdminPanel] No user found for session');
+        return;
+      }
+      
+      if (debugInfo.user.role !== 'admin') {
+        console.error('[AdminPanel] User is not admin. Role:', debugInfo.user.role, 'Status:', debugInfo.user.status);
+        return;
+      }
+      
+      console.log('[AdminPanel] Session is valid and user is admin, proceeding...');
+    } catch (error) {
+      console.error('[AdminPanel] Failed to debug session:', error);
+      return;
+    }
+    
     isLoading = true;
     try {
-      const [requests, users] = await Promise.all([
-        convex.query(api.signupRequests.getPending, { sessionToken }),
-        convex.query(api.auth.getAllUsers, { sessionToken })
-      ]);
-      console.log('[AdminPanel] Loaded data:', { requests: requests.length, users: users.length });
+      console.log('[AdminPanel] Loading signup requests...');
+      const requests = await convex.query(api.signupRequests.getPending, { sessionToken });
+      console.log('[AdminPanel] Signup requests loaded:', requests);
+      
+      console.log('[AdminPanel] Loading all users...');
+      const users = await convex.query(api.auth.getAllUsers, { sessionToken });
+      console.log('[AdminPanel] All users loaded:', users);
+      
       signupRequests = requests;
       allUsers = users;
+      console.log('[AdminPanel] Data loaded successfully:', { requests: requests.length, users: users.length });
     } catch (error) {
       console.error('[AdminPanel] Failed to load data:', error);
+      console.error('[AdminPanel] Error details:', {
+        name: error.name,
+        message: error.message,
+        stack: error.stack
+      });
     } finally {
       isLoading = false;
     }
