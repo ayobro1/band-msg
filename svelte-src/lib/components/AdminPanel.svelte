@@ -34,9 +34,8 @@
     console.log('[AdminPanel] Component mounted');
     
     // Get session token from store ONCE, don't subscribe
-    let sessionToken = '';
     const unsubscribe = convexMessageStore.subscribe(state => {
-      sessionToken = state.sessionToken;
+      sessionToken = state.sessionToken; // Use component-level variable
     });
     unsubscribe(); // Immediately unsubscribe
     
