@@ -79,6 +79,14 @@ function createNotificationStore() {
           }
         } else {
           console.log('[NotificationStore] Subscribing to notifications...');
+          
+          // First check if permission is already denied
+          if ('Notification' in window && Notification.permission === 'denied') {
+            console.log('[NotificationStore] Permission already denied');
+            update(s => ({ ...s, permission: 'denied', error: 'Notifications are blocked. Please enable them in your browser settings.' }));
+            return;
+          }
+          
           const result = await subscribeToPushNotifications();
           console.log('[NotificationStore] Subscribe result:', result);
           if (result.success) {
@@ -90,7 +98,7 @@ function createNotificationStore() {
             update(s => ({ 
               ...s, 
               permission: currentPermission,
-              error: result.error || 'Failed to subscribe' 
+              error: result.error || 'Failed to subscribe to notifications' 
             }));
           }
         }

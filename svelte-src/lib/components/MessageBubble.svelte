@@ -178,7 +178,7 @@
 {#if showReactionPicker}
   <!-- svelte-ignore a11y_click_events_have_key_events -->
   <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div class="fixed inset-0 z-40" on:click={() => showReactionPicker = false} on:touchstart={() => showReactionPicker = false}></div>
+  <div class="fixed inset-0 z-40" on:click={() => showReactionPicker = false}></div>
   <div class="absolute z-50 -top-10 left-12 flex items-center gap-1 bg-[#222] border border-white/10 rounded-full px-2 py-1.5 shadow-2xl animate-scale-in">
     {#each QUICK_REACTIONS as reaction}
       <button
@@ -195,7 +195,7 @@
 {#if showContextMenu}
   <!-- svelte-ignore a11y_click_events_have_key_events -->
   <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div class="fixed inset-0 z-40" on:click={() => showContextMenu = false} on:touchstart={() => showContextMenu = false}></div>
+  <div class="fixed inset-0 z-40" on:click={() => showContextMenu = false}></div>
   
   <!-- Mobile: bottom sheet style -->
   <div class="fixed md:hidden left-4 right-4 bottom-4 z-50 bg-[#222] border border-white/10 rounded-xl shadow-2xl py-1 animate-slide-up">
