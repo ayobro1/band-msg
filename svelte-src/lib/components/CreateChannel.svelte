@@ -82,7 +82,7 @@
       class="fixed bottom-0 left-0 right-0 z-[200] flex flex-col bg-[#2a2a2a] rounded-t-[20px] max-h-[96vh] md:hidden outline-none"
       style="padding-bottom: env(safe-area-inset-bottom);"
     >
-      <div class="flex-1 overflow-y-auto w-full max-w-md mx-auto relative px-4 pb-6">
+      <div class="flex-1 overflow-y-auto w-full relative px-4 pb-6">
         <div class="mx-auto w-12 h-1.5 flex-shrink-0 rounded-full bg-white/10 my-3"></div>
         
         <div class="flex items-center justify-between mb-6">
