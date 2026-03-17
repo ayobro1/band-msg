@@ -60,28 +60,38 @@
 
   function scrollToBottom(force = false) {
     if (!force && !shouldAutoScroll) return;
-    setTimeout(() => {
-      if (messageContainer) {
-        messageContainer.scrollTop = messageContainer.scrollHeight;
-      }
-    }, 100); // Increased from 50ms to 100ms for better reliability
+    // Use requestAnimationFrame to ensure DOM has updated
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        if (messageContainer) {
+          messageContainer.scrollTop = messageContainer.scrollHeight;
+        }
+      }, 50);
+    });
   }
 
   // Only auto-scroll when channel changes - let user scroll freely otherwise
   let lastLoadedChannelId = '';
   $: if ($convexChannelStore.selectedChannelId && $convexChannelStore.selectedChannelId !== lastLoadedChannelId) {
     lastLoadedChannelId = $convexChannelStore.selectedChannelId;
+    shouldAutoScroll = true; // Reset auto-scroll when changing channels
     scrollToBottom(true); // Force scroll when channel changes
   }
   
-  // Track message count changes separately
-  $: if ($messageStore.messages.length > previousMessageCount && $convexChannelStore.selectedChannelId === lastLoadedChannelId) {
+  // Track message count changes and scroll when messages first load
+  $: if ($messageStore.messages.length > 0 && previousMessageCount === 0 && $convexChannelStore.selectedChannelId === lastLoadedChannelId) {
     previousMessageCount = $messageStore.messages.length;
-    // Don't auto-scroll - let user control scroll position
+    scrollToBottom(true); // Force scroll when messages first load
+  } else if ($messageStore.messages.length > previousMessageCount && $convexChannelStore.selectedChannelId === lastLoadedChannelId) {
+    previousMessageCount = $messageStore.messages.length;
+    scrollToBottom(false); // Auto-scroll only if user is near bottom
   }
 
   afterUpdate(() => {
-    // Don't force scroll on every update
+    // Scroll to bottom after DOM updates if we should auto-scroll
+    if (shouldAutoScroll && messageContainer) {
+      scrollToBottom(false);
+    }
   });
 
   async function handleSend() {
