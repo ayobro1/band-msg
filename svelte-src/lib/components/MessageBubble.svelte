@@ -316,6 +316,10 @@
 <div 
   class="group relative px-4 md:px-5 {showHeader ? 'mt-4 pt-1' : 'mt-0.5'}"
   on:contextmenu={handleContextMenu}
+  on:touchstart={handleTouchStart}
+  on:touchend={handleTouchEnd}
+  on:touchmove={handleTouchMove}
+  style="-webkit-user-select: none; user-select: none; -webkit-touch-callout: none;"
 >
   <div class="flex gap-3">
     <!-- Avatar -->
@@ -339,7 +343,10 @@
       {/if}
 
       <!-- Content -->
-      <div class="text-[14.5px] text-white/80 leading-relaxed break-words whitespace-pre-wrap">
+      <div 
+        class="text-[14.5px] text-white/80 leading-relaxed break-words whitespace-pre-wrap"
+        style="-webkit-user-select: text; user-select: text; cursor: text;"
+      >
         {@html parsedContent}
       </div>
 
@@ -420,5 +427,25 @@
     -webkit-touch-callout: none;
     user-select: none;
     pointer-events: auto;
+  }
+
+  /* iOS-specific fixes for text selection */
+  @supports (-webkit-touch-callout: none) {
+    /* Allow text selection only on the content div */
+    .group {
+      -webkit-user-select: none;
+      user-select: none;
+    }
+    
+    /* Enable text selection for message content */
+    .text-white\/80 {
+      -webkit-user-select: text !important;
+      user-select: text !important;
+    }
+    
+    /* Prevent tap highlight on buttons */
+    button {
+      -webkit-tap-highlight-color: transparent;
+    }
   }
 </style>
