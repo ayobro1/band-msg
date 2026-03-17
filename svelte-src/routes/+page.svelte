@@ -62,7 +62,6 @@
     }
     
     console.log('[Page] initApp completed');
-  }
 
     // Start heartbeat to keep user online
     if (browser) {
