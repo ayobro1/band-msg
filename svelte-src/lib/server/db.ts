@@ -717,14 +717,22 @@ export async function createChannel(args: {
   name: string;
   description: string;
   isPrivate?: boolean;
+  memberIds?: string[];
 }): Promise<Result<{ channelId: string }>> {
-  const adminResult = await requireAdmin(args.sessionToken);
-  if (adminResult.ok === false) {
-    return adminResult;
+  console.log('[createChannel] Starting channel creation:', { name: args.name, isPrivate: args.isPrivate });
+  
+  // Allow all authenticated users to create channels
+  const user = await getUserBySession(args.sessionToken);
+  if (!user) {
+    console.log('[createChannel] User not found for session token');
+    return { ok: false, code: 401, error: "Unauthorized" };
   }
+  
+  console.log('[createChannel] User authenticated:', { userId: user.id, username: user.username, role: user.role });
 
   const name = args.name.trim().toLowerCase();
   if (!/^([a-z0-9-]{2,32})$/.test(name)) {
+    console.log('[createChannel] Invalid channel name:', name);
     return { ok: false, code: 400, error: "Invalid channel name" };
   }
 
@@ -732,22 +740,39 @@ export async function createChannel(args: {
     const id = crypto.randomUUID();
     const now = Date.now();
     
+    console.log('[createChannel] Inserting channel into database:', { id, name, createdBy: user.id });
+    
     await sql`
       INSERT INTO channels (id, name, description, is_private, created_by, created_at)
-      VALUES (${id}, ${name}, ${args.description.trim().slice(0, 300)}, ${args.isPrivate}, ${adminResult.value.id}, ${now})
+      VALUES (${id}, ${name}, ${args.description.trim().slice(0, 300)}, ${args.isPrivate}, ${user.id}, ${now})
     `;
 
     if (args.isPrivate) {
+      console.log('[createChannel] Adding creator as member for private channel');
       // Add creator as member automatically
       const memberId = crypto.randomUUID();
       await sql`
         INSERT INTO channel_members (id, channel_id, user_id, can_read, can_write, added_at)
-        VALUES (${memberId}, ${id}, ${adminResult.value.id}, true, true, ${now})
+        VALUES (${memberId}, ${id}, ${user.id}, true, true, ${now})
       `;
+      
+      // Add selected members if provided
+      if (args.memberIds && args.memberIds.length > 0) {
+        console.log('[createChannel] Adding selected members:', args.memberIds);
+        for (const userId of args.memberIds) {
+          const memberIdForUser = crypto.randomUUID();
+          await sql`
+            INSERT INTO channel_members (id, channel_id, user_id, can_read, can_write, added_at)
+            VALUES (${memberIdForUser}, ${id}, ${userId}, true, true, ${now})
+          `;
+        }
+      }
     }
 
+    console.log('[createChannel] Channel created successfully:', id);
     return { ok: true, value: { channelId: id } };
   } catch (error) {
+    console.error('[createChannel] Error creating channel:', error);
     if (isUniqueViolation(error)) {
       return { ok: false, code: 409, error: "Channel already exists" };
     }

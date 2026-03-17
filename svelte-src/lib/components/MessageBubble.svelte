@@ -189,15 +189,29 @@
 {#if showReactionPicker}
   <!-- svelte-ignore a11y_click_events_have_key_events -->
   <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div class="fixed inset-0 z-40" on:click={() => showReactionPicker = false}></div>
+  <div 
+    class="fixed inset-0 z-40" 
+    on:click|stopPropagation={() => {
+      // Add small delay to prevent immediate closing on iOS
+      setTimeout(() => showReactionPicker = false, 100);
+    }}
+    on:touchstart|stopPropagation
+    on:touchend|stopPropagation
+  ></div>
   
   <!-- Mobile: bottom sheet style -->
-  <div class="fixed md:hidden left-4 right-4 bottom-4 z-50 bg-[#222] border border-white/10 rounded-xl shadow-2xl p-4 animate-slide-up">
+  <div 
+    class="fixed md:hidden left-4 right-4 bottom-4 z-50 bg-[#222] border border-white/10 rounded-xl shadow-2xl p-4 animate-slide-up"
+    on:click|stopPropagation
+    on:touchstart|stopPropagation
+    on:touchend|stopPropagation
+  >
     <div class="flex items-center justify-center gap-2 flex-wrap">
       {#each QUICK_REACTIONS as reaction}
         <button
           type="button"
           on:click|stopPropagation={() => handleReactionClick(reaction.emoji, reaction.name)}
+          on:touchend|stopPropagation|preventDefault={() => handleReactionClick(reaction.emoji, reaction.name)}
           class="w-12 h-12 rounded-full flex items-center justify-center bg-white/5 hover:bg-white/10 transition-all duration-200 transform hover:scale-110 active:scale-95 touch-manipulation origin-center text-white"
         >
           {@html getReactionSvg(reaction.name)}
