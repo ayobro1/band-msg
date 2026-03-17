@@ -21,8 +21,10 @@
   let heartbeatInterval: any;
   let approvalPollInterval: any;
 
-  // Reactive: Load messages when selected channel changes
-  $: if ($convexChannelStore.selectedChannelId && $authStore.user?.status === 'approved' && $convexMessageStore.sessionToken) {
+  // Reactive: Load messages when selected channel changes (only once per channel, not when sessionToken changes)
+  let previousChannelId = '';
+  $: if ($convexChannelStore.selectedChannelId && $authStore.user?.status === 'approved' && $convexMessageStore.sessionToken && $convexChannelStore.selectedChannelId !== previousChannelId) {
+    previousChannelId = $convexChannelStore.selectedChannelId;
     console.log('[Page] Channel changed, loading messages for:', $convexChannelStore.selectedChannelId);
     convexMessageStore.loadMessages($convexChannelStore.selectedChannelId);
   }

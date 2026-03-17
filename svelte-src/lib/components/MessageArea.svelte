@@ -67,10 +67,17 @@
     }, 50);
   }
 
-  // Auto-scroll when new messages arrive or when channel changes
-  $: if ($messageStore.messages.length > previousMessageCount || $convexChannelStore.selectedChannelId) {
+  // Only auto-scroll when channel changes - let user scroll freely otherwise
+  let lastLoadedChannelId = '';
+  $: if ($convexChannelStore.selectedChannelId && $convexChannelStore.selectedChannelId !== lastLoadedChannelId) {
+    lastLoadedChannelId = $convexChannelStore.selectedChannelId;
+    scrollToBottom(true); // Force scroll when channel changes
+  }
+  
+  // Track message count changes separately
+  $: if ($messageStore.messages.length > previousMessageCount && $convexChannelStore.selectedChannelId === lastLoadedChannelId) {
     previousMessageCount = $messageStore.messages.length;
-    scrollToBottom(true); // Force scroll on new messages
+    // Don't auto-scroll - let user control scroll position
   }
 
   afterUpdate(() => {
