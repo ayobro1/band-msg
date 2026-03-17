@@ -64,20 +64,23 @@ export async function requestNotificationPermission(): Promise<string | null> {
   if (!browser) return null;
   
   try {
-    console.log('Requesting notification permission...');
-    console.log('Is iOS:', isIOS());
+    console.log('[Firebase] Requesting notification permission...');
+    console.log('[Firebase] Is iOS:', isIOS());
+    
+    // First, initialize Firebase before requesting permission
+    await initializeFirebase();
     
     const permission = await Notification.requestPermission();
-    console.log('Permission result:', permission);
+    console.log('[Firebase] Permission result:', permission);
     
     if (permission !== 'granted') {
-      console.log('Notification permission denied');
+      console.log('[Firebase] Notification permission denied');
       return null;
     }
     
     // iOS uses native push API, not Firebase
     if (isIOS()) {
-      console.log('iOS detected - using native push API');
+      console.log('[Firebase] iOS detected - using native push API');
       
       // For iOS, we need to use the service worker's pushManager
       if (!swRegistration) {
@@ -85,7 +88,7 @@ export async function requestNotificationPermission(): Promise<string | null> {
       }
       
       if (!swRegistration) {
-        console.error('Service worker not registered');
+        console.error('[Firebase] Service worker not registered');
         return null;
       }
       
@@ -96,7 +99,7 @@ export async function requestNotificationPermission(): Promise<string | null> {
         // Subscribe using VAPID key
         const vapidKey = import.meta.env.VITE_FIREBASE_VAPID_KEY;
         if (!vapidKey) {
-          console.error('VAPID key missing');
+          console.error('[Firebase] VAPID key missing');
           return null;
         }
         
@@ -112,20 +115,15 @@ export async function requestNotificationPermission(): Promise<string | null> {
       const p256dh = subscriptionJSON.keys?.p256dh || '';
       const auth = subscriptionJSON.keys?.auth || '';
       
-      console.log('iOS push subscription details:', {
+      console.log('[Firebase] iOS push subscription details:', {
         hasEndpoint: !!endpoint,
         hasP256dh: !!p256dh,
-        hasAuth: !!auth,
-        endpointLength: endpoint.length,
-        p256dhLength: p256dh.length,
-        authLength: auth.length,
-        p256dhSample: p256dh.substring(0, 20),
-        authSample: auth.substring(0, 20)
+        hasAuth: !!auth
       });
       
       // Store the full subscription data
       if (!endpoint) {
-        console.error('No endpoint in subscription');
+        console.error('[Firebase] No endpoint in subscription');
         return null;
       }
       
@@ -138,32 +136,38 @@ export async function requestNotificationPermission(): Promise<string | null> {
     }
     
     // Non-iOS: use Firebase Cloud Messaging
+    console.log('[Firebase] Getting Firebase Messaging instance...');
     const messaging = getFirebaseMessaging();
     if (!messaging) {
-      console.error('Firebase Messaging not initialized');
+      console.error('[Firebase] Firebase Messaging not initialized');
       return null;
     }
     
     const vapidKey = import.meta.env.VITE_FIREBASE_VAPID_KEY;
-    console.log('VAPID key available:', !!vapidKey);
-    console.log('VAPID key length:', vapidKey?.length);
+    console.log('[Firebase] VAPID key available:', !!vapidKey);
+    console.log('[Firebase] VAPID key length:', vapidKey?.length);
     
     if (!vapidKey) {
-      console.error('VAPID key is missing from environment variables');
+      console.error('[Firebase] VAPID key is missing from environment variables');
       return null;
     }
     
-    // Get FCM token
-    console.log('Getting FCM token...');
-    const token = await getToken(messaging, { vapidKey });
-    console.log('FCM token received:', token ? 'Yes' : 'No');
+    // Get FCM token with timeout
+    console.log('[Firebase] Getting FCM token...');
+    const tokenPromise = getToken(messaging, { vapidKey, serviceWorkerRegistration: swRegistration || undefined });
+    const timeoutPromise = new Promise<null>((_, reject) => 
+      setTimeout(() => reject(new Error('FCM token request timed out after 10 seconds')), 10000)
+    );
+    
+    const token = await Promise.race([tokenPromise, timeoutPromise]);
+    console.log('[Firebase] FCM token received:', token ? 'Yes' : 'No');
     
     return token;
   } catch (error) {
-    console.error('Error getting FCM token:', error);
+    console.error('[Firebase] Error getting FCM token:', error);
     if (error instanceof Error) {
-      console.error('Error message:', error.message);
-      console.error('Error stack:', error.stack);
+      console.error('[Firebase] Error message:', error.message);
+      console.error('[Firebase] Error stack:', error.stack);
     }
     return null;
   }

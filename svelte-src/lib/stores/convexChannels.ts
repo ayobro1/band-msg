@@ -33,15 +33,19 @@ function createConvexChannelStore() {
 
     async loadChannels() {
       if (!currentSessionToken) {
-        console.error('[Convex Channels] No session token');
+        console.error('[Convex Channels] No session token available for loading channels');
         return;
       }
 
+      console.log('[Convex Channels] Loading channels with session token:', currentSessionToken.substring(0, 10) + '...');
       update(state => ({ ...state, isLoading: true }));
+      
       try {
         const channels = await convex.query(api.channels.list, {
           sessionToken: currentSessionToken
         });
+        
+        console.log('[Convex Channels] Loaded channels:', channels.length, 'channels');
         
         update(state => ({
           ...state,

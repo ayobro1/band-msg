@@ -22,7 +22,7 @@
   let approvalPollInterval: any;
 
   // Reactive: Load messages when selected channel changes
-  $: if ($convexChannelStore.selectedChannelId && $authStore.user?.status === 'approved') {
+  $: if ($convexChannelStore.selectedChannelId && $authStore.user?.status === 'approved' && $convexMessageStore.sessionToken) {
     console.log('[Page] Channel changed, loading messages for:', $convexChannelStore.selectedChannelId);
     convexMessageStore.loadMessages($convexChannelStore.selectedChannelId);
   }
@@ -90,17 +90,20 @@
   }
 
   onMount(async () => {
-    // Set session token for Convex
+    // Set session token for Convex FIRST before anything else
     if (data.sessionToken) {
       console.log('[Page] Setting session token for Convex');
       convexMessageStore.setSessionToken(data.sessionToken);
       convexChannelStore.setSessionToken(data.sessionToken);
+      
+      // Wait a tick to ensure stores have updated
+      await new Promise(resolve => setTimeout(resolve, 0));
     }
 
     // Initialize theme
     themeStore.init();
 
-    // Check if user is authenticated first
+    // Check if user is authenticated
     await authStore.checkAuth();
 
     // Only show PWA guide if:

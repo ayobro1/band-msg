@@ -46,15 +46,18 @@ function createConvexMessageStore() {
       update(state => ({ ...state, isLoading: true }));
       
       if (!currentSessionToken) {
-        console.error('[Convex] No session token');
+        console.error('[Convex] No session token available for loading messages');
         update(state => ({ ...state, isLoading: false }));
         return;
       }
+
+      console.log('[Convex] Loading messages for channel:', channelId, 'with session token:', currentSessionToken.substring(0, 10) + '...');
 
       try {
         // Unsubscribe from previous channel
         if (unsubscribe) {
           unsubscribe();
+          unsubscribe = null;
         }
 
         // Subscribe to real-time messages
@@ -62,7 +65,7 @@ function createConvexMessageStore() {
           api.messages.list,
           { channelId: channelId as Id<"channels">, sessionToken: currentSessionToken },
           (messages) => {
-            console.log('[Convex] Loaded messages:', messages);
+            console.log('[Convex] Loaded messages:', messages.length, 'messages');
             set({ messages, isLoading: false, sessionToken: currentSessionToken });
           }
         );

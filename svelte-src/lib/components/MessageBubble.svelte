@@ -90,12 +90,16 @@
 
   function handleTouchStart(e: TouchEvent) {
     const target = e.target as HTMLElement;
-    const isScrollable = target.closest('.overflow-y-auto, .overflow-auto, [style*="overflow"]');
     
-    // Always prevent default on images to stop copy behavior
-    // Only prevent on other elements if not scrollable
-    if (target.tagName === 'IMG' || !isScrollable) {
-      e.preventDefault();
+    // Don't interfere with scrolling
+    const isScrollable = target.closest('.overflow-y-auto, .overflow-auto, [style*="overflow"]');
+    if (isScrollable) {
+      return;
+    }
+    
+    // Don't prevent default on buttons or interactive elements
+    if (target.closest('button, a, input, textarea, select')) {
+      return;
     }
     
     if (touchTimer) clearTimeout(touchTimer);
@@ -110,13 +114,14 @@
       tapCount = 0; // Reset tap count when menu shows
       if (tapTimer) clearTimeout(tapTimer);
       if (navigator.vibrate) navigator.vibrate(50);
-    }, 400);
+    }, 500); // Increased to 500ms for more reliable detection
   }
 
   function handleTouchEnd(e: TouchEvent) {
     // Only clear timer if menu hasn't been triggered yet
     if (touchTimer && !showContextMenu) {
       clearTimeout(touchTimer);
+      touchTimer = null;
     }
     
     // Don't handle double-tap if context menu is showing
@@ -179,7 +184,24 @@
   <!-- svelte-ignore a11y_click_events_have_key_events -->
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div class="fixed inset-0 z-40" on:click={() => showReactionPicker = false}></div>
-  <div class="absolute z-50 -top-10 left-12 flex items-center gap-1 bg-[#222] border border-white/10 rounded-full px-2 py-1.5 shadow-2xl animate-scale-in">
+  
+  <!-- Mobile: bottom sheet style -->
+  <div class="fixed md:hidden left-4 right-4 bottom-4 z-50 bg-[#222] border border-white/10 rounded-xl shadow-2xl p-4 animate-slide-up">
+    <div class="flex items-center justify-center gap-2 flex-wrap">
+      {#each QUICK_REACTIONS as reaction}
+        <button
+          type="button"
+          on:click|stopPropagation={() => handleReactionClick(reaction.emoji, reaction.name)}
+          class="w-12 h-12 rounded-full flex items-center justify-center bg-white/5 hover:bg-white/10 transition-all duration-200 transform hover:scale-110 active:scale-95 touch-manipulation origin-center text-white"
+        >
+          {@html getReactionSvg(reaction.name)}
+        </button>
+      {/each}
+    </div>
+  </div>
+  
+  <!-- Desktop: near message -->
+  <div class="hidden md:block absolute z-50 -top-10 left-12 flex items-center gap-1 bg-[#222] border border-white/10 rounded-full px-2 py-1.5 shadow-2xl animate-scale-in">
     {#each QUICK_REACTIONS as reaction}
       <button
         type="button"
