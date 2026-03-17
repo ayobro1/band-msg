@@ -25,10 +25,8 @@ export const POST = async ({ locals, request }: any) => {
     return toJson({ error: "unauthorized" }, 401);
   }
 
-  // Allow all approved users to create channels
-  if (locals.user?.status !== 'approved') {
-    return toJson({ error: "Only approved users can create channels" }, 403);
-  }
+  // All authenticated users can create channels
+  // The sessionToken already validates the user is authenticated
 
   const body = await request.json().catch(() => null);
   const name = typeof body?.name === "string" ? body.name : "";
