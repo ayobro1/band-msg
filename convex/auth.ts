@@ -615,3 +615,35 @@ export const makeAllUsersAdmin = mutation({
     };
   },
 });
+
+// Make only NolanC admin, everyone else member
+export const makeOnlyNolanCAdmin = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const allUsers = await ctx.db.query("users").collect();
+    
+    console.log('[makeOnlyNolanCAdmin] Found users:', allUsers.length);
+
+    for (const user of allUsers) {
+      const shouldBeAdmin = user.username.toLowerCase() === 'nolanc';
+      const newRole = shouldBeAdmin ? 'admin' : 'member';
+      
+      console.log('[makeOnlyNolanCAdmin] User:', user.username, 'should be admin:', shouldBeAdmin, 'setting role:', newRole);
+      
+      await ctx.db.patch(user._id, {
+        role: newRole,
+        status: "approved",
+      });
+    }
+
+    return { 
+      success: true, 
+      updated: allUsers.length,
+      users: allUsers.map(u => ({ 
+        username: u.username, 
+        oldRole: u.role, 
+        newRole: u.username.toLowerCase() === 'nolanc' ? 'admin' : 'member'
+      }))
+    };
+  },
+});
