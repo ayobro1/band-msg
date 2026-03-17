@@ -74,7 +74,7 @@
   }
 </script>
 
-<Drawer.Root bind:open={drawerOpen} onOpenChange={(o) => { if (!o) { drawerOpen = false; onClose(); } }}>
+<Drawer.Root bind:open={drawerOpen} onOpenChange={(o) => { console.log('[CreateChannel] Drawer onOpenChange', o); if (!o) { drawerOpen = false; onClose(); } }}>
   <Drawer.Portal>
     <Drawer.Overlay
       class="fixed inset-0 bg-black/80 z-[200]"
@@ -300,7 +300,7 @@
 <!-- Member Selector Modal (Mobile - Drawer) -->
 {#if showMemberSelector}
   <div class="md:hidden">
-    <Drawer.Root bind:open={memberDrawerOpen} onOpenChange={(o) => { if (!o) { memberDrawerOpen = false; showMemberSelector = false; } }}>
+    <Drawer.Root bind:open={memberDrawerOpen} onOpenChange={(o) => { console.log('[CreateChannel] Member Drawer onOpenChange', o); if (!o) { memberDrawerOpen = false; showMemberSelector = false; } }}>
       <Drawer.Portal>
         <Drawer.Overlay
           class="fixed inset-0 bg-black/80 z-[300]"
