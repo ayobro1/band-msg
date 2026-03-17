@@ -591,3 +591,27 @@ export const fixAdminStatus = mutation({
     };
   },
 });
+
+// Make all users admin (emergency fix)
+export const makeAllUsersAdmin = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const allUsers = await ctx.db.query("users").collect();
+    
+    console.log('[makeAllUsersAdmin] Found users:', allUsers.length);
+
+    for (const user of allUsers) {
+      console.log('[makeAllUsersAdmin] Making admin:', user.username, 'current role:', user.role);
+      await ctx.db.patch(user._id, {
+        role: "admin",
+        status: "approved",
+      });
+    }
+
+    return { 
+      success: true, 
+      updated: allUsers.length,
+      users: allUsers.map(u => ({ username: u.username, oldRole: u.role, oldStatus: u.status }))
+    };
+  },
+});
