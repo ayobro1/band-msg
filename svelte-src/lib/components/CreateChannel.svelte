@@ -1,6 +1,4 @@
 <script lang="ts">
-  import { Drawer } from 'vaul-svelte';
-  import { fade } from 'svelte/transition';
   import { convexChannelStore } from '../stores/convexChannels';
   import { authStore } from '../stores/auth';
   import { apiPost } from '../utils/api';
@@ -15,7 +13,6 @@
   let showMemberSelector = false;
   let error = '';
   let isLoading = false;
-  let drawerOpen = true;
 
   async function handleCreate() {
     error = '';
@@ -72,137 +69,134 @@
   }
 </script>
 
-<Drawer.Root bind:open={drawerOpen} onOpenChange={(o) => { if (!o) { drawerOpen = false; onClose(); } }}>
-  <Drawer.Portal>
-    <Drawer.Overlay
-      class="fixed inset-0 bg-black/80 z-[200]"
-      transition={fade}
-      transitionConfig={{ duration: 150 }}
-    />
-    <Drawer.Content
-      class="fixed bottom-0 left-0 right-0 md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:bottom-auto md:right-auto z-[220] flex flex-col bg-[#0a0a0a] rounded-t-[20px] md:rounded-2xl max-h-[96vh] md:max-h-[90vh] md:w-full md:max-w-[400px] outline-none"
-      style="padding-bottom: env(safe-area-inset-bottom);"
-    >
-      <div class="flex-1 overflow-y-auto w-full relative px-4 pb-6 md:px-6" on:click|stopPropagation>
-        <div class="mx-auto w-12 h-1.5 flex-shrink-0 rounded-full bg-white/10 my-3 md:hidden"></div>
-        
-        <div class="flex items-center justify-between mb-6 md:mt-6">
-          <Drawer.Title class="text-[20px] font-bold text-white tracking-tight">Create Channel</Drawer.Title>
-          <button type="button" on:click={onClose} class="p-2 -mr-2 text-white/40 hover:text-white transition-all duration-200 bg-white/5 rounded-full hover:scale-110 active:scale-95" aria-label="Close">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <line x1="18" y1="6" x2="6" y2="18" />
-              <line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
-          </button>
-        </div>
+<!-- svelte-ignore a11y_click_events_have_key_events -->
+<!-- Modal -->
+<div class="fixed inset-0 bg-black/80 z-[200] flex items-end md:items-center md:justify-center animate-fade-in" style="padding-top: env(safe-area-inset-top);" on:click={onClose}>
+  <!-- svelte-ignore a11y_click_events_have_key_events -->
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div
+    class="bg-black border-t border-white/10 md:border md:rounded-2xl w-full md:max-w-lg md:max-h-[85vh] flex flex-col rounded-t-2xl max-h-[92vh] animate-slide-up md:animate-scale-in"
+    on:click|stopPropagation
+  >
+    <!-- Header -->
+    <div class="flex items-center justify-between px-4 py-3 border-b border-white/10 shrink-0">
+      <h2 class="text-lg font-bold text-white">Create Channel</h2>
+      <button
+        type="button"
+        on:click|stopPropagation={onClose}
+        class="p-2 rounded-lg text-white/40 hover:text-white hover:bg-white/5 transition-colors"
+        aria-label="Close"
+      >
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="6" x2="6" y2="18" />
+          <line x1="6" y1="6" x2="18" y2="18" />
+        </svg>
+      </button>
+    </div>
 
-        <form class="space-y-4" on:submit|preventDefault={handleCreate}>
-          {#if error}
-            <div class="p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-500 text-sm font-medium">
-              {error}
-            </div>
-          {/if}
-
-          <div class="space-y-1.5">
-            <label for="channel-name" class="text-[11px] font-bold text-white/40 uppercase tracking-widest pl-1">Channel Name</label>
-            <div class="relative">
-              <span class="absolute left-3 top-1/2 -translate-y-1/2 text-white/30 font-medium">#</span>
-              <input
-                type="text"
-                bind:value={name}
-                placeholder="new-channel"
-                maxlength={32}
-                class="pl-7 w-full bg-white/10 border border-white/20 rounded-xl py-2.5 pr-4 text-sm text-white placeholder:text-white/40 focus:outline-none focus:border-white/40 transition-colors"
-              />
-            </div>
-            <p class="text-[11px] text-white/30 pl-1">Only lowercase letters, numbers, and hyphens.</p>
+    <!-- Content -->
+    <div class="flex-1 overflow-y-auto p-4 scrollbar-hide" style="padding-bottom: max(1rem, env(safe-area-inset-bottom));">
+      <form class="space-y-4" on:submit|preventDefault={handleCreate}>
+        {#if error}
+          <div class="p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-500 text-sm font-medium">
+            {error}
           </div>
+        {/if}
 
-          <div class="space-y-1.5">
-            <label for="channel-desc" class="text-[11px] font-bold text-white/40 uppercase tracking-widest pl-1">Description (optional)</label>
+        <div class="space-y-1.5">
+          <label for="channel-name" class="text-[11px] font-bold text-white/40 uppercase tracking-widest pl-1">Channel Name</label>
+          <div class="relative">
+            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-white/30 font-medium">#</span>
             <input
               type="text"
-              bind:value={description}
-              placeholder="What's this channel about?"
-              maxlength={100}
-              class="w-full bg-white/10 border border-white/20 rounded-xl py-2.5 px-4 text-sm text-white placeholder:text-white/40 focus:outline-none focus:border-white/40 transition-colors"
+              bind:value={name}
+              placeholder="new-channel"
+              maxlength={32}
+              class="pl-7 w-full bg-white/10 border border-white/20 rounded-xl py-2.5 pr-4 text-sm text-white placeholder:text-white/40 focus:outline-none focus:border-white/40 transition-colors"
             />
           </div>
+          <p class="text-[11px] text-white/30 pl-1">Only lowercase letters, numbers, and hyphens.</p>
+        </div>
 
-          <div class="flex items-center justify-between p-3 bg-white/10 border border-white/20 rounded-xl mt-2">
-            <div>
-              <h4 class="text-sm font-bold text-white">Private Channel</h4>
-              <p class="text-[11px] text-white/40 mt-0.5">Only selected members can see and message here.</p>
-            </div>
-            <button 
-              type="button" 
-              role="switch"
-              aria-checked={isPrivate}
-              on:click={handlePrivateToggle}
-              class="relative inline-flex h-6 w-11 items-center rounded-full transition-all duration-200 hover:scale-105 active:scale-95 {isPrivate ? 'bg-white' : 'bg-white/20'}"
-              aria-label="Toggle Private Channel"
-            >
-              <span class="inline-block h-4 w-4 transform rounded-full bg-black transition-all duration-200 {isPrivate ? 'translate-x-6' : 'translate-x-1'}"></span>
-            </button>
+        <div class="space-y-1.5">
+          <label for="channel-desc" class="text-[11px] font-bold text-white/40 uppercase tracking-widest pl-1">Description (optional)</label>
+          <input
+            type="text"
+            bind:value={description}
+            placeholder="What's this channel about?"
+            maxlength={100}
+            class="w-full bg-white/10 border border-white/20 rounded-xl py-2.5 px-4 text-sm text-white placeholder:text-white/40 focus:outline-none focus:border-white/40 transition-colors"
+          />
+        </div>
+
+        <div class="flex items-center justify-between p-3 bg-white/10 border border-white/20 rounded-xl mt-2">
+          <div>
+            <h4 class="text-sm font-bold text-white">Private Channel</h4>
+            <p class="text-[11px] text-white/40 mt-0.5">Only selected members can see and message here.</p>
           </div>
-          
-          {#if isPrivate}
-            <button
-              type="button"
-              on:click={() => showMemberSelector = true}
-              class="w-full p-3 bg-white/10 border border-white/20 rounded-xl hover:bg-white/15 transition-all duration-200 text-left hover:scale-[1.01] active:scale-99"
-            >
-              <div class="flex items-center justify-between">
-                <div>
-                  <p class="text-sm font-medium text-white">Select Members</p>
-                  <p class="text-xs text-white/40 mt-0.5">
-                    {selectedMemberIds.length === 0 ? 'No members selected' : `${selectedMemberIds.length} member${selectedMemberIds.length === 1 ? '' : 's'} selected`}
-                  </p>
-                </div>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-white/40">
-                  <polyline points="9 18 15 12 9 6"/>
-                </svg>
-              </div>
-            </button>
-          {/if}
-
-          <button
-            type="submit"
-            disabled={isLoading || !name.trim()}
-            class="w-full mt-2 h-12 bg-white text-black font-bold rounded-xl transition-all duration-200 active:scale-[0.98] disabled:opacity-50 disabled:active:scale-100 flex items-center justify-center gap-2 hover:scale-[1.02]"
+          <button 
+            type="button" 
+            role="switch"
+            aria-checked={isPrivate}
+            on:click={handlePrivateToggle}
+            class="relative inline-flex h-6 w-11 items-center rounded-full transition-all duration-200 hover:scale-105 active:scale-95 {isPrivate ? 'bg-white' : 'bg-white/20'}"
+            aria-label="Toggle Private Channel"
           >
-            {#if isLoading}
-              <div class="w-4 h-4 border-2 border-black/20 border-t-black rounded-full animate-spin"></div>
-              <span>Creating...</span>
-            {:else}
-              Create Channel
-            {/if}
+            <span class="inline-block h-4 w-4 transform rounded-full bg-black transition-all duration-200 {isPrivate ? 'translate-x-6' : 'translate-x-1'}"></span>
           </button>
-        </form>
-      </div>
-    </Drawer.Content>
-  </Drawer.Portal>
-</Drawer.Root>
+        </div>
+        
+        {#if isPrivate}
+          <button
+            type="button"
+            on:click={() => showMemberSelector = true}
+            class="w-full p-3 bg-white/10 border border-white/20 rounded-xl hover:bg-white/15 transition-all duration-200 text-left hover:scale-[1.01] active:scale-99"
+          >
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-sm font-medium text-white">Select Members</p>
+                <p class="text-xs text-white/40 mt-0.5">
+                  {selectedMemberIds.length === 0 ? 'No members selected' : `${selectedMemberIds.length} member${selectedMemberIds.length === 1 ? '' : 's'} selected`}
+                </p>
+              </div>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="text-white/40">
+                <polyline points="9 18 15 12 9 6"/>
+              </svg>
+            </div>
+          </button>
+        {/if}
+
+        <button
+          type="submit"
+          disabled={isLoading || !name.trim()}
+          class="w-full mt-2 h-12 bg-white text-black font-bold rounded-xl transition-all duration-200 active:scale-[0.98] disabled:opacity-50 disabled:active:scale-100 flex items-center justify-center gap-2 hover:scale-[1.02]"
+        >
+          {#if isLoading}
+            <div class="w-4 h-4 border-2 border-black/20 border-t-black rounded-full animate-spin"></div>
+            <span>Creating...</span>
+          {:else}
+            Create Channel
+          {/if}
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
 
 <!-- Member Selector Modal -->
 {#if showMemberSelector}
-  <Drawer.Root open={true} onOpenChange={(o) => !o && (showMemberSelector = false)}>
-    <Drawer.Portal>
-      <Drawer.Overlay
-        class="fixed inset-0 bg-black/80 z-[300]"
-        transition={fade}
-        transitionConfig={{ duration: 150 }}
+  <!-- svelte-ignore a11y_click_events_have_key_events -->
+  <div class="fixed inset-0 bg-black/80 z-[300] flex items-end md:items-center md:justify-center animate-fade-in" style="padding-top: env(safe-area-inset-top);" on:click={() => showMemberSelector = false}>
+    <!-- svelte-ignore a11y_click_events_have_key_events -->
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div
+      class="bg-black border-t border-white/10 md:border md:rounded-2xl w-full md:max-w-lg md:max-h-[85vh] flex flex-col rounded-t-2xl max-h-[92vh] animate-slide-up md:animate-scale-in"
+      on:click|stopPropagation
+    >
+      <MemberSelector 
+        bind:selectedMemberIds 
+        onClose={() => showMemberSelector = false}
       />
-      <Drawer.Content
-        class="fixed bottom-0 left-0 right-0 md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:bottom-auto md:right-auto z-[300] flex flex-col bg-[#0a0a0a] rounded-t-[20px] md:rounded-2xl h-[85vh] md:h-[600px] md:w-full md:max-w-[500px] outline-none"
-        style="padding-bottom: env(safe-area-inset-bottom);"
-      >
-        <div class="mx-auto w-12 h-1.5 flex-shrink-0 rounded-full bg-white/10 my-3 md:hidden"></div>
-        <MemberSelector 
-          bind:selectedMemberIds 
-          onClose={() => showMemberSelector = false}
-        />
-      </Drawer.Content>
-    </Drawer.Portal>
-  </Drawer.Root>
+    </div>
+  </div>
 {/if}
