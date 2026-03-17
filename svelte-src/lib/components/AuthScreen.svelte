@@ -2,10 +2,11 @@
   import { createEventDispatcher } from 'svelte';
   import { authStore } from '../stores/auth';
   import Spinner from './Spinner.svelte';
+  import ForgotPassword from './ForgotPassword.svelte';
 
   const dispatch = createEventDispatcher();
 
-  let mode: 'login' | 'register' = 'login';
+  let mode: 'login' | 'register' | 'forgot' = 'login';
   let username = '';
   let password = '';
   let error = '';
@@ -52,6 +53,9 @@
   <Spinner fullscreen={true} />
 {/if}
 
+{#if mode === 'forgot'}
+  <ForgotPassword on:back={() => { mode = 'login'; error = ''; }} />
+{:else}
 <div class="fixed inset-0 flex items-center justify-center bg-gradient-to-br from-black via-[#0a0a0a] to-black px-6">
   <!-- Animated background elements -->
   <div class="absolute inset-0 overflow-hidden pointer-events-none">
@@ -182,6 +186,16 @@
 
           {#if mode === 'register'}
             <p class="text-xs text-white/30 -mt-4">Minimum 12 characters</p>
+          {:else}
+            <div class="flex justify-end -mt-4">
+              <button
+                type="button"
+                on:click={() => { mode = 'forgot'; error = ''; }}
+                class="text-xs text-white/40 hover:text-white/80 transition-colors"
+              >
+                Forgot password?
+              </button>
+            </div>
           {/if}
 
           <button
@@ -215,6 +229,7 @@
     </p>
   </div>
 </div>
+{/if}
 
 <style>
   .wave-group {

@@ -26,25 +26,43 @@
   $: if ($convexChannelStore.selectedChannelId && $authStore.user?.status === 'approved' && $convexMessageStore.sessionToken && $convexChannelStore.selectedChannelId !== previousChannelId) {
     previousChannelId = $convexChannelStore.selectedChannelId;
     console.log('[Page] Channel changed, loading messages for:', $convexChannelStore.selectedChannelId);
+    console.log('[Page] Session token available:', !!$convexMessageStore.sessionToken);
+    console.log('[Page] User status:', $authStore.user?.status);
     convexMessageStore.loadMessages($convexChannelStore.selectedChannelId);
+  } else {
+    console.log('[Page] Message loading skipped:', {
+      hasChannel: !!$convexChannelStore.selectedChannelId,
+      isApproved: $authStore.user?.status === 'approved',
+      hasToken: !!$convexMessageStore.sessionToken,
+      channelChanged: $convexChannelStore.selectedChannelId !== previousChannelId
+    });
   }
 
   async function initApp() {
+    console.log('[Page] initApp started');
+    
     // Connect to Pusher for real-time updates
     pusherStore.connect();
 
     // Load initial data from Convex
     console.log('[Page] Loading channels from Convex');
     await convexChannelStore.loadChannels();
-    console.log('[Page] Channels loaded:', $convexChannelStore.channels);
+    console.log('[Page] Channels loaded:', $convexChannelStore.channels.length, 'channels');
 
     await memberStore.loadMembers();
+    console.log('[Page] Members loaded');
 
     // Load messages for selected channel
     if ($convexChannelStore.selectedChannelId) {
       console.log('[Page] Loading messages for channel:', $convexChannelStore.selectedChannelId);
+      console.log('[Page] Session token available:', !!$convexMessageStore.sessionToken);
       await convexMessageStore.loadMessages($convexChannelStore.selectedChannelId);
+    } else {
+      console.log('[Page] No channel selected, skipping message load');
     }
+    
+    console.log('[Page] initApp completed');
+  }
 
     // Start heartbeat to keep user online
     if (browser) {
@@ -92,6 +110,9 @@
   }
 
   onMount(async () => {
+    console.log('[Page] onMount started');
+    console.log('[Page] data.sessionToken exists:', !!data.sessionToken);
+    
     // Set session token for Convex FIRST before anything else
     if (data.sessionToken) {
       console.log('[Page] Setting session token for Convex');
@@ -100,13 +121,18 @@
       
       // Wait a tick to ensure stores have updated
       await new Promise(resolve => setTimeout(resolve, 0));
+      console.log('[Page] Session token set in stores');
+    } else {
+      console.log('[Page] No session token in data');
     }
 
     // Initialize theme
     themeStore.init();
 
     // Check if user is authenticated
+    console.log('[Page] Checking auth...');
     await authStore.checkAuth();
+    console.log('[Page] Auth check complete, user:', $authStore.user?.username, 'status:', $authStore.user?.status);
 
     // Only show PWA guide if:
     // 1. User is NOT logged in (first time visitor)

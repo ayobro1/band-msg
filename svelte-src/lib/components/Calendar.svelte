@@ -114,15 +114,21 @@
   async function deleteEvent(eventId: string) {
     if (!confirm('Delete this event?') || !sessionToken) return;
 
+    console.log('[Calendar] Deleting event:', eventId);
+    console.log('[Calendar] Session token available:', !!sessionToken);
+
     try {
-      await convex.mutation(api.events.remove, {
+      const result = await convex.mutation(api.events.remove, {
         sessionToken,
         eventId: eventId as Id<"events">,
       });
+      console.log('[Calendar] Delete result:', result);
       await loadEvents();
-    } catch (error) {
+    } catch (error: any) {
       console.error('[Calendar] Failed to delete event:', error);
-      alert('Failed to delete event');
+      console.error('[Calendar] Error message:', error?.message);
+      console.error('[Calendar] Error details:', error);
+      alert(`Failed to delete event: ${error?.message || 'Unknown error'}`);
     }
   }
 
