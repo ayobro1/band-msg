@@ -171,7 +171,7 @@
   };
 </script>
 
-<div class="flex-1 flex flex-col min-w-0 message-area-container" style="padding-top: env(safe-area-inset-top);">
+<div class="flex-1 flex flex-col min-w-0 message-area-container" style="padding-top: env(safe-area-inset-top); height: 100%; overflow: hidden;">
   <!-- Header -->
   <div class="h-14 flex items-center justify-between px-4 border-b border-white/10 shrink-0 relative message-area-header" style="z-index: 100;">
     <div class="flex items-center gap-3">
@@ -411,7 +411,12 @@
   </div>
 
   <!-- Messages -->
-  <div bind:this={messageContainer} on:scroll={handleScroll} class="flex-1 overflow-y-auto overflow-x-hidden py-3 scrollbar-hide message-area-messages" style="min-height: 0;">
+  <div 
+    bind:this={messageContainer} 
+    on:scroll={handleScroll} 
+    class="flex-1 overflow-y-auto overflow-x-hidden py-3 scrollbar-hide message-area-messages" 
+    style="min-height: 0; max-height: 100%;"
+  >
     {#each $messageStore.messages as message, i}
       {@const prev = i > 0 ? $messageStore.messages[i - 1] : null}
       {@const showHeader = !prev || prev.author !== message.author || message.createdAt - prev.createdAt > 300000}
