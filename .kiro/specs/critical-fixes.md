@@ -16,13 +16,12 @@
 - **Solution**: Modified handleTouchStart to open thread on 500ms long press
 - **Files**: MessageBubble.svelte
 
-### 3. ⏳ Channel Creation - Admin Requirement (TESTING)
-- **Issue**: Still getting "Admin access required" even for admins
-- **Root Cause**: createChannel in db.ts was using requireAdmin
-- **Solution**: Changed to getUserBySession, added extensive console.log
-- **Files**: svelte-src/lib/server/db.ts
-- **Status**: Code deployed with logging, needs user testing to verify
-- **Next**: Check browser console for logs when creating channel
+### 3. ✅ Channel Creation (FIXED)
+- **Issue**: Channels not appearing after creation
+- **Root Cause**: Channels were being created in SQL but read from Convex (data sync issue)
+- **Solution**: Added create mutation to Convex and updated CreateChannel to use it
+- **Files**: convex/channels.ts, svelte-src/lib/components/CreateChannel.svelte
+- **Status**: FIXED - channels now created and read from same database (Convex)
 
 ### 4. ⏳ Calendar Event Deletion Error (TESTING)
 - **Issue**: Error when trying to delete calendar events
