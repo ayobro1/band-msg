@@ -6,8 +6,8 @@
   import { api } from '../../../convex/_generated/api';
   import type { Id } from '../../../convex/_generated/dataModel';
 
-
   export let onClose: () => void;
+  export let sessionToken: string;
 
   type User = {
     id: string;
@@ -28,22 +28,14 @@
   let signupRequests: SignupRequest[] = [];
   let allUsers: User[] = [];
   let isLoading = false;
-  let sessionToken = '';
 
   onMount(async () => {
-    console.log('[AdminPanel] Component mounted');
+    console.log('[AdminPanel] Component mounted with session token:', !!sessionToken);
     
-    // Get session token from cookies only - don't touch the store at all
-    const cookies = document.cookie.split(';');
-    const sessionCookie = cookies.find(c => c.trim().startsWith('session='));
-    if (sessionCookie) {
-      sessionToken = sessionCookie.split('=')[1];
-      console.log('[AdminPanel] Got session token from cookies');
-      if (sessionToken) {
-        await loadData();
-      }
+    if (sessionToken) {
+      await loadData();
     } else {
-      console.error('[AdminPanel] No session cookie found');
+      console.error('[AdminPanel] No session token provided');
     }
   });
 
@@ -223,7 +215,7 @@
 <Drawer.Root open={true} onOpenChange={(open) => { if (!open) onClose(); }}>
   <Drawer.Portal>
     <Drawer.Overlay class="fixed inset-0 bg-black/80 z-[200]" transition={fade} transitionConfig={{ duration: 150 }} />
-    <Drawer.Content class="fixed bottom-0 left-0 right-0 md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:bottom-auto md:right-auto z-[200] flex flex-col bg-black rounded-t-[20px] md:rounded-2xl max-h-[92vh] md:max-h-[85vh] md:w-full md:max-w-lg outline-none" style="padding-bottom: env(safe-area-inset-bottom);">
+    <Drawer.Content class="fixed bottom-0 left-0 right-0 md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:bottom-auto md:right-auto z-[200] flex flex-col bg-black rounded-t-[20px] md:rounded-2xl max-h-[92vh] md:max-h-[85vh] md:w-full md:max-w-2xl outline-none overflow-y-auto" style="padding-bottom: env(safe-area-inset-bottom);">
       <div class="mx-auto w-12 h-1.5 flex-shrink-0 rounded-full bg-white/10 my-3 md:hidden"></div>
       
       <div class="flex items-center justify-between px-4 py-3 border-b border-white/10 shrink-0 md:px-6 md:py-4">

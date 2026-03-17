@@ -33,6 +33,25 @@ export const handle = async ({ event, resolve }: any) => {
   event.locals.sessionToken = cookieSessionToken ?? headerSessionToken;
   event.locals.sessionFromHeader = usingHeaderSession;
 
+  // Get user info from session token if available
+  if (event.locals.sessionToken) {
+    try {
+      const { ConvexHttpClient } = await import('convex/browser');
+      const convex = new ConvexHttpClient(process.env.VITE_CONVEX_URL || '');
+      const { api } = await import('../convex/_generated/api');
+      
+      const user = await convex.query(api.auth.getUser, { 
+        sessionToken: event.locals.sessionToken 
+      });
+      
+      if (user) {
+        event.locals.user = user;
+      }
+    } catch (error) {
+      console.error('[Hooks] Failed to get user:', error);
+    }
+  }
+
   // Always ensure CSRF token exists
   let csrfToken = getCsrfToken(event.cookies);
   if (!csrfToken) {

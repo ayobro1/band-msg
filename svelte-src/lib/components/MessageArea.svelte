@@ -452,19 +452,19 @@
 </div>
 
 {#if showAdminPanel}
-  <AdminPanel onClose={() => showAdminPanel = false} />
+  <AdminPanel sessionToken={$messageStore.sessionToken} onClose={() => { showAdminPanel = false; scrollToBottom(true); }} />
 {/if}
 
 {#if showCreateChannel}
-  <CreateChannel onClose={() => showCreateChannel = false} />
+  <CreateChannel onClose={() => { showCreateChannel = false; scrollToBottom(true); }} />
 {/if}
 
 {#if showCalendar}
-  <Calendar onClose={() => showCalendar = false} />
+  <Calendar onClose={() => { showCalendar = false; scrollToBottom(true); }} />
 {/if}
 
 {#if showNotificationSettings}
-  <NotificationSettings onClose={() => showNotificationSettings = false} />
+  <NotificationSettings onClose={() => { showNotificationSettings = false; scrollToBottom(true); }} />
 {/if}
 
 {#if showGiphy}
