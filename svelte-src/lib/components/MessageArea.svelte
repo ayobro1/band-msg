@@ -481,9 +481,9 @@
 <Drawer.Root bind:open={showMobileChannels} direction="left">
   <Drawer.Portal>
     <Drawer.Overlay class="fixed inset-0 bg-black/60 z-40" />
-    <Drawer.Content class="fixed top-0 bottom-0 left-0 w-80 max-w-[85vw] flex flex-col bg-[#2a2a2a] z-50 border-r border-white/20" style="padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom);">
+    <Drawer.Content class="fixed top-0 bottom-0 left-0 w-80 max-w-[85vw] flex flex-col bg-[#0a0a0a] z-50 border-r border-white/10" style="padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom);">
       <div class="flex-1 overflow-y-auto">
-        <div class="sticky top-0 bg-[#2a2a2a] border-b border-white/20 px-4 py-4 flex items-center justify-between">
+        <div class="sticky top-0 bg-[#0a0a0a] border-b border-white/10 px-4 py-4 flex items-center justify-between">
           <h2 class="text-lg font-semibold text-white">Channels</h2>
           <div class="flex items-center gap-2">
             {#if $authStore.user?.role === 'admin'}
@@ -543,9 +543,9 @@
 <Drawer.Root bind:open={showMobileMembers} direction="right">
   <Drawer.Portal>
     <Drawer.Overlay class="fixed inset-0 bg-black/60 z-40" />
-    <Drawer.Content class="fixed top-0 bottom-0 right-0 w-80 max-w-[85vw] flex flex-col bg-[#2a2a2a] z-50 border-l border-white/20" style="padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom);">
+    <Drawer.Content class="fixed top-0 bottom-0 right-0 w-80 max-w-[85vw] flex flex-col bg-[#0a0a0a] z-50 border-l border-white/10" style="padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom);">
       <div class="flex-1 overflow-y-auto">
-        <div class="sticky top-0 bg-[#2a2a2a] border-b border-white/20 px-4 py-4 flex items-center justify-between">
+        <div class="sticky top-0 bg-[#0a0a0a] border-b border-white/10 px-4 py-4 flex items-center justify-between">
           <h2 class="text-lg font-semibold text-white">Band Members</h2>
           <button
             type="button"
@@ -568,19 +568,21 @@
                 </h4>
                 <div class="space-y-1">
                   {#each users as user}
-                    <button type="button" class="flex items-center gap-3 w-full px-3 py-3 rounded-xl hover:bg-white/5 transition-colors">
+                    <div class="flex items-center gap-3 w-full px-3 py-3 rounded-xl">
                       <Avatar
                         alt={user.username}
                         size="md"
                         status={status === 'online' ? 'online' : status === 'idle' ? 'away' : status === 'dnd' ? 'busy' : 'offline'}
                       />
                       <div class="flex-1 min-w-0 text-left">
-                        <p class="text-sm font-medium truncate text-white/70">
+                        <p class="text-sm font-medium truncate text-white">
                           {user.username}
                         </p>
-                        <p class="text-xs text-white/20 truncate">{user.role}</p>
+                        {#if $authStore.user?.role === 'admin'}
+                          <p class="text-xs text-white/40 truncate">{user.role}</p>
+                        {/if}
                       </div>
-                    </button>
+                    </div>
                   {/each}
                 </div>
               </div>
