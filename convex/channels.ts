@@ -114,6 +114,33 @@ export const create = mutation({
   },
 });
 
+export const update = mutation({
+  args: {
+    channelId: v.id("channels"),
+    sessionToken: v.string(),
+    name: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const user = await getUserByToken(ctx, args.sessionToken);
+    if (!user) throw new Error("Unauthorized");
+
+    const channel = await ctx.db.get(args.channelId);
+    if (!channel) throw new Error("Channel not found");
+
+    // Check permissions: admin or channel creator
+    if (user.role !== "admin" && channel.createdBy !== user._id) {
+      throw new Error("Only admins or channel creators can rename channels");
+    }
+
+    // Update the channel name
+    await ctx.db.patch(args.channelId, {
+      name: args.name,
+    });
+
+    return { updated: true };
+  },
+});
+
 export const remove = mutation({
   args: {
     channelId: v.id("channels"),
