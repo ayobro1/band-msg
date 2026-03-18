@@ -15,11 +15,18 @@
     isLoading = true;
     try {
       const q = overrideQuery !== undefined ? overrideQuery : query;
+      console.log('[GiphyPicker] Loading GIFs for query:', q);
       const res = await apiGet(`/api/giphy?q=${encodeURIComponent(q)}&limit=24`);
+      console.log('[GiphyPicker] API response status:', res.status);
       if (res.ok) {
         const data = await res.json();
         gifs = data.gifs || [];
+        console.log('[GiphyPicker] Loaded', gifs.length, 'GIFs');
+      } else {
+        console.error('[GiphyPicker] API error:', res.status, res.statusText);
       }
+    } catch (error) {
+      console.error('[GiphyPicker] Failed to load GIFs:', error);
     } finally {
       isLoading = false;
     }
@@ -30,10 +37,21 @@
   });
 
   function handleInput() {
+    console.log('[GiphyPicker] Input changed, query:', query);
     if (searchTimeout) clearTimeout(searchTimeout);
     searchTimeout = setTimeout(() => {
+      console.log('[GiphyPicker] Searching for:', query);
       loadGifs();
     }, 400); // 400ms debounce
+  }
+
+  function handleKeyDown(e: KeyboardEvent) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (searchTimeout) clearTimeout(searchTimeout);
+      console.log('[GiphyPicker] Enter pressed, searching for:', query);
+      loadGifs();
+    }
   }
 </script>
 
@@ -54,6 +72,7 @@
             type="text"
             bind:value={query}
             on:input={handleInput}
+            on:keydown={handleKeyDown}
             placeholder="Search GIPHY..."
             class="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 pl-9 pr-4 text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-white/30 transition-colors"
             autofocus
