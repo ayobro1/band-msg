@@ -263,7 +263,7 @@
   
   <!-- Mobile: bottom sheet style -->
   <div 
-    class="fixed md:hidden left-4 right-4 bottom-4 z-50 bg-[#222] border border-white/10 rounded-xl shadow-2xl p-4 animate-slide-up"
+    class="fixed md:hidden left-4 right-4 bottom-20 z-50 bg-[#222] border border-white/10 rounded-xl shadow-2xl p-4 animate-slide-up"
     role="dialog"
     tabindex="-1"
     on:click|stopPropagation
@@ -341,7 +341,7 @@
   ></div>
   
   <!-- Mobile: bottom sheet style -->
-  <div class="fixed md:hidden left-4 right-4 bottom-4 z-50 bg-[#222] border border-white/10 rounded-xl shadow-2xl py-1 animate-slide-up" on:click|stopPropagation on:touchstart|stopPropagation on:touchend|stopPropagation>
+  <div class="fixed md:hidden left-4 right-4 bottom-20 z-50 bg-[#222] border border-white/10 rounded-xl shadow-2xl py-1 animate-slide-up" on:click|stopPropagation on:touchstart|stopPropagation on:touchend|stopPropagation>
     <button
       type="button"
       on:click|stopPropagation={() => { showContextMenu = false; handleReactionClick('❤️', 'heart'); }}
