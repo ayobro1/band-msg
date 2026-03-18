@@ -56,17 +56,17 @@
     const { scrollTop, scrollHeight, clientHeight } = messageContainer;
     const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
     shouldAutoScroll = distanceFromBottom < 100;
+    console.log('[MessageArea] Scroll position:', { scrollTop, scrollHeight, clientHeight, distanceFromBottom, shouldAutoScroll });
   }
 
   function scrollToBottom(force = false) {
     if (!force && !shouldAutoScroll) return;
-    // Use requestAnimationFrame to ensure DOM has updated
+    
     requestAnimationFrame(() => {
-      setTimeout(() => {
-        if (messageContainer) {
-          messageContainer.scrollTop = messageContainer.scrollHeight;
-        }
-      }, 50);
+      if (messageContainer) {
+        messageContainer.scrollTop = messageContainer.scrollHeight;
+        console.log('[MessageArea] Scrolled to bottom, force:', force);
+      }
     });
   }
 
@@ -75,24 +75,20 @@
   $: if ($convexChannelStore.selectedChannelId && $convexChannelStore.selectedChannelId !== lastLoadedChannelId) {
     lastLoadedChannelId = $convexChannelStore.selectedChannelId;
     shouldAutoScroll = true; // Reset auto-scroll when changing channels
-    scrollToBottom(true); // Force scroll when channel changes
+    previousMessageCount = 0; // Reset message count
+    setTimeout(() => scrollToBottom(true), 100); // Force scroll when channel changes
   }
   
   // Track message count changes and scroll when messages first load
   $: if ($messageStore.messages.length > 0 && previousMessageCount === 0 && $convexChannelStore.selectedChannelId === lastLoadedChannelId) {
     previousMessageCount = $messageStore.messages.length;
-    scrollToBottom(true); // Force scroll when messages first load
+    setTimeout(() => scrollToBottom(true), 100); // Force scroll when messages first load
   } else if ($messageStore.messages.length > previousMessageCount && $convexChannelStore.selectedChannelId === lastLoadedChannelId) {
     previousMessageCount = $messageStore.messages.length;
-    scrollToBottom(false); // Auto-scroll only if user is near bottom
-  }
-
-  afterUpdate(() => {
-    // Scroll to bottom after DOM updates if we should auto-scroll
-    if (shouldAutoScroll && messageContainer) {
-      scrollToBottom(false);
+    if (shouldAutoScroll) {
+      setTimeout(() => scrollToBottom(false), 50); // Auto-scroll only if user is near bottom
     }
-  });
+  }
 
   async function handleSend() {
     if (!messageInput.trim() || !$convexChannelStore.selectedChannelId) return;
@@ -414,8 +410,8 @@
   <div 
     bind:this={messageContainer} 
     on:scroll={handleScroll} 
-    class="overflow-y-scroll overflow-x-hidden py-3 message-area-messages" 
-    style="flex: 1 1 auto; min-height: 0; max-height: 100%; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; touch-action: pan-y;"
+    class="overflow-y-auto overflow-x-hidden py-3 message-area-messages" 
+    style="flex: 1 1 auto; min-height: 0; -webkit-overflow-scrolling: touch; overscroll-behavior: contain;"
   >
     {#each $messageStore.messages as message, i (message.id)}
       {@const prev = i > 0 ? $messageStore.messages[i - 1] : null}
