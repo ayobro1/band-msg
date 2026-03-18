@@ -44,6 +44,11 @@
   let touchStartY = 0;
   let isEditing = false;
   let editContent = '';
+  let reactionPickerOpenedAt = 0;
+  let longPressFired = false;
+  let movedTooMuch = false;
+  const LONG_PRESS_MS = 650;
+  const MOVE_CANCEL_PX = 12;
   
   const QUICK_REACTIONS = [
     { emoji: '👍', name: 'thumbs-up' },
@@ -102,6 +107,8 @@
     }
     
     if (touchTimer) clearTimeout(touchTimer);
+    longPressFired = false;
+    movedTooMuch = false;
     
     // Get touch coordinates for menu positioning and movement tracking
     const touch = e.touches[0];
@@ -117,7 +124,8 @@
       tapCount = 0;
       if (tapTimer) clearTimeout(tapTimer);
       if (navigator.vibrate) navigator.vibrate(40);
-    }, 500);
+      longPressFired = true;
+    }, LONG_PRESS_MS);
   }
 
   function handleTouchEnd(e: TouchEvent) {
@@ -127,6 +135,13 @@
       touchTimer = null;
     }
     
+    // If long-press fired (or user was scrolling), don't treat as a tap.
+    if (longPressFired || movedTooMuch) {
+      tapCount = 0;
+      if (tapTimer) clearTimeout(tapTimer);
+      return;
+    }
+
     // Handle double tap - quick react
     const target = e.target as HTMLElement;
     if (!target.closest('button, a, input, textarea, select')) {
@@ -159,9 +174,10 @@
       const deltaY = Math.abs(touch.clientY - touchStartY);
       
       // Cancel long-press if user is scrolling (more vertical movement)
-      if (deltaY > 10 || deltaX > 10) {
+      if (deltaY > MOVE_CANCEL_PX || deltaX > MOVE_CANCEL_PX) {
         clearTimeout(touchTimer);
         touchTimer = null;
+        movedTooMuch = true;
       }
     }
   }
@@ -216,8 +232,9 @@
   <div 
     class="fixed inset-0 z-40" 
     on:click|stopPropagation={() => {
-      // Add small delay to prevent immediate closing on iOS
-      setTimeout(() => showReactionPicker = false, 100);
+      // Prevent the same tap that opened the picker from also closing it
+      if (Date.now() - reactionPickerOpenedAt < 250) return;
+      showReactionPicker = false;
     }}
     on:touchstart|stopPropagation
     on:touchend|stopPropagation
@@ -226,7 +243,10 @@
   <!-- Mobile: bottom sheet style -->
   <div 
     class="fixed md:hidden left-4 right-4 bottom-4 z-50 bg-[#222] border border-white/10 rounded-xl shadow-2xl p-4 animate-slide-up"
+    role="dialog"
+    tabindex="-1"
     on:click|stopPropagation
+    on:keydown|stopPropagation={() => {}}
     on:touchstart|stopPropagation
     on:touchend|stopPropagation
   >
@@ -287,7 +307,7 @@
     {/if}
     <button
       type="button"
-      on:click|stopPropagation={() => { showContextMenu = false; showReactionPicker = true; }}
+      on:click|stopPropagation={() => { showContextMenu = false; reactionPickerOpenedAt = Date.now(); showReactionPicker = true; }}
       class="w-full px-4 py-3 text-left text-sm text-white hover:bg-white/10 transition-colors flex items-center gap-3"
     >
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -353,7 +373,7 @@
     {/if}
     <button
       type="button"
-      on:click|stopPropagation={() => { showContextMenu = false; showReactionPicker = true; }}
+      on:click|stopPropagation={() => { showContextMenu = false; reactionPickerOpenedAt = Date.now(); showReactionPicker = true; }}
       class="w-full px-4 py-2 text-left text-sm text-white hover:bg-white/10 transition-colors flex items-center gap-2"
     >
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -394,7 +414,7 @@
 {/if}
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div 
-  class="group relative px-4 md:px-5 {showHeader ? 'mt-4 pt-1' : 'mt-0.5'}"
+  class="group relative px-4 md:px-5 {showHeader ? 'mt-4 pt-1' : 'mt-0.5'} {(showContextMenu || showReactionPicker || isEditing) ? 'bg-white/5' : ''} rounded-xl"
   on:contextmenu={handleContextMenu}
   on:touchstart={handleTouchStart}
   on:touchend={handleTouchEnd}

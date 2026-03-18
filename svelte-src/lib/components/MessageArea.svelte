@@ -417,7 +417,7 @@
     class="flex-1 overflow-y-auto overflow-x-hidden py-3 scrollbar-hide message-area-messages" 
     style="min-height: 0; max-height: 100%;"
   >
-    {#each $messageStore.messages as message, i}
+    {#each $messageStore.messages as message, i (message.id)}
       {@const prev = i > 0 ? $messageStore.messages[i - 1] : null}
       {@const showHeader = !prev || prev.author !== message.author || message.createdAt - prev.createdAt > 300000}
       <MessageBubble {message} {showHeader} onOpenThread={openThread} />

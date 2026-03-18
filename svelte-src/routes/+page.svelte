@@ -74,11 +74,8 @@
             // Update Convex presence
             await convex.mutation(api.auth.heartbeat, { sessionToken: data.sessionToken });
             // Also update SQL presence so member list shows correct status
-            await fetch('/api/presence', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ status: 'online' })
-            });
+            const { apiPost } = await import('../lib/utils/api');
+            await apiPost('/api/presence', { status: 'online' });
           } catch (error) {
             console.error('[Page] Heartbeat failed:', error);
           }
