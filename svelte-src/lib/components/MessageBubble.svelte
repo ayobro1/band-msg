@@ -239,6 +239,15 @@
     editContent = message.content;
     showContextMenu = false;
     showReactionPicker = false;
+    
+    // Focus the edit textarea after it's rendered
+    setTimeout(() => {
+      const textarea = document.querySelector(`[data-message-id="${message.id}"] textarea`);
+      if (textarea instanceof HTMLTextAreaElement) {
+        textarea.focus();
+        textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+      }
+    }, 50);
   }
 
   function cancelEdit() {
@@ -493,6 +502,7 @@
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div 
   class="group relative px-4 md:px-5 {showHeader ? 'mt-4 pt-1' : 'mt-0.5'} {(showContextMenu || showReactionPicker || isEditing) ? 'bg-white/5' : ''} rounded-xl"
+  data-message-id={message.id}
   on:contextmenu={handleContextMenu}
   on:touchstart={handleTouchStart}
   on:touchend={handleTouchEnd}
