@@ -194,6 +194,7 @@
   async function handleReactionClick(emoji: string, name?: string) {
     showReactionPicker = false;
     showContextMenu = false;
+    customEmojiInput = '';
     if (!$convexChannelStore.selectedChannelId) return;
     
     const reaction = message.reactions?.find((r: any) => r.emoji === emoji);
@@ -209,8 +210,23 @@
   async function handleCustomEmoji() {
     const emoji = customEmojiInput.trim();
     if (!emoji) return;
-    await handleReactionClick(emoji);
+    
+    // Close menus and clear input first
     customEmojiInput = '';
+    showReactionPicker = false;
+    showContextMenu = false;
+    
+    // Then add the reaction
+    if (!$convexChannelStore.selectedChannelId) return;
+    
+    const reaction = message.reactions?.find((r: any) => r.emoji === emoji);
+    const hasReacted = reaction?.users.includes($authStore.user?.username);
+    
+    if (hasReacted) {
+      await messageStore.removeReaction(message.id, emoji, $convexChannelStore.selectedChannelId);
+    } else {
+      await messageStore.addReaction(message.id, emoji, $convexChannelStore.selectedChannelId);
+    }
   }
 
   async function handleDelete() {
