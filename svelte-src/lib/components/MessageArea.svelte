@@ -169,9 +169,24 @@
   }
 
   async function selectChannel(channelId: string) {
+    console.log('[MessageArea] Selecting channel:', channelId);
+    
+    // Reset scroll state for new channel
+    shouldAutoScroll = true;
+    previousMessageCount = 0;
+    hasScrolledToBottomForChannel = false;
+    
     convexChannelStore.selectChannel(channelId);
     await messageStore.loadMessages(channelId);
     showMobileChannels = false;
+    
+    // Force scroll to bottom after messages load
+    setTimeout(() => {
+      if (messageContainer) {
+        messageContainer.scrollTop = messageContainer.scrollHeight;
+        console.log('[MessageArea] Forced scroll to bottom after channel selection');
+      }
+    }, 200);
   }
 
   function handleMobileChannelTouchStart(e: TouchEvent, channel: any) {
@@ -276,10 +291,22 @@
       });
 
       await convexChannelStore.loadChannels();
+      
+      // Reset scroll state
+      shouldAutoScroll = true;
+      previousMessageCount = 0;
+      hasScrolledToBottomForChannel = false;
+      
       if ($convexChannelStore.selectedChannelId === mobileChannelToDelete.id) {
         const firstChannel = $convexChannelStore.channels[0];
         if (firstChannel) {
           await selectChannel(firstChannel.id);
+          // Force scroll to bottom after a delay
+          setTimeout(() => {
+            if (messageContainer) {
+              messageContainer.scrollTop = messageContainer.scrollHeight;
+            }
+          }, 200);
         }
       }
     } catch (err) {
