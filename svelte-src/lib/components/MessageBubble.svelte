@@ -45,8 +45,10 @@
   let isEditing = false;
   let editContent = '';
   let reactionPickerOpenedAt = 0;
+  let contextMenuOpenedAt = 0;
   let longPressFired = false;
   let movedTooMuch = false;
+  let customEmojiInput = '';
   const LONG_PRESS_MS = 650;
   const MOVE_CANCEL_PX = 12;
   
@@ -121,6 +123,7 @@
     touchTimer = setTimeout(() => {
       showContextMenu = true;
       showReactionPicker = false;
+      contextMenuOpenedAt = Date.now();
       tapCount = 0;
       if (tapTimer) clearTimeout(tapTimer);
       if (navigator.vibrate) navigator.vibrate(40);
@@ -189,6 +192,7 @@
 
   async function handleReactionClick(emoji: string, name?: string) {
     showReactionPicker = false;
+    showContextMenu = false;
     if (!$convexChannelStore.selectedChannelId) return;
     
     const reaction = message.reactions?.find((r: any) => r.emoji === emoji);
@@ -199,6 +203,13 @@
     } else {
       await messageStore.addReaction(message.id, emoji, $convexChannelStore.selectedChannelId);
     }
+  }
+
+  async function handleCustomEmoji() {
+    const emoji = customEmojiInput.trim();
+    if (!emoji) return;
+    await handleReactionClick(emoji);
+    customEmojiInput = '';
   }
 
   async function handleDelete() {
@@ -255,7 +266,7 @@
     on:touchstart|stopPropagation
     on:touchend|stopPropagation
   >
-    <div class="flex items-center justify-center gap-2 flex-wrap">
+    <div class="flex items-center justify-center gap-2 flex-wrap mb-3">
       {#each QUICK_REACTIONS as reaction}
         <button
           type="button"
@@ -266,6 +277,29 @@
           {@html getReactionSvg(reaction.name)}
         </button>
       {/each}
+    </div>
+    
+    <!-- Custom emoji input -->
+    <div class="flex gap-2">
+      <input
+        type="text"
+        bind:value={customEmojiInput}
+        placeholder="Type any emoji..."
+        class="flex-1 px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm placeholder:text-white/30 outline-none focus:border-white/30"
+        on:keydown={(e) => e.key === 'Enter' && handleCustomEmoji()}
+        on:click|stopPropagation
+        on:touchstart|stopPropagation
+        on:touchend|stopPropagation
+      />
+      <button
+        type="button"
+        on:click|stopPropagation={handleCustomEmoji}
+        on:touchend|stopPropagation|preventDefault={handleCustomEmoji}
+        disabled={!customEmojiInput.trim()}
+        class="px-4 py-2 bg-white text-black rounded-lg font-medium text-sm disabled:opacity-30 disabled:cursor-not-allowed hover:bg-white/90 transition-all"
+      >
+        Add
+      </button>
     </div>
   </div>
   
@@ -286,33 +320,32 @@
 {#if showContextMenu}
   <!-- svelte-ignore a11y_click_events_have_key_events -->
   <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div class="fixed inset-0 z-40" on:click={() => showContextMenu = false}></div>
+  <div 
+    class="fixed inset-0 z-40" 
+    on:click|stopPropagation={() => {
+      // Prevent the same tap that opened the menu from also closing it
+      if (Date.now() - contextMenuOpenedAt < 250) return;
+      showContextMenu = false;
+    }}
+    on:touchstart|stopPropagation
+    on:touchend|stopPropagation
+  ></div>
   
   <!-- Mobile: bottom sheet style -->
-  <div class="fixed md:hidden left-4 right-4 bottom-4 z-50 bg-[#222] border border-white/10 rounded-xl shadow-2xl py-1 animate-slide-up">
+  <div class="fixed md:hidden left-4 right-4 bottom-4 z-50 bg-[#222] border border-white/10 rounded-xl shadow-2xl py-1 animate-slide-up" on:click|stopPropagation on:touchstart|stopPropagation on:touchend|stopPropagation>
     <button
       type="button"
       on:click|stopPropagation={() => { showContextMenu = false; handleReactionClick('❤️', 'heart'); }}
+      on:touchend|stopPropagation|preventDefault={() => { showContextMenu = false; handleReactionClick('❤️', 'heart'); }}
       class="w-full px-4 py-3 text-left text-sm text-white hover:bg-white/10 transition-colors flex items-center gap-3"
     >
-      <span class="text-lg leading-none">❤️</span>
+      {@html getReactionSvg('heart')}
       Like
     </button>
-    {#if onOpenThread}
-      <button
-        type="button"
-        on:click|stopPropagation={() => { showContextMenu = false; onOpenThread && onOpenThread(message); }}
-        class="w-full px-4 py-3 text-left text-sm text-white hover:bg-white/10 transition-colors flex items-center gap-3"
-      >
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-        </svg>
-        Reply in thread
-      </button>
-    {/if}
     <button
       type="button"
       on:click|stopPropagation={() => { showContextMenu = false; reactionPickerOpenedAt = Date.now(); showReactionPicker = true; }}
+      on:touchend|stopPropagation|preventDefault={() => { showContextMenu = false; reactionPickerOpenedAt = Date.now(); showReactionPicker = true; }}
       class="w-full px-4 py-3 text-left text-sm text-white hover:bg-white/10 transition-colors flex items-center gap-3"
     >
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -323,10 +356,24 @@
       </svg>
       Add reaction
     </button>
+    {#if onOpenThread}
+      <button
+        type="button"
+        on:click|stopPropagation={() => { showContextMenu = false; onOpenThread && onOpenThread(message); }}
+        on:touchend|stopPropagation|preventDefault={() => { showContextMenu = false; onOpenThread && onOpenThread(message); }}
+        class="w-full px-4 py-3 text-left text-sm text-white hover:bg-white/10 transition-colors flex items-center gap-3"
+      >
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+        </svg>
+        Reply in thread
+      </button>
+    {/if}
     {#if isOwn}
       <button
         type="button"
         on:click|stopPropagation={startEdit}
+        on:touchend|stopPropagation|preventDefault={startEdit}
         class="w-full px-4 py-3 text-left text-sm text-white hover:bg-white/10 transition-colors flex items-center gap-3"
       >
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -340,6 +387,7 @@
       <button
         type="button"
         on:click|stopPropagation={() => { showContextMenu = false; handleDelete(); }}
+        on:touchend|stopPropagation|preventDefault={() => { showContextMenu = false; handleDelete(); }}
         class="w-full px-4 py-3 text-left text-sm text-red-400 hover:bg-white/10 transition-colors flex items-center gap-3"
       >
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -424,7 +472,7 @@
   on:touchstart={handleTouchStart}
   on:touchend={handleTouchEnd}
   on:touchmove={handleTouchMove}
-  style="-webkit-user-select: none; user-select: none; -webkit-touch-callout: none;"
+  style="-webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent;"
 >
   <div class="flex gap-3">
     <!-- Avatar -->
