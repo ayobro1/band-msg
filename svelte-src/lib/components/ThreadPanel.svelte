@@ -66,7 +66,10 @@
   }
 
   async function sendReply() {
+    console.log('[ThreadPanel] sendReply called!');
+    
     if (!replyInput.trim()) {
+      console.log('[ThreadPanel] Empty input');
       return;
     }
 
@@ -76,6 +79,7 @@
         return;
       }
 
+      console.log('[ThreadPanel] Sending reply...');
       const result = await convex.mutation(api.messages.send, {
         channelId: parentMessage.channelId as Id<"channels">,
         content: replyInput,
@@ -83,6 +87,7 @@
         replyToId: parentMessage.id as Id<"messages">
       });
 
+      console.log('[ThreadPanel] Reply sent successfully');
       replyInput = '';
       await loadReplies();
     } catch (error) {
@@ -324,8 +329,7 @@
         ></textarea>
         <button
           type="button"
-          on:click={sendReply}
-          on:touchend|preventDefault={sendReply}
+          on:click={() => { console.log('[ThreadPanel] DESKTOP BUTTON CLICKED'); sendReply(); }}
           disabled={!replyInput.trim()}
           class="p-3 rounded-xl transition-all duration-200 shrink-0 hover:scale-105 active:scale-95 touch-manipulation {replyInput.trim() ? 'bg-white text-black hover:bg-white/90' : 'bg-white/5 text-white/20 cursor-not-allowed'}"
           aria-label="Send reply"
