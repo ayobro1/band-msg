@@ -190,6 +190,17 @@
     flex-shrink: 0;
     padding-top: env(safe-area-inset-top);
     padding-bottom: env(safe-area-inset-bottom);
+    /* Completely disable text selection on iOS */
+    -webkit-user-select: none !important;
+    -webkit-touch-callout: none !important;
+    user-select: none !important;
+  }
+  
+  /* Disable text selection on all children */
+  .channel-sidebar * {
+    -webkit-user-select: none !important;
+    -webkit-touch-callout: none !important;
+    user-select: none !important;
   }
   
   /* Only show on desktop (1024px+), hide on tablets and mobile */
