@@ -253,28 +253,32 @@
     z-index: 1;
   }
 
-  /* Submit Button - Dark theme */
+  /* Submit Button - Uiverse style */
   .submit-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    padding: 14px 28px;
-    background: rgba(255, 255, 255, 0.1);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    border-radius: 12px;
+    padding: 17px 40px;
+    border-radius: 10px;
+    border: 0;
+    background: linear-gradient(135deg, #ff3838 0%, #e63946 100%);
+    letter-spacing: 1.5px;
     font-size: 15px;
     font-weight: 600;
     color: white;
     cursor: pointer;
-    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    transition: all 0.3s ease;
+    box-shadow: rgba(201, 46, 70, 1) 0px 10px 0px 0px;
     position: relative;
     overflow: hidden;
   }
 
   .submit-btn:hover {
-    background: rgba(255, 255, 255, 0.15);
-    transform: translateY(-2px);
+    box-shadow: rgba(201, 46, 70, 1) 0px 7px 0px 0px;
+  }
+
+  .submit-btn:active {
+    background: linear-gradient(135deg, #ff3838 0%, #e63946 100%);
+    box-shadow: rgba(201, 46, 70, 1) 0px 0px 0px 0px;
+    transform: translateY(5px);
+    transition: 200ms;
   }
 
   .submit-btn:active {
