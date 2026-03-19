@@ -17,11 +17,34 @@
   let isLoading = false;
   let error = '';
   let success = false;
+  let fileInput: HTMLInputElement;
 
   $: if (open && $authStore.user) {
     username = $authStore.user.username || '';
     bio = $authStore.user.bio || '';
     avatarUrl = $authStore.user.avatarUrl || '';
+  }
+
+  async function handleFileSelect(event: Event) {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      error = 'Please select an image file';
+      return;
+    }
+
+    if (file.size > 2 * 1024 * 1024) {
+      error = 'Image must be under 2MB';
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      avatarUrl = e.target?.result as string;
+    };
+    reader.readAsDataURL(file);
   }
 
   async function saveProfile() {
@@ -102,15 +125,46 @@
 
         <div class="space-y-4">
           <div>
-            <label class="block text-sm font-medium text-white/70 mb-2">Avatar URL</label>
+            <label class="block text-sm font-medium text-white/70 mb-2">Avatar</label>
+            <div class="flex items-center gap-3">
+              <div class="relative">
+                {#if avatarUrl}
+                  <img src={avatarUrl} alt="Avatar preview" class="w-16 h-16 rounded-full object-cover" />
+                {:else}
+                  <div class="w-16 h-16 rounded-full bg-white/10 flex items-center justify-center">
+                    <svg class="w-8 h-8 text-white/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                  </div>
+                {/if}
+              </div>
+              <div class="flex-1">
+                <input
+                  type="file"
+                  accept="image/*"
+                  bind:this={fileInput}
+                  on:change={handleFileSelect}
+                  class="hidden"
+                  id="avatar-upload"
+                />
+                <button
+                  type="button"
+                  on:click={() => fileInput?.click()}
+                  disabled={isLoading}
+                  class="px-3 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg text-sm transition-colors disabled:opacity-50"
+                >
+                  Upload Image
+                </button>
+                <p class="text-xs text-white/30 mt-1">Max 2MB, JPG/PNG</p>
+              </div>
+            </div>
             <input
               type="url"
               bind:value={avatarUrl}
               disabled={isLoading}
-              class="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-white/30 outline-none focus:border-white/30 transition-colors disabled:opacity-50"
-              placeholder="https://example.com/avatar.jpg"
+              class="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-white/30 outline-none focus:border-white/30 transition-colors disabled:opacity-50 mt-2 text-sm"
+              placeholder="Or paste image URL"
             />
-            <p class="text-xs text-white/30 mt-1">Link to your profile picture</p>
           </div>
 
           <div>

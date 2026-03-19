@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { Drawer } from 'vaul-svelte';
+  import { fade } from 'svelte/transition';
   import { convex } from '../convex';
   import { api } from '../../../convex/_generated/api';
   import type { Id } from '../../../convex/_generated/dataModel';
@@ -141,8 +142,8 @@
 <!-- Unified Drawer for Mobile and Desktop -->
 <Drawer.Root open={true} onOpenChange={(open) => { if (!open) onClose(); }}>
   <Drawer.Portal>
-    <Drawer.Overlay class="fixed inset-0 bg-black/80 z-[200]" />
-    <Drawer.Content class="fixed bottom-0 left-0 right-0 md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:bottom-auto md:right-auto z-[200] flex flex-col bg-black rounded-t-[20px] md:rounded-2xl max-h-[92vh] md:max-h-[85vh] md:w-full md:max-w-lg outline-none" style="padding-bottom: env(safe-area-inset-bottom);">
+    <Drawer.Overlay class="fixed inset-0 bg-black/80 z-[200]" transition={fade} transitionConfig={{ duration: 200 }} />
+    <Drawer.Content class="fixed bottom-0 left-0 right-0 md:top-1/2 md:left-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:bottom-auto md:right-auto z-[200] flex flex-col bg-black rounded-t-[20px] md:rounded-2xl max-h-[92vh] md:max-h-[85vh] md:w-full md:max-w-lg outline-none" style="padding-bottom: env(safe-area-inset-bottom);" transition={fade} transitionConfig={{ duration: 200 }}>
       <div class="mx-auto w-12 h-1.5 flex-shrink-0 rounded-full bg-white/10 my-3 md:hidden"></div>
       
       <!-- Header -->

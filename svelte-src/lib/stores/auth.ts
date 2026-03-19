@@ -86,8 +86,16 @@ function createAuthStore() {
     },
 
     async logout() {
-      await apiPost('/api/presence', { status: 'offline' });
-      await apiPost('/api/auth/logout', {});
+      try {
+        await apiPost('/api/presence', { status: 'offline' });
+      } catch (e) {
+        // Ignore presence error
+      }
+      try {
+        await apiPost('/api/auth/logout', {});
+      } catch (e) {
+        // Ignore logout error
+      }
       set({ user: null, isLoading: false, error: null });
     },
 

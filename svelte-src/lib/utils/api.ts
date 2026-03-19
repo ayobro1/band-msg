@@ -8,28 +8,12 @@ function getCookie(name: string): string {
   return found ? decodeURIComponent(found.slice(prefix.length)) : '';
 }
 
-// Wait for CSRF token to be available (with timeout)
-async function waitForCsrfToken(maxWaitMs = 2000): Promise<string> {
-  const startTime = Date.now();
-  
-  while (Date.now() - startTime < maxWaitMs) {
-    const token = getCookie('band_chat_csrf');
-    if (token) {
-      return token;
-    }
-    // Wait 50ms before checking again
-    await new Promise(resolve => setTimeout(resolve, 50));
-  }
-  
-  return '';
-}
-
 export async function apiPost(
   path: string,
   payload: Record<string, unknown>,
   method: 'POST' | 'DELETE' = 'POST'
 ) {
-  const csrf = await waitForCsrfToken();
+  const csrf = getCookie('band_chat_csrf');
   
   const headers: Record<string, string> = {
     'content-type': 'application/json',

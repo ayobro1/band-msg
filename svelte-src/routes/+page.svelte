@@ -113,22 +113,8 @@
 
   onMount(async () => {
     console.log('[Page] onMount started');
-    console.log('[Page] data.sessionToken exists:', !!data.sessionToken);
     
-    // Set session token for Convex FIRST before anything else
-    if (data.sessionToken) {
-      console.log('[Page] Setting session token for Convex');
-      convexMessageStore.setSessionToken(data.sessionToken);
-      convexChannelStore.setSessionToken(data.sessionToken);
-      
-      // Wait a tick to ensure stores have updated
-      await new Promise(resolve => setTimeout(resolve, 0));
-      console.log('[Page] Session token set in stores');
-    } else {
-      console.log('[Page] No session token in data');
-    }
-
-    // Initialize theme
+    // Initialize theme first
     themeStore.init();
 
     // Check if user is authenticated
@@ -136,10 +122,14 @@
     await authStore.checkAuth();
     console.log('[Page] Auth check complete, user:', $authStore.user?.username, 'status:', $authStore.user?.status);
 
-    // Only show PWA guide if:
-    // 1. User is NOT logged in (first time visitor)
-    // 2. Haven't seen the guide before
-    // 3. Not already installed as PWA
+    // Set session token AFTER auth check
+    if (data.sessionToken) {
+      console.log('[Page] Setting session token for Convex');
+      convexMessageStore.setSessionToken(data.sessionToken);
+      convexChannelStore.setSessionToken(data.sessionToken);
+    }
+
+    // Only show PWA guide if user is NOT logged in (first time visitor)
     if (!$authStore.user && browser) {
       const hasSeenPWAGuide = localStorage.getItem('hasSeenPWAGuide');
       const isStandalone = window.matchMedia('(display-mode: standalone)').matches ||
@@ -151,17 +141,11 @@
       }
     }
 
-    // Check if user needs to set username
-    if ($authStore.user?.needsUsernameSetup && $authStore.user?.status === 'approved') {
-      showUsernameSetup = true;
-      return;
-    }
-
-    if ($authStore.user?.status === 'pending') {
-      startApprovalPolling();
-    } else if ($authStore.user && $authStore.user.status === 'approved') {
+    // Only init app if user is approved
+    if ($authStore.user && $authStore.user.status === 'approved') {
       await initApp();
     }
+    // Pending users see PendingSetup component in template
   });
 
   onDestroy(() => {

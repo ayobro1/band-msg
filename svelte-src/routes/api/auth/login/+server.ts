@@ -82,6 +82,12 @@ export const POST = async ({ request, cookies }: any) => {
         expiresAt: expiresAtMs()
       });
 
+      // BLOCK PENDING USERS FROM LOGGING IN
+      if (user.status === 'pending') {
+        await delayMs(LOGIN_FAILURE_DELAY_MS);
+        return toJson({ error: "Your account is pending admin approval. You will be able to log in once approved." }, 401);
+      }
+
       clearRateLimit(ipKey);
       clearRateLimit(userKey);
 

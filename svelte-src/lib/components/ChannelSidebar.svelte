@@ -278,7 +278,7 @@
                 </button>
               {/if}
               <button 
-                on:click={(e) => toggleMute(e, channel.id)}
+                on:click|stopPropagation={(e) => toggleMute(e, channel.id)}
                 class="p-1 rounded mix-blend-normal transition-all duration-200 hover:scale-110 active:scale-95 {$notificationStore.mutedChannelIds.has(channel.id) ? 'text-white opacity-100' : 'text-white/40 hover:text-white'}"
                 aria-label={$notificationStore.mutedChannelIds.has(channel.id) ? "Unmute Channel" : "Mute Channel"}
                 title={$notificationStore.mutedChannelIds.has(channel.id) ? "Unmute Channel" : "Mute Channel"}

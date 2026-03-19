@@ -28,37 +28,37 @@
   let signupRequests: SignupRequest[] = [];
   let allUsers: User[] = [];
   let isLoading = false;
+  let hasCheckedAdmin = false;
+  let isAdmin = false;
 
   onMount(async () => {
     console.log('[AdminPanel] Component mounted with session token:', !!sessionToken);
     
     if (sessionToken) {
-      await loadData();
+      await checkAdminAndLoad();
     } else {
       console.error('[AdminPanel] No session token provided');
     }
   });
 
-  async function loadData() {
+  async function checkAdminAndLoad() {
+    // Prevent multiple checks
+    if (hasCheckedAdmin) return;
+    hasCheckedAdmin = true;
+    
     if (!sessionToken) {
       console.error('[AdminPanel] No session token available');
       return;
     }
-    console.log('[AdminPanel] Loading data with session token:', sessionToken.substring(0, 10) + '...');
     
-    // First, let's debug the session (with fallback)
+    console.log('[AdminPanel] Checking admin status...');
+    
     try {
-      console.log('[AdminPanel] Debugging session...');
       const debugInfo = await convex.query(api.auth.debugSession, { sessionToken });
       console.log('[AdminPanel] Debug info:', debugInfo);
       
       if (!debugInfo.sessionValid) {
         console.error('[AdminPanel] Session is not valid');
-        return;
-      }
-      
-      if (debugInfo.sessionExpired) {
-        console.error('[AdminPanel] Session is expired');
         return;
       }
       
@@ -68,35 +68,26 @@
       }
       
       if (debugInfo.user.role !== 'admin') {
-        console.error('[AdminPanel] User is not admin. Role:', debugInfo.user.role, 'Status:', debugInfo.user.status);
-        return;
+        console.error('[AdminPanel] User is not admin. Role:', debugInfo.user.role);
+        isAdmin = false;
+        return; // STOP HERE - don't load data if not admin
       }
       
-      console.log('[AdminPanel] Session is valid and user is admin, proceeding...');
+      isAdmin = true;
+      console.log('[AdminPanel] User is admin, loading data...');
+      await loadData();
     } catch (debugError) {
-      console.warn('[AdminPanel] Debug session failed, trying direct approach:', debugError);
-      
-      // Fallback: try to get user directly
-      try {
-        const currentUser = await convex.query(api.auth.getUser, { sessionToken });
-        console.log('[AdminPanel] Current user (fallback):', currentUser);
-        
-        if (!currentUser) {
-          console.error('[AdminPanel] No user found for session token');
-          return;
-        }
-        
-        if (currentUser.role !== 'admin') {
-          console.error('[AdminPanel] User is not admin. Role:', currentUser.role);
-          return;
-        }
-        
-        console.log('[AdminPanel] User is admin (via fallback), proceeding...');
-      } catch (fallbackError) {
-        console.error('[AdminPanel] Both debug and fallback failed:', fallbackError);
-        return;
-      }
+      console.error('[AdminPanel] Session check failed:', debugError);
     }
+  }
+
+  async function loadData() {
+    if (!sessionToken) {
+      console.error('[AdminPanel] No session token available');
+      return;
+    }
+    
+    console.log('[AdminPanel] Loading data with session token:', sessionToken.substring(0, 10) + '...');
     
     isLoading = true;
     try {
