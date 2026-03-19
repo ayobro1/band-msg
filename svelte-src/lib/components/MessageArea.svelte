@@ -740,8 +740,8 @@
   <div 
     bind:this={messageContainer} 
     on:scroll={handleScroll} 
-    class="overflow-y-auto overflow-x-hidden py-3 message-area-messages" 
-    style="flex: 1 1 0; min-height: 0; height: 100%; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; touch-action: pan-y;"
+    class="overflow-y-auto overflow-x-hidden py-3 message-area-messages flex-1" 
+    style="-webkit-overflow-scrolling: touch; overscroll-behavior: contain; touch-action: pan-y;"
   >
     {#each $messageStore.messages as message, i (message.id)}
       {@const prev = i > 0 ? $messageStore.messages[i - 1] : null}

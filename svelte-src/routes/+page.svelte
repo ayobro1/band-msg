@@ -211,7 +211,7 @@
 {:else if !$authStore.user || $authStore.user?.status === 'pending'}
   <AuthScreen on:pending={startApprovalPolling} />
 {:else}
-  <div class="fixed inset-0 flex overflow-hidden bg-black text-white antialiased" style="overscroll-behavior: none;">
+  <div class="w-full h-screen flex overflow-hidden bg-black text-white antialiased">
     <!-- Channel Sidebar -->
     <ChannelSidebar />
 
