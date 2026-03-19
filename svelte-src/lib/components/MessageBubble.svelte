@@ -5,6 +5,8 @@
   import { parseMarkdown } from '$lib/markdown';
   import { vibrateMedium, vibrateSuccess } from '../utils/haptics';
   import Avatar from './Avatar.svelte';
+  import { fade, fly } from 'svelte/transition';
+  import { flip } from 'svelte/animate';
 
   export let message: any;
   export let showHeader: boolean;
@@ -528,6 +530,7 @@
   on:touchstart={handleTouchStart}
   on:touchend={handleTouchEnd}
   on:touchmove={handleTouchMove}
+  in:fly={{ y: 20, duration: 200 }}
   style="-webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent;"
 >
   <div class="flex gap-3">

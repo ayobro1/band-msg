@@ -3,6 +3,9 @@
   import { authStore } from '../stores/auth';
   import Spinner from './Spinner.svelte';
   import ForgotPassword from './ForgotPassword.svelte';
+  import { fade, fly, scale } from 'svelte/transition';
+  import { flip } from 'svelte/animate';
+  import { elasticOut, cubicOut } from 'svelte/easing';
 
   const dispatch = createEventDispatcher();
 
@@ -90,7 +93,7 @@
         </p>
 
         {#if error}
-          <div class="mb-4 px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-sm animate-slide-down flex items-center gap-2">
+          <div class="mb-4 px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-sm flex items-center gap-2" in:fly={{ y: -10, duration: 200 }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <circle cx="12" cy="12" r="10"/>
               <line x1="12" y1="8" x2="12" y2="12"/>
@@ -99,7 +102,7 @@
             {error}
           </div>
         {:else if $authStore.user?.status === 'pending'}
-          <div class="mb-4 px-4 py-3 rounded-xl bg-blue-500/10 border border-blue-500/30 text-blue-400 text-sm animate-slide-down flex flex-col gap-1">
+          <div class="mb-4 px-4 py-3 rounded-xl bg-blue-500/10 border border-blue-500/30 text-blue-400 text-sm flex flex-col gap-1" in:fly={{ y: -10, duration: 200 }}>
             <div class="flex items-center gap-2 font-semibold">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <circle cx="12" cy="12" r="10"/>
@@ -139,9 +142,9 @@
           <div class="flex-1 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
         </div>
 
-        <div class="space-y-8">
+        <div class="space-y-8" in:fly={{ y: 20, duration: 300, delay: 100 }}>
           <!-- Username Input -->
-          <div class="form-control">
+          <div class="form-control" in:fly={{ x: -20, duration: 300, delay: 150 }}>
             <input 
               required 
               type="text" 
@@ -161,7 +164,7 @@
           </div>
 
           <!-- Password Input -->
-          <div class="form-control">
+          <div class="form-control" in:fly={{ x: -20, duration: 300, delay: 200 }}>
             <input 
               required 
               type="password" 
@@ -199,6 +202,7 @@
             on:click={handleSubmit}
             disabled={$authStore.isLoading}
             class="submit-btn w-full"
+            in:scale={{ duration: 300, delay: 300, start: 0.9 }}
           >
             <span class="submit-text">{mode === 'login' ? 'Sign in' : 'Create account'}</span>
             <svg class="submit-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -208,7 +212,7 @@
           </button>
         </div>
 
-        <div class="mt-6 text-center">
+        <div class="mt-6 text-center" in:fade={{ duration: 300, delay: 400 }}>
           <button
             type="button"
             on:click={() => { mode = mode === 'login' ? 'register' : 'login'; error = ''; }}
