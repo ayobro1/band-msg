@@ -139,31 +139,45 @@
           <div class="flex-1 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
         </div>
 
-        <div class="space-y-6">
+        <div class="space-y-8">
           <!-- Username Input -->
-          <div>
-            <label class="block text-sm font-medium text-white/70 mb-2">Username</label>
-            <input
-              required
-              type="text"
+          <div class="form-control">
+            <input 
+              required 
+              type="text" 
               bind:value={username}
               on:keydown={handleKeyDown}
-              class="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-white/30 outline-none focus:border-white/30 transition-colors"
-              placeholder="Enter your username"
             />
+            <label>
+              <span style="transition-delay:0ms">U</span>
+              <span style="transition-delay:50ms">s</span>
+              <span style="transition-delay:100ms">e</span>
+              <span style="transition-delay:150ms">r</span>
+              <span style="transition-delay:200ms">n</span>
+              <span style="transition-delay:250ms">a</span>
+              <span style="transition-delay:300ms">m</span>
+              <span style="transition-delay:350ms">e</span>
+            </label>
           </div>
 
           <!-- Password Input -->
-          <div>
-            <label class="block text-sm font-medium text-white/70 mb-2">Password</label>
-            <input
-              required
-              type="password"
+          <div class="form-control">
+            <input 
+              required 
+              type="password" 
               bind:value={password}
               on:keydown={handleKeyDown}
-              class="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-white/30 outline-none focus:border-white/30 transition-colors"
-              placeholder="Enter your password"
             />
+            <label>
+              <span style="transition-delay:0ms">P</span>
+              <span style="transition-delay:50ms">a</span>
+              <span style="transition-delay:100ms">s</span>
+              <span style="transition-delay:150ms">s</span>
+              <span style="transition-delay:200ms">w</span>
+              <span style="transition-delay:250ms">o</span>
+              <span style="transition-delay:300ms">r</span>
+              <span style="transition-delay:350ms">d</span>
+            </label>
           </div>
 
           {#if mode === 'register'}
@@ -302,5 +316,50 @@
   .submit-text {
     position: relative;
     z-index: 1;
+  }
+
+  /* Floating Label Inputs */
+  .form-control {
+    position: relative;
+    margin: 20px 0 40px;
+    width: 100%;
+  }
+
+  .form-control input {
+    background-color: transparent;
+    border: 0;
+    border-bottom: 2px #fff solid;
+    display: block;
+    width: 100%;
+    padding: 15px 0;
+    font-size: 18px;
+    color: #fff;
+  }
+
+  .form-control input:focus,
+  .form-control input:valid {
+    outline: 0;
+    border-bottom-color: #8b5cf6;
+  }
+
+  .form-control label {
+    position: absolute;
+    top: 15px;
+    left: 0;
+    pointer-events: none;
+  }
+
+  .form-control label span {
+    display: inline-block;
+    font-size: 18px;
+    min-width: 5px;
+    color: #fff;
+    transition: 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  }
+
+  .form-control input:focus+label span,
+  .form-control input:valid+label span {
+    color: #8b5cf6;
+    transform: translateY(-30px);
   }
 </style>
