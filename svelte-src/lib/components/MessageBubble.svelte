@@ -103,12 +103,11 @@
   function handleTouchStart(e: TouchEvent) {
     const target = e.target as HTMLElement;
     
-    // Don't interfere with buttons or interactive elements
+    // Skip touch tracking entirely for interactive elements - let them handle their own events
     if (target.closest('button, a, input, textarea, select')) {
       return;
     }
     
-    // Prevent iOS text selection immediately
     e.preventDefault();
     
     if (touchTimer) clearTimeout(touchTimer);
@@ -135,7 +134,13 @@
   }
 
   function handleTouchEnd(e: TouchEvent) {
-    // Always prevent default to stop iOS text selection
+    const target = e.target as HTMLElement;
+    
+    // Allow buttons/inputs to handle their own touch events without interference
+    if (target.closest('button, a, input, textarea, select')) {
+      return;
+    }
+    
     e.preventDefault();
     
     // Clear long-press timer
@@ -152,7 +157,6 @@
     }
 
     // Handle double tap - quick react
-    const target = e.target as HTMLElement;
     if (!target.closest('button, a, input, textarea, select')) {
       tapCount++;
       if (tapCount === 1) {
@@ -176,6 +180,13 @@
   }
 
   function handleTouchMove(e: TouchEvent) {
+    const target = e.target as HTMLElement;
+    
+    // Skip move tracking for interactive elements
+    if (target.closest('button, a, input, textarea, select')) {
+      return;
+    }
+    
     // Cancel timer if user scrolls (moved more than 10px vertically or horizontally)
     if (touchTimer && !showContextMenu) {
       const touch = e.touches[0];
