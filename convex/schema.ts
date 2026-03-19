@@ -14,6 +14,8 @@ export default defineSchema({
     lastSeen: v.number(),
     createdAt: v.optional(v.number()),
     needsUsernameSetup: v.optional(v.boolean()),
+    bio: v.optional(v.string()),
+    location: v.optional(v.string()),
   })
     .index("by_username", ["username"])
     .index("by_email", ["email"])
@@ -106,4 +108,13 @@ export default defineSchema({
   })
     .index("by_created_by", ["createdBy"])
     .index("by_starts_at", ["startsAt"]),
+
+  reports: defineTable({
+    userId: v.id("users"),
+    message: v.string(),
+    createdAt: v.number(),
+    status: v.optional(v.string()), // "pending" | "reviewed" | "resolved"
+  })
+    .index("by_status", ["status"])
+    .index("by_created_at", ["createdAt"]),
 });

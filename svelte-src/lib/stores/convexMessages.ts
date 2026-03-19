@@ -106,6 +106,17 @@ function createConvexMessageStore() {
       }
     },
 
+    async createReport(message: string) {
+      if (!currentSessionToken) {
+        throw new Error('Not authenticated');
+      }
+
+      await convex.mutation(api.users.createReport, {
+        sessionToken: currentSessionToken,
+        message,
+      });
+    },
+
     async deleteMessage(messageId: string, channelId: string) {
       if (!currentSessionToken) {
         return { success: false };
@@ -183,8 +194,8 @@ function createConvexMessageStore() {
         typingTimer = setTimeout(() => {
           this.stopTyping(channelId);
         }, 3000);
-      } catch (error) {
-        console.error('Failed to set typing:', error);
+      } catch {
+        // Silently ignore - typing API may not be deployed yet
       }
     },
 
@@ -200,8 +211,8 @@ function createConvexMessageStore() {
           channelId: channelId as Id<"channels">,
           sessionToken: currentSessionToken
         });
-      } catch (error) {
-        console.error('Failed to stop typing:', error);
+      } catch {
+        // Silently ignore - typing API may not be deployed yet
       }
     },
 
@@ -216,7 +227,7 @@ function createConvexMessageStore() {
 
       currentTypingChannelId = channelId;
 
-      // First, get initial typing users
+      // First, get initial typing users (silently fail if API not deployed)
       convex.query(api.typing.getTypingUsers, {
         channelId: channelId as Id<"channels">,
         sessionToken: currentSessionToken
@@ -225,19 +236,26 @@ function createConvexMessageStore() {
         if (currentTypingChannelId === channelId) {
           update(state => ({ ...state, typingUsers: usernames || [] }));
         }
-      }).catch(console.error);
+      }).catch(() => {
+        // Silently ignore - typing API may not be deployed yet
+      });
 
-      // Then subscribe to updates
-      typingUnsubscribe = convex.onUpdate(
-        api.typing.getTypingUsers,
-        { channelId: channelId as Id<"channels">, sessionToken: currentSessionToken },
-        (usernames) => {
-          // Only update if still subscribed to this channel
-          if (currentTypingChannelId === channelId) {
-            update(state => ({ ...state, typingUsers: usernames || [] }));
+      // Then subscribe to updates (silently fail if API not deployed)
+      try {
+        typingUnsubscribe = convex.onUpdate(
+          api.typing.getTypingUsers,
+          { channelId: channelId as Id<"channels">, sessionToken: currentSessionToken },
+          (usernames) => {
+            // Only update if still subscribed to this channel
+            if (currentTypingChannelId === channelId) {
+              update(state => ({ ...state, typingUsers: usernames || [] }));
+            }
           }
-        }
-      );
+        );
+      } catch {
+        // Silently ignore - typing API may not be deployed yet
+        typingUnsubscribe = null;
+      }
     },
 
     unsubscribeFromTyping() {

@@ -141,47 +141,29 @@
 
         <div class="space-y-6">
           <!-- Username Input -->
-          <div class="wave-group">
+          <div>
+            <label class="block text-sm font-medium text-white/70 mb-2">Username</label>
             <input
               required
               type="text"
-              class="input"
               bind:value={username}
               on:keydown={handleKeyDown}
+              class="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-white/30 outline-none focus:border-white/30 transition-colors"
+              placeholder="Enter your username"
             />
-            <span class="bar"></span>
-            <label class="label">
-              <span class="label-char" style="--index: 0">U</span>
-              <span class="label-char" style="--index: 1">s</span>
-              <span class="label-char" style="--index: 2">e</span>
-              <span class="label-char" style="--index: 3">r</span>
-              <span class="label-char" style="--index: 4">n</span>
-              <span class="label-char" style="--index: 5">a</span>
-              <span class="label-char" style="--index: 6">m</span>
-              <span class="label-char" style="--index: 7">e</span>
-            </label>
           </div>
 
           <!-- Password Input -->
-          <div class="wave-group">
+          <div>
+            <label class="block text-sm font-medium text-white/70 mb-2">Password</label>
             <input
               required
               type="password"
-              class="input"
               bind:value={password}
               on:keydown={handleKeyDown}
+              class="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder:text-white/30 outline-none focus:border-white/30 transition-colors"
+              placeholder="Enter your password"
             />
-            <span class="bar"></span>
-            <label class="label">
-              <span class="label-char" style="--index: 0">P</span>
-              <span class="label-char" style="--index: 1">a</span>
-              <span class="label-char" style="--index: 2">s</span>
-              <span class="label-char" style="--index: 3">s</span>
-              <span class="label-char" style="--index: 4">w</span>
-              <span class="label-char" style="--index: 5">o</span>
-              <span class="label-char" style="--index: 6">r</span>
-              <span class="label-char" style="--index: 7">d</span>
-            </label>
           </div>
 
           {#if mode === 'register'}
@@ -232,121 +214,32 @@
 {/if}
 
 <style>
-  .wave-group {
-    position: relative;
-  }
-
-  .wave-group .input {
-    font-size: 16px;
-    padding: 10px 10px 10px 5px;
-    display: block;
-    width: 100%;
-    border: none;
-    border-bottom: 1px solid #515151;
-    background: transparent;
-    color: white;
-  }
-
-  .wave-group .input:focus {
-    outline: none;
-  }
-
-  .wave-group .label {
-    color: #999;
-    font-size: 18px;
-    font-weight: normal;
-    position: absolute;
-    pointer-events: none;
-    left: 5px;
-    top: 10px;
-    display: flex;
-  }
-
-  .wave-group .label-char {
-    transition: 0.2s ease all;
-    transition-delay: calc(var(--index) * .05s);
-  }
-
-  .wave-group .input:focus ~ label .label-char,
-  .wave-group .input:valid ~ label .label-char {
-    transform: translateY(-20px);
-    font-size: 14px;
-    color: #ffffff;
-  }
-
-  .wave-group .bar {
-    position: relative;
-    display: block;
-    width: 100%;
-  }
-
-  .wave-group .bar:before,
-  .wave-group .bar:after {
-    content: '';
-    height: 2px;
-    width: 0;
-    bottom: 1px;
-    position: absolute;
-    background: #ffffff;
-    transition: 0.2s ease all;
-    -moz-transition: 0.2s ease all;
-    -webkit-transition: 0.2s ease all;
-  }
-
-  .wave-group .bar:before {
-    left: 50%;
-  }
-
-  .wave-group .bar:after {
-    right: 50%;
-  }
-
-  .wave-group .input:focus ~ .bar:before,
-  .wave-group .input:focus ~ .bar:after {
-    width: 50%;
-  }
-
-  /* Google Button - Uiverse inspired */
+  /* Google Button - Dark theme version */
   .google-btn {
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 12px;
     padding: 12px 24px;
-    background: white;
-    border: none;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
     border-radius: 12px;
     font-size: 15px;
     font-weight: 600;
-    color: #1f1f1f;
+    color: white;
     cursor: pointer;
     transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     position: relative;
     overflow: hidden;
   }
 
-  .google-btn::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(135deg, rgba(66, 133, 244, 0.1), rgba(234, 67, 53, 0.1));
-    opacity: 0;
-    transition: opacity 0.3s;
-  }
-
-  .google-btn:hover::before {
-    opacity: 1;
-  }
-
   .google-btn:hover {
+    background: rgba(255, 255, 255, 0.15);
     transform: translateY(-2px);
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
   }
 
   .google-btn:active {
     transform: translateY(0);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   }
 
   .google-icon {
@@ -360,42 +253,28 @@
     z-index: 1;
   }
 
-  /* Submit Button - Uiverse inspired */
+  /* Submit Button - Dark theme */
   .submit-btn {
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 8px;
     padding: 14px 28px;
-    background: linear-gradient(135deg, #ffffff 0%, #f0f0f0 100%);
-    border: none;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
     border-radius: 12px;
     font-size: 15px;
     font-weight: 600;
-    color: #000000;
+    color: white;
     cursor: pointer;
     transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-    box-shadow: 0 4px 12px rgba(255, 255, 255, 0.1);
     position: relative;
     overflow: hidden;
   }
 
-  .submit-btn::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(135deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0));
-    transform: translateX(-100%);
-    transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
-  }
-
-  .submit-btn:hover::before {
-    transform: translateX(100%);
-  }
-
   .submit-btn:hover {
+    background: rgba(255, 255, 255, 0.15);
     transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(255, 255, 255, 0.2);
   }
 
   .submit-btn:active {

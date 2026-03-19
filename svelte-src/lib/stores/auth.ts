@@ -7,6 +7,8 @@ type User = {
   role: 'admin' | 'member';
   status: 'approved' | 'pending';
   needsUsernameSetup?: boolean;
+  bio?: string | null;
+  location?: string | null;
 };
 
 type AuthState = {
@@ -87,6 +89,25 @@ function createAuthStore() {
       await apiPost('/api/presence', { status: 'offline' });
       await apiPost('/api/auth/logout', {});
       set({ user: null, isLoading: false, error: null });
+    },
+
+    async refreshUser() {
+      try {
+        const res = await apiGet('/api/auth/me');
+        if (res.ok) {
+          const user = await res.json();
+          update(state => ({ ...state, user }));
+        }
+      } catch (error) {
+        console.error('Failed to refresh user:', error);
+      }
+    },
+
+    updateUser(updates: Partial<User>) {
+      update(state => ({
+        ...state,
+        user: state.user ? { ...state.user, ...updates } : null
+      }));
     },
   };
 }

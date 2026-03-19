@@ -234,17 +234,18 @@
       </div>
       <div class="space-y-0.5">
         {#each $convexChannelStore.channels as channel}
-          <!-- svelte-ignore a11y_no_static_element_interactions -->
+          <!-- svelte-ignore a11y_click_events_have_key_events -->
           <div
             role="button"
             tabindex="0"
+            on:click={() => selectChannel(channel.id)}
             on:keydown={(e) => e.key === 'Enter' && selectChannel(channel.id)}
             on:contextmenu={(e) => handleContextMenu(e, channel)}
             on:touchstart={(e) => handleTouchStart(e, channel)}
             on:touchmove={handleTouchMove}
             on:touchend={(e) => handleTouchEnd(e, channel)}
             on:touchcancel={(e) => handleTouchEnd(e, channel)}
-            class="group flex items-center justify-between w-full px-2 py-1.5 rounded-lg transition-all duration-200 overflow-hidden hover:scale-[1.02] active:scale-98 {$convexChannelStore.selectedChannelId === channel.id ? 'bg-white/10 text-white' : 'text-white/50 hover:bg-white/5 hover:text-white/70'}"
+            class="group flex items-center justify-between w-full px-2 py-1.5 rounded-lg transition-all duration-200 overflow-hidden hover:scale-[1.02] active:scale-98 cursor-pointer {$convexChannelStore.selectedChannelId === channel.id ? 'bg-white/10 text-white' : 'text-white/50 hover:bg-white/5 hover:text-white/70'}"
             style="-webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; touch-action: manipulation;"
           >
             <div class="flex items-center gap-2 truncate">

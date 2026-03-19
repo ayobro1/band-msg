@@ -62,17 +62,22 @@
               <polyline points="20 6 9 17 4 12" />
             </svg>
           </div>
-          <h3 class="text-white font-semibold">Email Sent!</h3>
+          <h3 class="text-white font-semibold">Password Reset Sent!</h3>
         </div>
-        <p class="text-white/60 text-sm leading-relaxed">
+        <p class="text-white/60 text-sm leading-relaxed mb-4">
           If an account exists with <span class="text-white font-medium">{email}</span>, you'll receive a password reset link shortly.
         </p>
+        <div class="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3">
+          <p class="text-blue-400 text-xs">
+            <strong>Note:</strong> After resetting your password, the admin will approve your account within a few days before you can log in.
+          </p>
+        </div>
       </div>
 
       <button
         type="button"
         on:click={handleBack}
-        class="w-full px-4 py-3 bg-white text-black rounded-xl hover:bg-white/90 transition-all duration-200 font-semibold hover:scale-[1.02] active:scale-98"
+        class="w-full px-4 py-3 bg-white/10 border border-white/20 text-white rounded-xl hover:bg-white/20 transition-all duration-200 font-semibold hover:scale-[1.02] active:scale-98"
       >
         Back to Login
       </button>
@@ -100,13 +105,13 @@
         <button
           type="submit"
           disabled={isLoading || !email}
-          class="w-full px-4 py-3 bg-white text-black rounded-xl hover:bg-white/90 transition-all duration-200 font-semibold hover:scale-[1.02] active:scale-98 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center justify-center gap-2"
+          class="w-full px-4 py-3 bg-white/10 border border-white/20 text-white rounded-xl hover:bg-white/20 transition-all duration-200 font-semibold hover:scale-[1.02] active:scale-98 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center justify-center gap-2"
         >
           {#if isLoading}
             <Spinner size="sm" />
             <span>Sending...</span>
           {:else}
-            Send Reset Link
+            Send Password Reset
           {/if}
         </button>
 

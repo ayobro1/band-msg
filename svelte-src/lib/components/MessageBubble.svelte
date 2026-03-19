@@ -20,7 +20,13 @@
 
   $: isOwn = message.author === $authStore.user?.username;
   $: parsedContent = parseMarkdown(message.content);
+  $: highlightedContent = highlightMentions(parsedContent);
   $: isEdited = !!message.editedAt;
+
+  function highlightMentions(content: string): string {
+    // Match @username patterns (alphanumeric, underscore, hyphen)
+    return content.replace(/@([a-zA-Z0-9_-]+)/g, '<span class="mention">@$1</span>');
+  }
 
   function formatTime(timestamp: number): string {
     const date = new Date(timestamp);
@@ -572,7 +578,7 @@
           class="text-[14.5px] text-white/80 leading-relaxed break-words whitespace-pre-wrap"
           style="-webkit-user-select: text; user-select: text; cursor: text;"
         >
-          {@html parsedContent}
+          {@html highlightedContent}
         </div>
         {#if isEdited}
           <div class="mt-0.5 text-[11px] text-white/30">(edited)</div>
@@ -694,5 +700,19 @@
       -webkit-touch-callout: none !important;
       user-select: none !important;
     }
+  }
+
+  /* @mention highlighting */
+  :global(.mention) {
+    color: #7289da;
+    background: rgba(114, 137, 218, 0.2);
+    padding: 0 4px;
+    border-radius: 4px;
+    font-weight: 500;
+  }
+
+  :global(.mention:hover) {
+    background: rgba(114, 137, 218, 0.3);
+    cursor: pointer;
   }
 </style>

@@ -15,10 +15,12 @@
   import GiphyPicker from './GiphyPicker.svelte';
   import CreateChannel from './CreateChannel.svelte';
   import ThreadPanel from './ThreadPanel.svelte';
+  import ProfileDrawer from './ProfileDrawer.svelte';
   
   let messageInput = '';
   let messageContainer: HTMLDivElement;
   let typingTimeout: ReturnType<typeof setTimeout> | null = null;
+  let typingDebounceTimer: ReturnType<typeof setTimeout> | null = null;
   let showAdminPanel = false;
   let showCalendar = false;
   let showMobileChannels = false;
@@ -27,9 +29,16 @@
   let showGiphy = false;
   let showCreateChannel = false;
   let showSettingsMenu = false;
+  let showProfileDrawer = false;
   let shouldAutoScroll = true;
   let showThread = false;
   let threadMessage: any = null;
+  let ephemeralMessage = '';
+  let ephemeralTimeout: ReturnType<typeof setTimeout> | null = null;
+  let showMentionDropdown = false;
+  let mentionQuery = '';
+  let mentionStartIndex = -1;
+  let mentionInputRef: HTMLInputElement;
   
   // Mobile channel menu
   let showMobileChannelMenu = false;
@@ -120,19 +129,43 @@
 
   async function handleSend() {
     if (!messageInput.trim() || !$convexChannelStore.selectedChannelId) return;
+
+    const trimmedMessage = messageInput.trim();
+
+    // Handle !report command (ephemeral - only visible to sender)
+    if (trimmedMessage.toLowerCase().startsWith('!report ')) {
+      const reportMessage = trimmedMessage.slice(8).trim();
+      if (reportMessage) {
+        try {
+          await messageStore.createReport(reportMessage);
+          ephemeralMessage = `Report submitted: "${reportMessage.slice(0, 50)}${reportMessage.length > 50 ? '...' : ''}"`;
+          ephemeralTimeout = setTimeout(() => {
+            ephemeralMessage = '';
+          }, 5000);
+        } catch (err) {
+          console.error('[MessageArea] Failed to create report:', err);
+          ephemeralMessage = 'Failed to submit report. Please try again.';
+          ephemeralTimeout = setTimeout(() => {
+            ephemeralMessage = '';
+          }, 5000);
+        }
+        messageInput = '';
+        return;
+      }
+    }
     
-    console.log('[MessageArea] Sending message:', messageInput, 'to channel:', $convexChannelStore.selectedChannelId);
+    console.log('[MessageArea] Sending message:', trimmedMessage, 'to channel:', $convexChannelStore.selectedChannelId);
     
     const result = await messageStore.sendMessage(
       $convexChannelStore.selectedChannelId,
-      messageInput
+      trimmedMessage
     );
     
     console.log('[MessageArea] Send result:', result);
     
     if (result.success) {
       messageInput = '';
-      // Stop typing indicator after sending
+      showMentionDropdown = false;
       messageStore.stopTyping($convexChannelStore.selectedChannelId);
     } else {
       console.error('[MessageArea] Failed to send:', result.error);
@@ -152,9 +185,66 @@
 
   function handleTyping() {
     if ($convexChannelStore.selectedChannelId) {
+      // Debounce typing indicator calls to prevent spamming
+      if (typingDebounceTimer) return;
+      
+      typingDebounceTimer = setTimeout(() => {
+        typingDebounceTimer = null;
+      }, 500);
+      
       messageStore.setTyping($convexChannelStore.selectedChannelId);
     }
   }
+
+  function handleInput(e: Event) {
+    const target = e.target as HTMLInputElement;
+    const value = target.value;
+    const cursorPos = target.selectionStart || 0;
+
+    // Check for @mention
+    const textBeforeCursor = value.slice(0, cursorPos);
+    const lastAtIndex = textBeforeCursor.lastIndexOf('@');
+
+    if (lastAtIndex !== -1) {
+      const textAfterAt = textBeforeCursor.slice(lastAtIndex + 1);
+      // Only show dropdown if there's no space after @
+      if (!textAfterAt.includes(' ') && textAfterAt.length < 20) {
+        mentionQuery = textAfterAt.toLowerCase();
+        mentionStartIndex = lastAtIndex;
+        showMentionDropdown = true;
+      } else {
+        showMentionDropdown = false;
+      }
+    } else {
+      showMentionDropdown = false;
+    }
+
+    handleTyping();
+  }
+
+  function insertMention(username: string) {
+    const beforeMention = messageInput.slice(0, mentionStartIndex);
+    const afterMention = messageInput.slice(messageInput.selectionStart || mentionStartIndex);
+    messageInput = beforeMention + '@' + username + ' ' + afterMention;
+    showMentionDropdown = false;
+    
+    // Focus back on input and set cursor position
+    setTimeout(() => {
+      const inputEl = document.querySelector('.message-input') as HTMLInputElement;
+      if (inputEl) {
+        const newPos = mentionStartIndex + username.length + 2;
+        inputEl.focus();
+        inputEl.setSelectionRange(newPos, newPos);
+      }
+    }, 0);
+  }
+
+  $: filteredMembers = showMentionDropdown && mentionQuery
+    ? $memberStore.members.filter(m => 
+        m.username.toLowerCase().startsWith(mentionQuery) ||
+        m.username.toLowerCase().includes(mentionQuery)
+      ).slice(0, 5)
+    : [];
 
   function handleKeyDown(e: KeyboardEvent) {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -368,6 +458,14 @@
           <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
         </svg>
       </div>
+      <button
+        type="button"
+        on:click={() => showProfileDrawer = true}
+        class="p-1 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
+        aria-label="Open profile"
+      >
+        <Avatar alt={$authStore.user?.username || 'User'} size="sm" status="online" />
+      </button>
       <div>
         <h3 class="text-[15px] font-semibold text-white tracking-tight leading-tight">
           #{selectedChannel?.name || 'general'}
@@ -634,15 +732,33 @@
         GIF
       </button>
 
-      <div class="flex-1">
+      <div class="flex-1 relative">
+        {#if showMentionDropdown && filteredMembers.length > 0}
+          <div class="absolute bottom-full left-0 mb-2 w-64 bg-[#1a1a1a] border border-white/10 rounded-xl shadow-2xl overflow-hidden z-50">
+            {#each filteredMembers as member}
+              <button
+                type="button"
+                on:click={() => insertMention(member.username)}
+                class="w-full px-4 py-2.5 text-left hover:bg-white/5 transition-colors flex items-center gap-3"
+              >
+                <Avatar alt={member.username} size="xs" status={null} />
+                <span class="text-sm text-white">{member.username}</span>
+                {#if member.role === 'admin'}
+                  <span class="text-[10px] text-white/40 uppercase">Admin</span>
+                {/if}
+              </button>
+            {/each}
+          </div>
+        {/if}
         <Input
           type="text"
           bind:value={messageInput}
-          on:input={handleTyping}
+          on:input={handleInput}
           on:keydown={handleKeyDown}
-          placeholder="Message the band..."
+          placeholder="Message the band... (type !report [message] to report an issue)"
           maxlength={2000}
           autocomplete="off"
+          class="message-input"
         />
       </div>
       <button
@@ -658,6 +774,18 @@
         </svg>
       </button>
     </div>
+
+    <!-- Ephemeral message display (for !report confirmation) -->
+    {#if ephemeralMessage}
+      <div class="px-4 pb-2 shrink-0">
+        <div class="flex items-center gap-2 text-sm text-green-400 bg-green-500/10 border border-green-500/20 rounded-lg px-3 py-2">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="20 6 9 17 4 12" />
+          </svg>
+          {ephemeralMessage}
+        </div>
+      </div>
+    {/if}
   </div>
 </div>
 
@@ -691,6 +819,13 @@
       showThread = false;
       threadMessage = null;
     }}
+  />
+{/if}
+
+{#if showProfileDrawer}
+  <ProfileDrawer
+    open={showProfileDrawer}
+    onClose={() => showProfileDrawer = false}
   />
 {/if}
 
@@ -737,13 +872,14 @@
           </h3>
           <div class="space-y-1">
             {#each $convexChannelStore.channels as channel}
-              <!-- svelte-ignore a11y_no_static_element_interactions -->
+              <!-- svelte-ignore a11y_click_events_have_key_events -->
               <div
+                on:click={() => selectChannel(channel.id)}
                 on:touchstart={(e) => handleMobileChannelTouchStart(e, channel)}
                 on:touchmove={handleMobileChannelTouchMove}
                 on:touchend={(e) => handleMobileChannelTouchEnd(e, channel)}
                 on:touchcancel={(e) => handleMobileChannelTouchEnd(e, channel)}
-                class="flex items-center gap-3 w-full px-3 py-3 rounded-xl transition-colors {$convexChannelStore.selectedChannelId === channel.id ? 'bg-white/10 text-white' : 'text-white/50 hover:bg-white/5 hover:text-white/70'}"
+                class="flex items-center gap-3 w-full px-3 py-3 rounded-xl transition-colors cursor-pointer {$convexChannelStore.selectedChannelId === channel.id ? 'bg-white/10 text-white' : 'text-white/50 hover:bg-white/5 hover:text-white/70'}"
                 style="-webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; touch-action: manipulation;"
               >
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
