@@ -475,7 +475,7 @@
 <!-- svelte-ignore a11y_click_events_have_key_events -->
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div 
-  class="flex-1 flex flex-col min-w-0 min-h-0 message-area-container relative" 
+  class="flex-1 flex flex-col min-w-0 min-h-0 message-area-container" 
   style="padding-top: env(safe-area-inset-top);"
   on:click={(e) => {
     // Dismiss keyboard and dropdowns when tapping message area
@@ -491,7 +491,7 @@
   }}
 >
   <!-- Header -->
-  <div class="h-14 flex items-center justify-between px-4 border-b border-white/10 shrink-0 sticky top-0 bg-[#0a0a0a] z-[50] message-area-header">
+  <div class="h-14 flex items-center justify-between px-4 border-b border-white/10 shrink-0 relative message-area-header" style="z-index: 100;">
     <div class="flex items-center gap-3">
       <!-- Mobile channels button -->
       <button
@@ -740,8 +740,8 @@
   <div 
     bind:this={messageContainer} 
     on:scroll={handleScroll} 
-    class="overflow-y-auto overflow-x-hidden py-3 message-area-messages absolute inset-0" 
-    style="-webkit-overflow-scrolling: touch; overscroll-behavior: contain; touch-action: pan-y;"
+    class="overflow-y-auto overflow-x-hidden py-3 message-area-messages" 
+    style="flex: 1 1 0; min-height: 0; height: 100%; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; touch-action: pan-y;"
   >
     {#each $messageStore.messages as message, i (message.id)}
       {@const prev = i > 0 ? $messageStore.messages[i - 1] : null}
@@ -775,7 +775,7 @@
   {/if}
 
   <!-- Input area -->
-  <div class="px-4 pb-3 md:pb-4 shrink-0 sticky bottom-0 bg-[#0a0a0a] z-[50]">
+  <div class="px-4 pb-3 md:pb-4 shrink-0">
     <div class="relative flex items-end gap-2">
       <!-- GIF Button -->
       <button
