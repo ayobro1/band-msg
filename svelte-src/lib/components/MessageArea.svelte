@@ -475,7 +475,7 @@
 <!-- svelte-ignore a11y_click_events_have_key_events -->
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div 
-  class="flex-1 flex flex-col min-w-0 message-area-container" 
+  class="flex-1 flex flex-col min-w-0 min-h-0 message-area-container" 
   style="padding-top: env(safe-area-inset-top);"
   on:click={(e) => {
     // Dismiss keyboard and dropdowns when tapping message area
