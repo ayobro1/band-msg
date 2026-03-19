@@ -56,6 +56,7 @@
     if ($convexChannelStore.selectedChannelId) {
       console.log('[Page] Loading messages for channel:', $convexChannelStore.selectedChannelId);
       console.log('[Page] Session token available:', !!$convexMessageStore.sessionToken);
+      convexMessageStore.subscribeToTyping($convexChannelStore.selectedChannelId);
       await convexMessageStore.loadMessages($convexChannelStore.selectedChannelId);
     } else {
       console.log('[Page] No channel selected, skipping message load');

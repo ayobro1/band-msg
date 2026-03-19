@@ -38,6 +38,7 @@ function createConvexMessageStore() {
   let typingUnsubscribe: (() => void) | null = null;
   let currentSessionToken: string | null = null;
   let typingTimer: ReturnType<typeof setTimeout> | null = null;
+  let currentTypingChannelId: string | null = null;
 
   return {
     subscribe,
@@ -71,7 +72,7 @@ function createConvexMessageStore() {
           sessionToken: currentSessionToken
         });
         console.log('[Convex] Initial messages loaded:', initialMessages.length, 'messages');
-        set({ messages: initialMessages, isLoading: false, sessionToken: currentSessionToken, typingUsers: [] });
+        update(state => ({ messages: initialMessages, isLoading: false, sessionToken: currentSessionToken, typingUsers: state.typingUsers }));
 
         // Then subscribe to real-time updates
         unsubscribe = convex.onUpdate(
@@ -79,7 +80,7 @@ function createConvexMessageStore() {
           { channelId: channelId as Id<"channels">, sessionToken: currentSessionToken },
           (messages) => {
             console.log('[Convex] Messages updated:', messages.length, 'messages');
-            set({ messages, isLoading: false, sessionToken: currentSessionToken, typingUsers: [] });
+            update(state => ({ messages, isLoading: false, sessionToken: currentSessionToken, typingUsers: state.typingUsers }));
           }
         );
       } catch (error) {
@@ -205,18 +206,25 @@ function createConvexMessageStore() {
     },
 
     subscribeToTyping(channelId: string) {
-      if (!currentSessionToken) return () => {};
+      if (!currentSessionToken) return;
 
+      // Unsubscribe from previous typing subscription
       if (typingUnsubscribe) {
         typingUnsubscribe();
+        typingUnsubscribe = null;
       }
+
+      currentTypingChannelId = channelId;
 
       // First, get initial typing users
       convex.query(api.typing.getTypingUsers, {
         channelId: channelId as Id<"channels">,
         sessionToken: currentSessionToken
       }).then(usernames => {
-        update(state => ({ ...state, typingUsers: usernames || [] }));
+        // Only update if still subscribed to this channel
+        if (currentTypingChannelId === channelId) {
+          update(state => ({ ...state, typingUsers: usernames || [] }));
+        }
       }).catch(console.error);
 
       // Then subscribe to updates
@@ -224,16 +232,21 @@ function createConvexMessageStore() {
         api.typing.getTypingUsers,
         { channelId: channelId as Id<"channels">, sessionToken: currentSessionToken },
         (usernames) => {
-          update(state => ({ ...state, typingUsers: usernames || [] }));
+          // Only update if still subscribed to this channel
+          if (currentTypingChannelId === channelId) {
+            update(state => ({ ...state, typingUsers: usernames || [] }));
+          }
         }
       );
+    },
 
-      return () => {
-        if (typingUnsubscribe) {
-          typingUnsubscribe();
-          typingUnsubscribe = null;
-        }
-      };
+    unsubscribeFromTyping() {
+      if (typingUnsubscribe) {
+        typingUnsubscribe();
+        typingUnsubscribe = null;
+      }
+      currentTypingChannelId = null;
+      update(state => ({ ...state, typingUsers: [] }));
     },
 
     cleanup() {
@@ -241,6 +254,11 @@ function createConvexMessageStore() {
         unsubscribe();
         unsubscribe = null;
       }
+      if (typingUnsubscribe) {
+        typingUnsubscribe();
+        typingUnsubscribe = null;
+      }
+      currentTypingChannelId = null;
     }
   };
 }

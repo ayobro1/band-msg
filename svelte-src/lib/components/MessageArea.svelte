@@ -88,6 +88,8 @@
     lastLoadedChannelId = $convexChannelStore.selectedChannelId;
     shouldAutoScroll = true;
     console.log('[MessageArea] Channel changed to:', $convexChannelStore.selectedChannelId);
+    messageStore.subscribeToTyping($convexChannelStore.selectedChannelId);
+    messageStore.loadMessages($convexChannelStore.selectedChannelId);
   }
   
   // Track new messages and auto-scroll ONLY if user is already at bottom
