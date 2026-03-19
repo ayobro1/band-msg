@@ -96,65 +96,8 @@ export async function requestNotificationPermission(): Promise<string | null> {
       return null;
     }
     
-    // iOS uses native push API, not Firebase
-    if (isIOS()) {
-      console.log('[Firebase] iOS detected - using native push API');
-      
-      // For iOS, we need to use the service worker's pushManager
-      if (!swRegistration) {
-        console.log('[Firebase] Getting service worker registration...');
-        swRegistration = await registerServiceWorker();
-      }
-      
-      if (!swRegistration) {
-        console.error('[Firebase] Service worker not registered');
-        return null;
-      }
-      
-      // Check if already subscribed
-      let subscription = await swRegistration.pushManager.getSubscription();
-      
-      if (!subscription) {
-        // Subscribe using VAPID key
-        const vapidKey = import.meta.env.VITE_FIREBASE_VAPID_KEY;
-        if (!vapidKey) {
-          console.error('[Firebase] VAPID key missing');
-          return null;
-        }
-        
-        subscription = await swRegistration.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(vapidKey) as unknown as BufferSource
-        });
-      }
-      
-      // Convert subscription to a token-like string for storage
-      const subscriptionJSON = subscription.toJSON();
-      const endpoint = subscriptionJSON.endpoint || '';
-      const p256dh = subscriptionJSON.keys?.p256dh || '';
-      const auth = subscriptionJSON.keys?.auth || '';
-      
-      console.log('[Firebase] iOS push subscription details:', {
-        hasEndpoint: !!endpoint,
-        hasP256dh: !!p256dh,
-        hasAuth: !!auth
-      });
-      
-      // Store the full subscription data
-      if (!endpoint) {
-        console.error('[Firebase] No endpoint in subscription');
-        return null;
-      }
-      
-      // Return endpoint as the "token" but we'll store keys separately
-      return JSON.stringify({
-        endpoint,
-        p256dh,
-        auth
-      });
-    }
-    
-    // Non-iOS: use Firebase Cloud Messaging
+    // Use Firebase Cloud Messaging for all platforms (including iOS)
+    // Firebase handles the complexity of APNs for iOS
     console.log('[Firebase] Getting Firebase Messaging instance...');
     const messaging = getFirebaseMessaging();
     if (!messaging) {
@@ -226,26 +169,12 @@ export async function subscribeToPushNotifications(): Promise<{ success: boolean
       return { success: false, error: 'Not authenticated' };
     }
 
-    // Parse subscription data (could be FCM token or iOS subscription object)
-    let endpoint, p256dh, auth;
-    
-    try {
-      const parsed = JSON.parse(tokenOrSubscription);
-      endpoint = parsed.endpoint;
-      p256dh = parsed.p256dh;
-      auth = parsed.auth;
-    } catch {
-      // It's a plain FCM token
-      endpoint = tokenOrSubscription;
-      p256dh = 'fcm';
-      auth = 'fcm';
-    }
-
+    // tokenOrSubscription is now always a plain FCM token
     await convex.mutation(api.pushSubscriptions.subscribe, {
       sessionToken,
-      endpoint,
-      p256dhKey: p256dh,
-      authKey: auth
+      endpoint: tokenOrSubscription,
+      p256dhKey: 'fcm',
+      authKey: 'fcm'
     });
     
     return { success: true };

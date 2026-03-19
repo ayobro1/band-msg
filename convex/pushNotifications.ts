@@ -3,7 +3,6 @@
 import { v } from "convex/values";
 import { action } from "./_generated/server";
 import { api } from "./_generated/api";
-import webpush from "web-push";
 
 // Action to send push notifications via Firebase Cloud Messaging HTTP v1 API
 export const sendPushNotifications = action({
@@ -81,133 +80,60 @@ export const sendPushNotifications = action({
 
       console.log("[sendPushNotifications] Access token obtained successfully");
 
-      // Get VAPID keys for native Web Push
-      const vapidPublicKey = process.env.VITE_FIREBASE_VAPID_KEY;
-      const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
-
-      // Send to each token
+      // Send to each FCM token
       const results = await Promise.allSettled(
         subscriptions.map(async (sub) => {
           try {
             const endpoint = sub.endpoint;
-            const isFCMToken = sub.p256dhKey === 'fcm' && sub.authKey === 'fcm';
-            const isNativeWebPush = !isFCMToken;
             
-            console.log(`[sendPushNotifications] Sending to ${isNativeWebPush ? 'native Web Push' : 'FCM'}: ${endpoint.substring(0, 30)}...`);
+            console.log(`[sendPushNotifications] Sending to FCM: ${endpoint.substring(0, 30)}...`);
 
-            if (isFCMToken) {
-              // Send via Firebase Cloud Messaging HTTP v1 API
-              const response = await fetch(
-                `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`,
-                {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${accessToken}`,
-                  },
-                  body: JSON.stringify({
-                    message: {
-                      token: endpoint,
+            // Send via Firebase Cloud Messaging HTTP v1 API
+            const response = await fetch(
+              `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`,
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  "Authorization": `Bearer ${accessToken}`,
+                },
+                body: JSON.stringify({
+                  message: {
+                    token: endpoint,
+                    notification: {
+                      title: notificationTitle,
+                      body: notificationBody,
+                    },
+                    data: {
+                      channelId: args.channelId,
+                      messageId: args.messageId,
+                    },
+                    webpush: {
                       notification: {
-                        title: notificationTitle,
-                        body: notificationBody,
+                        icon: "/notification-icon.png",
+                        badge: "/notification-icon.png",
+                        tag: args.channelId,
                       },
-                      data: {
-                        channelId: args.channelId,
-                        messageId: args.messageId,
-                      },
-                      webpush: {
-                        notification: {
-                          icon: "/notification-icon.png",
-                          badge: "/notification-icon.png",
-                          tag: args.channelId,
-                        },
-                        fcm_options: {
-                          link: "/",
-                        },
+                      fcm_options: {
+                        link: "/",
                       },
                     },
-                  }),
-                }
-              );
-
-              if (!response.ok) {
-                const errorText = await response.text();
-                console.error("[sendPushNotifications] FCM error:", {
-                  status: response.status,
-                  statusText: response.statusText,
-                  error: errorText,
-                  token: endpoint.substring(0, 30) + "..."
-                });
-              } else {
-                const result = await response.json();
-                console.log("[sendPushNotifications] Successfully sent to:", endpoint.substring(0, 30) + "...", result);
+                  },
+                }),
               }
+            );
+
+            if (!response.ok) {
+              const errorText = await response.text();
+              console.error("[sendPushNotifications] FCM error:", {
+                status: response.status,
+                statusText: response.statusText,
+                error: errorText,
+                token: endpoint.substring(0, 30) + "..."
+              });
             } else {
-              // Send via native Web Push (for iOS)
-              if (!vapidPublicKey || !vapidPrivateKey) {
-                console.error("[sendPushNotifications] VAPID keys not configured for native Web Push");
-                return;
-              }
-
-              // Set VAPID details
-              webpush.setVapidDetails(
-                'mailto:support@band-chat.app',
-                vapidPublicKey,
-                vapidPrivateKey
-              );
-
-              // Validate keys exist
-              if (!sub.p256dhKey || !sub.authKey) {
-                console.error("[sendPushNotifications] Missing encryption keys for iOS subscription");
-                return;
-              }
-
-              console.log("[sendPushNotifications] iOS subscription keys:", {
-                endpoint: endpoint.substring(0, 50),
-                p256dhKeyLength: sub.p256dhKey.length,
-                authKeyLength: sub.authKey.length,
-                p256dhSample: sub.p256dhKey.substring(0, 20),
-                authSample: sub.authKey.substring(0, 20)
-              });
-
-              // Create push subscription object with proper key format
-              const pushSubscription = {
-                endpoint: endpoint,
-                keys: {
-                  p256dh: sub.p256dhKey,
-                  auth: sub.authKey
-                }
-              };
-
-              // Prepare notification payload
-              const payload = JSON.stringify({
-                title: notificationTitle,
-                body: notificationBody,
-                icon: "/notification-icon.png",
-                badge: "/notification-icon.png",
-                tag: args.channelId,
-                data: {
-                  channelId: args.channelId,
-                  messageId: args.messageId,
-                  url: "/"
-                }
-              });
-
-              try {
-                await webpush.sendNotification(pushSubscription, payload);
-                console.log("[sendPushNotifications] Successfully sent native Web Push to:", endpoint.substring(0, 50) + "...");
-              } catch (error: any) {
-                console.error("[sendPushNotifications] Native Web Push error:", {
-                  error: error.message,
-                  statusCode: error.statusCode,
-                  endpoint: endpoint.substring(0, 50) + "...",
-                  hasP256dh: !!sub.p256dhKey,
-                  hasAuth: !!sub.authKey,
-                  p256dhLength: sub.p256dhKey?.length,
-                  authLength: sub.authKey?.length
-                });
-              }
+              const result = await response.json();
+              console.log("[sendPushNotifications] Successfully sent to:", endpoint.substring(0, 30) + "...", result);
             }
           } catch (error: any) {
             console.error("[sendPushNotifications] Error sending to subscription:", error.message);
