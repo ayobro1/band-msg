@@ -7,6 +7,7 @@
   import AuthScreen from '../lib/components/AuthScreen.svelte';
   import PWAInstallGuide from '../lib/components/PWAInstallGuide.svelte';
   import UsernameSetup from '../lib/components/UsernameSetup.svelte';
+  import PendingSetup from '../lib/components/PendingSetup.svelte';
   import { authStore } from '../lib/stores/auth';
   import { convexChannelStore } from '../lib/stores/convexChannels';
   import { convexMessageStore } from '../lib/stores/convexMessages';
@@ -202,8 +203,10 @@
     suggestedUsername={$authStore.user?.username || ''}
     on:complete={handleUsernameSetupComplete}
   />
-{:else if !$authStore.user || $authStore.user?.status === 'pending'}
-  <AuthScreen on:pending={startApprovalPolling} />
+{:else if !$authStore.user}
+  <AuthScreen />
+{:else if $authStore.user?.status === 'pending'}
+  <PendingSetup />
 {:else}
   <div class="w-full h-screen flex overflow-hidden bg-black text-white antialiased">
     <!-- Channel Sidebar -->

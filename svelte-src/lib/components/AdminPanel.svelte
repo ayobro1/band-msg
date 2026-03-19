@@ -209,6 +209,21 @@
       isLoading = false;
     }
   }
+
+  async function approveUser(userId: string) {
+    console.log('[AdminPanel] Approving user:', userId);
+    if (!sessionToken || isLoading) return;
+    isLoading = true;
+    try {
+      await convex.mutation(api.auth.approveUser, { sessionToken, userId: userId as Id<"users"> });
+      console.log('[AdminPanel] Approve successful, reloading data...');
+      await loadData();
+    } catch (error) {
+      console.error('[AdminPanel] Failed to approve user:', error);
+    } finally {
+      isLoading = false;
+    }
+  }
 </script>
 
 <!-- Unified Drawer for Mobile and Desktop -->
@@ -280,12 +295,18 @@
                           <p class="font-medium text-white text-sm truncate">{user.username}</p>
                           {#if user.role === 'admin'}
                             <span class="px-1.5 py-0.5 bg-white/10 text-white/60 rounded text-xs font-medium">Admin</span>
+                          {:else if user.status === 'pending'}
+                            <span class="px-1.5 py-0.5 bg-yellow-500/20 text-yellow-400 rounded text-xs font-medium">Pending</span>
                           {/if}
                         </div>
                         <p class="text-xs text-white/35">{user.email || 'No email'} • {user.status}</p>
                       </div>
                       <div class="flex gap-2 shrink-0">
-                        {#if user.role === 'admin'}
+                        {#if user.status === 'pending'}
+                          <button type="button" on:click|stopPropagation={() => approveUser(user.id)} disabled={isLoading} class="px-3 py-1.5 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors text-xs font-semibold disabled:opacity-50">
+                            Approve
+                          </button>
+                        {:else if user.role === 'admin'}
                           <button type="button" on:click|stopPropagation={() => demoteUser(user.id)} disabled={isLoading} class="px-3 py-1.5 bg-white/10 text-white rounded-lg hover:bg-white/20 transition-colors text-xs font-medium disabled:opacity-50">
                             Demote
                           </button>

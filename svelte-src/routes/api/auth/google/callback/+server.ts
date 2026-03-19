@@ -128,6 +128,11 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
     }
     
     setSessionCookie(cookies, sessionToken);
+    
+    // Redirect pending users to setup page, approved users to home
+    if (user.status === 'pending' || user.needs_username_setup) {
+      throw redirect(302, '/pending-setup');
+    }
     throw redirect(302, '/');
   } catch (error) {
     console.error('Google OAuth Error:', error);
