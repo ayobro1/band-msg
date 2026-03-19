@@ -1,0 +1,44 @@
+name: Sync Reports to Issues
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 */6 * * *'  # Every 6 hours
+
+jobs:
+  sync-reports:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Fetch Reports from Convex
+        run: node scripts/fetch-reports.js
+        env:
+          CONVEX_URL: ${{ secrets.CONVEX_URL }}
+
+      - name: Create Pull Request with Reports
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "Update bug reports from Convex"
+          title: "Bug Reports Update $(date +'%Y-%m-%d %H:%M')"
+          body: |
+            ## Bug Reports from Convex
+            
+            This PR syncs the latest bug reports from the Convex database.
+            
+            See attached REPORTS.md for the full list.
+          branch: reports/update
+          delete-branch: true
+          add-paths: |
+            REPORTS.md
