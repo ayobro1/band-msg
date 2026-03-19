@@ -220,6 +220,7 @@
   }
 
   function handleTyping() {
+    console.log('[handleTyping] called, channelId:', $convexChannelStore.selectedChannelId);
     if ($convexChannelStore.selectedChannelId) {
       // Debounce typing indicator calls to prevent spamming
       if (typingDebounceTimer) return;

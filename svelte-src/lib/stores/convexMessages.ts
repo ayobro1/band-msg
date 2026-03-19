@@ -200,8 +200,8 @@ function createConvexMessageStore() {
         typingTimer = setTimeout(() => {
           this.stopTyping(channelId);
         }, 3000);
-      } catch {
-        // Silently ignore - typing API may not be deployed yet
+      } catch (error) {
+        console.error('[setTyping] Error:', error);
       }
     },
 
@@ -217,8 +217,8 @@ function createConvexMessageStore() {
           channelId: channelId as Id<"channels">,
           sessionToken: currentSessionToken
         });
-      } catch {
-        // Silently ignore - typing API may not be deployed yet
+      } catch (error) {
+        console.error('[stopTyping] Error:', error);
       }
     },
 
