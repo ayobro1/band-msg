@@ -1,8 +1,11 @@
 import Pusher from 'pusher';
+import { ensureServerEnv } from './env';
 
 let pusherInstance: Pusher | null = null;
 
 export function getPusher(): Pusher | null {
+  ensureServerEnv();
+
   const appId = process.env.PUSHER_APP_ID;
   const key = process.env.PUSHER_KEY;
   const secret = process.env.PUSHER_SECRET;

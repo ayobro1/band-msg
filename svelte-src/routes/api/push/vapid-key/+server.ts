@@ -1,3 +1,5 @@
+import { ensureServerEnv } from "$lib/server/env";
+
 const toJson = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
     status,
@@ -5,6 +7,7 @@ const toJson = (body: unknown, status = 200) =>
   });
 
 export const GET = async () => {
+  ensureServerEnv();
   let vapidPublicKey = process.env.VAPID_PUBLIC_KEY;
 
   // Generate keys if not configured (for development)

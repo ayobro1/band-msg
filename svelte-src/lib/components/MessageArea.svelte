@@ -53,7 +53,12 @@
   let mobileMovedTooMuch = false;
   let mobileLongPressTriggered = false;
   let isKeyboardVisible = false;
+  let mobileOverlayOpen = false;
   let messageInputEl: HTMLTextAreaElement | null = null;
+  let scrollFrameOne: number | null = null;
+  let scrollFrameTwo: number | null = null;
+  let channelLoadSlow = false;
+  let channelLoadTimer: ReturnType<typeof setTimeout> | null = null;
 
   function syncComposerHeight() {
     if (!messageInputEl) return;
@@ -62,18 +67,50 @@
     messageInputEl.style.height = `${Math.min(messageInputEl.scrollHeight, 160)}px`;
   }
 
+  function clearChannelLoadTimer() {
+    if (channelLoadTimer) {
+      clearTimeout(channelLoadTimer);
+      channelLoadTimer = null;
+    }
+  }
+
   function openThread(message: any) {
+    closeMobileChrome();
     threadMessage = message;
     showThread = true;
+  }
+
+  function cancelQueuedScroll() {
+    if (scrollFrameOne !== null) {
+      cancelAnimationFrame(scrollFrameOne);
+      scrollFrameOne = null;
+    }
+
+    if (scrollFrameTwo !== null) {
+      cancelAnimationFrame(scrollFrameTwo);
+      scrollFrameTwo = null;
+    }
+  }
+
+  function closeMobileChrome() {
+    showMobileChannels = false;
+    showMobileMembers = false;
+    showSettingsMenu = false;
+    showMobileChannelMenu = false;
+    showMobileDeleteConfirm = false;
+    mobileChannelToDelete = null;
+    mobileMenuChannel = null;
+    isMobileRenaming = false;
   }
   
   onMount(() => {
     themeStore.init();
     syncComposerHeight();
+    let handleViewportChange: (() => void) | null = null;
     
     // Handle visual viewport changes (keyboard opening/closing on mobile)
     if (typeof visualViewport !== 'undefined') {
-      const handleViewportChange = () => {
+      handleViewportChange = () => {
         const viewport = visualViewport!;
         const keyboardHeight = window.innerHeight - viewport.height;
         isKeyboardVisible = keyboardHeight > 100;
@@ -90,21 +127,55 @@
       
       visualViewport.addEventListener('resize', handleViewportChange);
       visualViewport.addEventListener('scroll', handleViewportChange);
-      
-      return () => {
+    }
+
+    return () => {
+      cancelQueuedScroll();
+      clearChannelLoadTimer();
+      if (handleViewportChange && typeof visualViewport !== 'undefined') {
         visualViewport.removeEventListener('resize', handleViewportChange);
         visualViewport.removeEventListener('scroll', handleViewportChange);
-      };
-    }
+      }
+    };
   });
 
   $: selectedChannel = $convexChannelStore.channels.find(
     c => c.id === $convexChannelStore.selectedChannelId
   );
 
+  $: mobileOverlayOpen =
+    showMobileChannels ||
+    showMobileMembers ||
+    showSettingsMenu ||
+    showMobileChannelMenu ||
+    showMobileDeleteConfirm ||
+    showAdminPanel ||
+    showCalendar ||
+    showNotificationSettings ||
+    showGiphy ||
+    showCreateChannel ||
+    showThread ||
+    showProfileDrawer;
+
+  $: {
+    const waitingForChannels =
+      $convexChannelStore.isLoading && $convexChannelStore.channels.length === 0;
+
+    if (waitingForChannels) {
+      if (!channelLoadTimer) {
+        channelLoadTimer = setTimeout(() => {
+          channelLoadSlow = true;
+        }, 1800);
+      }
+    } else {
+      clearChannelLoadTimer();
+      channelLoadSlow = false;
+    }
+  }
+
   // Check if user is near bottom to enable auto-scroll
   function handleScroll() {
-    if (!messageContainer) return;
+    if (!messageContainer || mobileOverlayOpen) return;
     const { scrollTop, scrollHeight, clientHeight } = messageContainer;
     const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
     shouldAutoScroll = distanceFromBottom < 100;
@@ -112,36 +183,52 @@
 
   async function scrollToBottom(force = false) {
     await tick();
+    cancelQueuedScroll();
 
-    if (!force && !shouldAutoScroll) return;
+    scrollFrameOne = requestAnimationFrame(() => {
+      scrollFrameTwo = requestAnimationFrame(() => {
+        scrollFrameOne = null;
+        scrollFrameTwo = null;
 
-    if (messageContainer) {
-      messageContainer.scrollTop = messageContainer.scrollHeight;
-    }
+        if (!messageContainer) return;
+        if (!force && (!shouldAutoScroll || mobileOverlayOpen)) return;
+
+        messageContainer.scrollTop = messageContainer.scrollHeight;
+      });
+    });
   }
 
   let scrolledChannelId = '';
   let lastMessageCount = 0;
+  let initialScrollDoneForChannel = '';
 
   $: if (($convexChannelStore.selectedChannelId ?? '') !== scrolledChannelId) {
     scrolledChannelId = $convexChannelStore.selectedChannelId ?? '';
     shouldAutoScroll = true;
     lastMessageCount = 0;
+    initialScrollDoneForChannel = '';
+    cancelQueuedScroll();
   }
 
   $: {
     const selectedChannelId = $convexChannelStore.selectedChannelId;
     const messageCount = $messageStore.messages.length;
+    const finishedInitialLoad =
+      !!selectedChannelId &&
+      !$messageStore.isLoading &&
+      messageCount > 0;
 
     if (!selectedChannelId) {
       lastMessageCount = messageCount;
-    } else if (messageCount > 0 && lastMessageCount === 0) {
+      initialScrollDoneForChannel = '';
+    } else if (finishedInitialLoad && initialScrollDoneForChannel !== selectedChannelId) {
+      initialScrollDoneForChannel = selectedChannelId;
       lastMessageCount = messageCount;
       void scrollToBottom(true);
     } else if (messageCount > lastMessageCount) {
       lastMessageCount = messageCount;
       void scrollToBottom(false);
-    } else if (messageCount < lastMessageCount) {
+    } else if (messageCount !== lastMessageCount) {
       lastMessageCount = messageCount;
     }
   }
@@ -207,7 +294,6 @@
   }
 
   function handleTyping() {
-    console.log('[handleTyping] called, channelId:', $convexChannelStore.selectedChannelId);
     if ($convexChannelStore.selectedChannelId) {
       // Debounce typing indicator calls to prevent spamming
       if (typingDebounceTimer) return;
@@ -279,11 +365,80 @@
     }
   }
 
+  function openMobileActions() {
+    closeMobileChrome();
+    showSettingsMenu = true;
+  }
+
+  function openMobileChannelsPanel() {
+    closeMobileChrome();
+    showMobileChannels = true;
+  }
+
+  function openMobileMembersPanel() {
+    closeMobileChrome();
+    showMobileMembers = true;
+  }
+
+  function openMobileCreateChannel() {
+    closeMobileChrome();
+    showCreateChannel = true;
+  }
+
+  async function retryChannelStartup() {
+    await Promise.all([
+      convexChannelStore.loadChannels(),
+      memberStore.loadMembers()
+    ]);
+  }
+
+  function openMobileNotifications() {
+    closeMobileChrome();
+    showNotificationSettings = true;
+  }
+
+  function openMobileCalendar() {
+    closeMobileChrome();
+    showCalendar = true;
+  }
+
+  function openMobileAdminPanel() {
+    closeMobileChrome();
+    showAdminPanel = true;
+  }
+
+  function openGiphyPicker() {
+    closeMobileChrome();
+    showGiphy = true;
+  }
+
+  function handleComposerFocus() {
+    closeMobileChrome();
+
+    if (typeof window === 'undefined' || window.innerWidth >= 768) {
+      return;
+    }
+
+    setTimeout(() => {
+      messageInputEl?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+
+      if (messageContainer && shouldAutoScroll) {
+        messageContainer.scrollTop = messageContainer.scrollHeight;
+      }
+    }, 180);
+  }
+
   async function selectChannel(channelId: string) {
+    closeMobileChrome();
+    showMentionDropdown = false;
+    showGiphy = false;
+    showThread = false;
+    threadMessage = null;
     shouldAutoScroll = true;
     lastMessageCount = 0;
+    initialScrollDoneForChannel = '';
+    cancelQueuedScroll();
     convexChannelStore.selectChannel(channelId);
-    showMobileChannels = false;
   }
 
   function clearMobileLongPress() {
@@ -443,7 +598,7 @@
 <!-- svelte-ignore a11y_click_events_have_key_events -->
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div 
-  class="flex-1 flex flex-col min-w-0 min-h-0 h-full overflow-hidden message-area-container" 
+  class="flex-1 flex flex-col min-w-0 min-h-0 h-full overflow-hidden message-area-container animate-content-in" 
   style="padding-top: env(safe-area-inset-top);"
   on:click={(e) => {
     // Dismiss keyboard and dropdowns when tapping message area
@@ -459,16 +614,15 @@
   }}
 >
   <!-- Header -->
-  <div class="h-14 flex items-center justify-between px-4 border-b border-white/10 shrink-0 relative message-area-header" style="z-index: 100;">
+  <div class="h-14 flex items-center justify-between px-4 border-b border-white/10 shrink-0 relative z-20 message-area-header backdrop-blur-sm bg-black/95 animate-slide-down">
     <div class="flex items-center gap-3">
       <!-- Mobile channels button -->
-      <button
-        type="button"
-        on:click={() => showMobileChannels = true}
-        class="lg:hidden p-2 rounded-lg text-white/40 hover:text-white hover:bg-white/5 touch-manipulation relative"
-        style="z-index: 101; pointer-events: auto;"
-        aria-label="Open channels"
-      >
+        <button
+          type="button"
+          on:click={openMobileChannelsPanel}
+          class="lg:hidden p-2 rounded-lg text-white/40 hover:text-white hover:bg-white/5 touch-manipulation relative transition-all duration-200 hover:scale-105 active:scale-95"
+          aria-label="Open channels"
+        >
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <line x1="3" y1="12" x2="21" y2="12" />
           <line x1="3" y1="6" x2="21" y2="6" />
@@ -492,12 +646,11 @@
     </div>
     <div class="flex items-center gap-0.5 relative">
       <!-- Compact menu for small screens -->
-      <div class="sm:hidden relative">
+      <div class="sm:hidden">
         <button
           type="button"
-          on:click={() => showSettingsMenu = !showSettingsMenu}
-          class="p-1.5 rounded-lg transition-colors text-white/40 hover:text-white hover:bg-white/5 touch-manipulation cursor-pointer relative"
-          style="z-index: 101; pointer-events: auto;"
+          on:click={openMobileActions}
+          class="p-1.5 rounded-lg transition-all duration-200 text-white/40 hover:text-white hover:bg-white/5 hover:scale-105 active:scale-95 touch-manipulation cursor-pointer relative"
           title="Menu"
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -506,98 +659,14 @@
             <circle cx="12" cy="19" r="1"/>
           </svg>
         </button>
-        
-        {#if showSettingsMenu}
-          <!-- svelte-ignore a11y_click_events_have_key_events -->
-          <!-- svelte-ignore a11y_no_static_element_interactions -->
-          <div class="fixed inset-0 z-[150]" on:click={() => showSettingsMenu = false}></div>
-          <div class="absolute right-0 top-full mt-2 w-48 bg-black border border-white/10 rounded-xl shadow-xl z-[151] py-2">
-            <button
-              type="button"
-              on:click={() => { showMobileMembers = true; showSettingsMenu = false; }}
-              class="w-full px-4 py-2.5 text-left text-sm text-white/70 hover:bg-white/5 hover:text-white flex items-center gap-3"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-                <circle cx="9" cy="7" r="4" />
-                <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-                <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-              </svg>
-              Members
-            </button>
-            <button
-              type="button"
-              on:click={() => { themeStore.toggle(); showSettingsMenu = false; }}
-              class="w-full px-4 py-2.5 text-left text-sm text-white/70 hover:bg-white/5 hover:text-white flex items-center gap-3"
-            >
-              {#if $themeStore === 'dark'}
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <circle cx="12" cy="12" r="5"/>
-                  <line x1="12" y1="1" x2="12" y2="3"/>
-                  <line x1="12" y1="21" x2="12" y2="23"/>
-                  <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
-                  <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
-                  <line x1="1" y1="12" x2="3" y2="12"/>
-                  <line x1="21" y1="12" x2="23" y2="12"/>
-                  <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
-                  <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
-                </svg>
-                Light Mode
-              {:else}
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-                </svg>
-                Dark Mode
-              {/if}
-            </button>
-            <button
-              type="button"
-              on:click={() => { showNotificationSettings = true; showSettingsMenu = false; }}
-              class="w-full px-4 py-2.5 text-left text-sm text-white/70 hover:bg-white/5 hover:text-white flex items-center gap-3"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-                <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-              </svg>
-              Notifications
-            </button>
-            <button
-              type="button"
-              on:click={() => { showCalendar = true; showSettingsMenu = false; }}
-              class="w-full px-4 py-2.5 text-left text-sm text-white/70 hover:bg-white/5 hover:text-white flex items-center gap-3"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-                <line x1="16" y1="2" x2="16" y2="6" />
-                <line x1="8" y1="2" x2="8" y2="6" />
-                <line x1="3" y1="10" x2="21" y2="10" />
-              </svg>
-              Calendar
-            </button>
-            {#if $authStore.user?.role === 'admin'}
-              <button
-                type="button"
-                on:click={() => { showAdminPanel = true; showSettingsMenu = false; }}
-                class="w-full px-4 py-2.5 text-left text-sm text-white/70 hover:bg-white/5 hover:text-white flex items-center gap-3"
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" />
-                  <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
-                </svg>
-                Admin Panel
-              </button>
-            {/if}
-          </div>
-        {/if}
       </div>
 
       <!-- Individual icons for larger screens -->
       <div class="hidden sm:flex items-center gap-0.5">
       <button
         type="button"
-        on:click={() => showMobileMembers = true}
+        on:click={openMobileMembersPanel}
         class="lg:hidden p-1.5 rounded-lg transition-colors text-white/40 hover:text-white hover:bg-white/5 touch-manipulation cursor-pointer relative"
-        style="z-index: 101; pointer-events: auto;"
         title="Show Members"
       >
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -611,7 +680,6 @@
         type="button"
         on:click={() => themeStore.toggle()}
         class="p-1.5 rounded-lg transition-all duration-200 text-white/40 hover:text-white hover:bg-white/5 hover:scale-110 active:scale-95 touch-manipulation cursor-pointer relative"
-        style="z-index: 101; pointer-events: auto;"
         title="Toggle Theme"
       >
         {#if $themeStore === 'dark'}
@@ -636,7 +704,6 @@
         type="button"
         on:click|stopPropagation={() => { showNotificationSettings = true; }}
         class="p-1.5 rounded-lg transition-all duration-200 text-white/40 hover:text-white hover:bg-white/5 hover:scale-110 active:scale-95 touch-manipulation cursor-pointer relative"
-        style="z-index: 101; pointer-events: auto;"
         title="Notifications"
       >
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -648,7 +715,6 @@
         type="button"
         on:click|stopPropagation={() => { showCalendar = true; }}
         class="p-1.5 rounded-lg transition-all duration-200 text-white/40 hover:text-white hover:bg-white/5 hover:scale-110 active:scale-95 touch-manipulation cursor-pointer relative"
-        style="z-index: 101; pointer-events: auto;"
         title="Calendar"
       >
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -663,7 +729,6 @@
           type="button"
           on:click|stopPropagation={() => { showAdminPanel = true; }}
           class="p-1.5 rounded-lg transition-all duration-200 text-white/40 hover:text-white hover:bg-white/5 hover:scale-110 active:scale-95 touch-manipulation cursor-pointer relative"
-          style="z-index: 101; pointer-events: auto;"
           title="Admin Panel"
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -676,13 +741,12 @@
         type="button"
         on:click={() => {
           if (window.innerWidth < 1024) {
-            showMobileMembers = true;
+            openMobileMembersPanel();
           } else {
             memberStore.toggleUserList();
           }
         }}
         class="p-1.5 rounded-lg transition-colors {$memberStore.showUserList ? 'text-white bg-white/10' : 'text-white/40 hover:text-white hover:bg-white/5'} relative"
-        style="z-index: 101; pointer-events: auto;"
         title="Members"
       >
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -700,10 +764,71 @@
   <div 
     bind:this={messageContainer} 
     on:scroll={handleScroll} 
-    class="overflow-y-auto overflow-x-hidden py-3 message-area-messages flex-1 min-h-0" 
-    style="-webkit-overflow-scrolling: touch; overscroll-behavior: contain; touch-action: pan-y;"
+    class="overflow-y-auto overflow-x-hidden py-3 message-area-messages flex-1 min-h-0 animate-content-in" 
+    style="-webkit-overflow-scrolling: touch; overscroll-behavior-y: contain;"
   >
-    {#if $messageStore.isLoading}
+    {#if $convexChannelStore.isLoading && $convexChannelStore.channels.length === 0}
+      <div class="min-h-full flex items-center justify-center px-6">
+        <div class="max-w-sm text-center">
+          <div class="text-sm font-medium text-white/70">
+            {#if channelLoadSlow}
+              Still loading channels...
+            {:else}
+              Loading channels...
+            {/if}
+          </div>
+          <p class="mt-1 text-xs text-white/35">
+            {#if channelLoadSlow}
+              The app is still syncing your conversations. You can retry or create your first channel now.
+            {:else}
+              Getting your conversations ready.
+            {/if}
+          </p>
+
+          {#if channelLoadSlow}
+            <div class="mt-4 flex flex-col sm:flex-row items-center justify-center gap-2">
+              <button
+                type="button"
+                on:click={retryChannelStartup}
+                class="w-full sm:w-auto px-4 py-2 rounded-xl bg-white text-black text-sm font-semibold hover:bg-white/90 transition-colors"
+              >
+                Retry now
+              </button>
+              <button
+                type="button"
+                on:click={openMobileCreateChannel}
+                class="w-full sm:w-auto px-4 py-2 rounded-xl border border-white/10 bg-white/5 text-white text-sm font-medium hover:bg-white/10 transition-colors"
+              >
+                Create channel
+              </button>
+            </div>
+          {/if}
+        </div>
+      </div>
+    {:else if $convexChannelStore.channels.length === 0}
+      <div class="min-h-full flex items-center justify-center px-6">
+        <div class="max-w-sm text-center">
+          <div class="text-sm font-medium text-white/75">No channels yet</div>
+          <p class="mt-1 text-xs text-white/35">Create your first channel to start chatting.</p>
+          <div class="mt-4 flex flex-col sm:flex-row items-center justify-center gap-2">
+            <button
+              type="button"
+              on:click={openMobileCreateChannel}
+              class="w-full sm:w-auto px-4 py-2 rounded-xl bg-white text-black text-sm font-semibold hover:bg-white/90 transition-colors"
+            >
+              Create channel
+            </button>
+            <button
+              type="button"
+              on:click={retryChannelStartup}
+              class="w-full sm:w-auto px-4 py-2 rounded-xl border border-white/10 bg-white/5 text-white text-sm font-medium hover:bg-white/10 transition-colors"
+            >
+              Refresh
+            </button>
+          </div>
+        </div>
+      </div>
+    {:else if $messageStore.isLoading}
       <div class="min-h-full flex items-center justify-center px-6">
         <div class="text-center">
           <div class="text-sm font-medium text-white/70">Loading messages...</div>
@@ -713,8 +838,15 @@
     {:else if !$convexChannelStore.selectedChannelId}
       <div class="min-h-full flex items-center justify-center px-6">
         <div class="text-center">
-          <div class="text-sm font-medium text-white/70">Loading channels...</div>
-          <p class="mt-1 text-xs text-white/35">Getting your conversations ready.</p>
+          <div class="text-sm font-medium text-white/70">Choose a channel</div>
+          <p class="mt-1 text-xs text-white/35">Your channels are ready, but none is selected yet.</p>
+          <button
+            type="button"
+            on:click={retryChannelStartup}
+            class="mt-4 px-4 py-2 rounded-xl border border-white/10 bg-white/5 text-white text-sm font-medium hover:bg-white/10 transition-colors"
+          >
+            Refresh selection
+          </button>
         </div>
       </div>
     {:else if $messageStore.messages.length === 0}
@@ -734,6 +866,24 @@
       <div class="h-4"></div>
     {/if}
   </div>
+
+  {#if !$messageStore.isLoading && $messageStore.messages.length > 0 && !shouldAutoScroll && !mobileOverlayOpen}
+    <div class="px-4 pb-2 shrink-0 pointer-events-none">
+      <div class="flex justify-center md:justify-end">
+        <button
+          type="button"
+          on:click={() => scrollToBottom(true)}
+          class="pointer-events-auto inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/85 px-4 py-2 text-xs font-semibold text-white shadow-[0_12px_32px_rgba(0,0,0,0.35)] backdrop-blur-md transition-all duration-200 hover:bg-white/10 active:scale-95"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="7 13 12 18 17 13" />
+            <polyline points="7 6 12 11 17 6" />
+          </svg>
+          Jump to latest
+        </button>
+      </div>
+    </div>
+  {/if}
 
   <!-- Typing indicator -->
   {#if $messageStore.typingUsers && $messageStore.typingUsers.length > 0}
@@ -758,12 +908,12 @@
   {/if}
 
   <!-- Input area -->
-  <div class="message-composer px-4 pt-2 shrink-0 border-t border-white/10 bg-black/95 backdrop-blur-sm relative z-10" style="padding-bottom: calc(env(safe-area-inset-bottom) + 0.75rem);">
+  <div class="message-composer px-4 pt-2 shrink-0 border-t border-white/10 bg-black/95 backdrop-blur-sm relative z-20 animate-slide-up" style="padding-bottom: calc(env(safe-area-inset-bottom) + 0.75rem);">
     <div class="relative flex items-end gap-2">
       <!-- GIF Button -->
       <button
         type="button"
-        on:click={() => showGiphy = true}
+        on:click={openGiphyPicker}
         class="h-11 px-3.5 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all duration-200 flex items-center justify-center shrink-0 font-bold text-xs text-white/70 hover:text-white hover:scale-105 active:scale-95"
         title="Add GIF"
       >
@@ -797,17 +947,7 @@
           bind:value={messageInput}
           on:input={handleInput}
           on:keydown={handleKeyDown}
-          on:focus={() => {
-            // Scroll input into view when focused on mobile
-            if (typeof window !== 'undefined' && window.innerWidth < 768) {
-              setTimeout(() => {
-                messageInputEl?.scrollIntoView({ behavior: 'smooth', block: 'end' });
-                if (messageContainer) {
-                  messageContainer.scrollTop = messageContainer.scrollHeight;
-                }
-              }, 300);
-            }
-          }}
+          on:focus={handleComposerFocus}
           rows="1"
           disabled={!$convexChannelStore.selectedChannelId}
           placeholder={$convexChannelStore.selectedChannelId ? "Message the band... (type !report [message] to report an issue)" : "Loading conversation..."}
@@ -890,7 +1030,7 @@
 <Drawer.Root bind:open={showMobileChannels} direction="left">
   <Drawer.Portal>
     <Drawer.Overlay class="fixed inset-0 bg-black/60 z-40" />
-    <Drawer.Content class="fixed top-0 bottom-0 left-0 w-80 max-w-[85vw] flex flex-col bg-[#0a0a0a] z-50 border-r border-white/10" style="padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); -webkit-user-select: none; -webkit-touch-callout: none; user-select: none;">
+    <Drawer.Content class="fixed top-0 bottom-0 left-0 w-80 max-w-[85vw] flex flex-col bg-[#0a0a0a] z-50 border-r border-white/10 animate-content-in" style="padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); -webkit-user-select: none; -webkit-touch-callout: none; user-select: none;">
       <div class="flex-1 overflow-y-auto">
         <div class="sticky top-0 bg-[#0a0a0a] border-b border-white/10 px-4 py-4 flex items-center justify-between">
           <h2 class="text-lg font-semibold text-white">Channels</h2>
@@ -898,10 +1038,7 @@
             <!-- Show create channel for all approved users -->
             <button
               type="button"
-              on:click|stopPropagation={() => {
-                showMobileChannels = false;
-                showCreateChannel = true;
-              }}
+              on:click|stopPropagation={openMobileCreateChannel}
               class="p-2 rounded-lg text-white/40 hover:text-white hover:bg-white/5 transition-colors touch-manipulation"
               aria-label="Create Channel"
             >
@@ -927,7 +1064,7 @@
           <h3 class="text-xs font-semibold text-white/25 uppercase tracking-widest px-2 mb-2">
             Text Channels
           </h3>
-          <div class="space-y-1">
+          <div class="space-y-1 stagger-fade-in">
             {#each $convexChannelStore.channels as channel}
               <button
                 type="button"
@@ -952,11 +1089,124 @@
   </Drawer.Portal>
 </Drawer.Root>
 
+<!-- Mobile Quick Actions Drawer -->
+<Drawer.Root bind:open={showSettingsMenu}>
+  <Drawer.Portal>
+    <Drawer.Overlay class="fixed inset-0 bg-black/60 z-40" />
+    <Drawer.Content class="fixed bottom-0 left-0 right-0 z-50 bg-[#0a0a0a] border-t border-white/10 rounded-t-3xl outline-none animate-slide-up" style="padding-bottom: calc(env(safe-area-inset-bottom) + 1rem);">
+      <div class="mx-auto mt-3 mb-5 h-1.5 w-12 rounded-full bg-white/20"></div>
+      <div class="px-5 pb-2">
+        <div class="mb-4">
+          <p class="text-xs font-semibold uppercase tracking-[0.24em] text-white/25">Quick Actions</p>
+          <h3 class="mt-2 text-lg font-semibold text-white">Channel tools and settings</h3>
+        </div>
+
+        <div class="space-y-2 stagger-fade-in">
+          <button
+            type="button"
+            on:click={openMobileMembersPanel}
+            class="flex w-full items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-left text-sm text-white/80 hover:bg-white/10"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+              <circle cx="9" cy="7" r="4" />
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+              <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+            </svg>
+            <span class="font-medium">Members</span>
+          </button>
+
+          <button
+            type="button"
+            on:click={() => {
+              themeStore.toggle();
+              showSettingsMenu = false;
+            }}
+            class="flex w-full items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-left text-sm text-white/80 hover:bg-white/10"
+          >
+            {#if $themeStore === 'dark'}
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="5"/>
+                <line x1="12" y1="1" x2="12" y2="3"/>
+                <line x1="12" y1="21" x2="12" y2="23"/>
+                <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+                <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+                <line x1="1" y1="12" x2="3" y2="12"/>
+                <line x1="21" y1="12" x2="23" y2="12"/>
+                <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+                <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+              </svg>
+              <span class="font-medium">Light mode</span>
+            {:else}
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+              </svg>
+              <span class="font-medium">Dark mode</span>
+            {/if}
+          </button>
+
+          <button
+            type="button"
+            on:click={openMobileNotifications}
+            class="flex w-full items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-left text-sm text-white/80 hover:bg-white/10"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+              <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+            </svg>
+            <span class="font-medium">Notifications</span>
+          </button>
+
+          <button
+            type="button"
+            on:click={openMobileCalendar}
+            class="flex w-full items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-left text-sm text-white/80 hover:bg-white/10"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+              <line x1="16" y1="2" x2="16" y2="6" />
+              <line x1="8" y1="2" x2="8" y2="6" />
+              <line x1="3" y1="10" x2="21" y2="10" />
+            </svg>
+            <span class="font-medium">Calendar</span>
+          </button>
+
+          <button
+            type="button"
+            on:click={openMobileCreateChannel}
+            class="flex w-full items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-left text-sm text-white/80 hover:bg-white/10"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+            <span class="font-medium">Create channel</span>
+          </button>
+
+          {#if $authStore.user?.role === 'admin'}
+            <button
+              type="button"
+              on:click={openMobileAdminPanel}
+              class="flex w-full items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-left text-sm text-white/80 hover:bg-white/10"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" />
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+              </svg>
+              <span class="font-medium">Admin panel</span>
+            </button>
+          {/if}
+        </div>
+      </div>
+    </Drawer.Content>
+  </Drawer.Portal>
+</Drawer.Root>
+
 <!-- Mobile Members Drawer -->
 <Drawer.Root bind:open={showMobileMembers} direction="right">
   <Drawer.Portal>
     <Drawer.Overlay class="fixed inset-0 bg-black/60 z-40" />
-    <Drawer.Content class="fixed top-0 bottom-0 right-0 w-80 max-w-[85vw] flex flex-col bg-[#0a0a0a] z-50 border-l border-white/10" style="padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom);">
+    <Drawer.Content class="fixed top-0 bottom-0 right-0 w-80 max-w-[85vw] flex flex-col bg-[#0a0a0a] z-50 border-l border-white/10 animate-content-in" style="padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom);">
       <div class="flex-1 overflow-y-auto">
         <div class="sticky top-0 bg-[#0a0a0a] border-b border-white/10 px-4 py-4 flex items-center justify-between">
           <h2 class="text-lg font-semibold text-white">Band Members</h2>
@@ -1012,7 +1262,7 @@
 <Drawer.Root open={showMobileChannelMenu} onOpenChange={(open) => { showMobileChannelMenu = open; if (!open) { mobileMenuChannel = null; isMobileRenaming = false; } }}>
   <Drawer.Portal>
     <Drawer.Overlay class="fixed inset-0 bg-black/60 z-[100]" />
-    <Drawer.Content class="fixed bottom-0 left-0 right-0 z-[101] bg-[#1a1a1a] border-t border-white/10 rounded-t-2xl outline-none">
+    <Drawer.Content class="fixed bottom-0 left-0 right-0 z-[101] bg-[#1a1a1a] border-t border-white/10 rounded-t-2xl outline-none animate-slide-up">
       <div class="mx-auto w-12 h-1.5 flex-shrink-0 rounded-full bg-white/20 mt-4 mb-6"></div>
       
       {#if mobileMenuChannel}
@@ -1090,7 +1340,7 @@
   <div class="fixed inset-0 bg-black/60 z-[200] flex items-center justify-center" on:click={() => { showMobileDeleteConfirm = false; mobileChannelToDelete = null; }}>
     <!-- svelte-ignore a11y_click_events_have_key_events -->
     <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div class="bg-[#2a2a2a] border border-white/30 rounded-2xl p-6 max-w-sm mx-4" on:click|stopPropagation>
+    <div class="bg-[#2a2a2a] border border-white/30 rounded-2xl p-6 max-w-sm mx-4 animate-scale-in" on:click|stopPropagation>
       <h3 class="text-lg font-bold text-white mb-2">Delete Channel</h3>
       <p class="text-sm text-white/60 mb-4">
         Are you sure you want to delete <span class="text-white font-semibold">#{mobileChannelToDelete.name}</span>? This action cannot be undone.

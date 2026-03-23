@@ -4,7 +4,10 @@ import {
   getSessionToken,
   setCsrfCookie
 } from "./lib/server/auth";
+import { ensureServerEnv } from "./lib/server/env";
 import { getConvexHttpClient, getConvexUrl } from "$lib/server/convex";
+
+ensureServerEnv();
 
 const MUTATING_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 

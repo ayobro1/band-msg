@@ -1,4 +1,4 @@
-const CACHE_NAME = "band-chat-v10";
+const CACHE_NAME = "band-chat-v11";
 const OFFLINE_URL = "/offline.html";
 const STATIC_ASSETS = [
   "/",
@@ -9,8 +9,21 @@ const STATIC_ASSETS = [
   "/icons/icon-maskable.svg",
   "/notification-icon.png",
 ];
+const HOSTNAME = self.location.hostname;
+const IS_LOCAL_LIKE =
+  HOSTNAME === "localhost" ||
+  HOSTNAME === "127.0.0.1" ||
+  HOSTNAME === "[::1]" ||
+  /^10\./.test(HOSTNAME) ||
+  /^192\.168\./.test(HOSTNAME) ||
+  /^172\.(1[6-9]|2\d|3[0-1])\./.test(HOSTNAME);
 
 self.addEventListener("install", (event) => {
+  if (IS_LOCAL_LIKE) {
+    event.waitUntil(self.skipWaiting());
+    return;
+  }
+
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS)).then(() => self.skipWaiting())
   );
@@ -89,6 +102,10 @@ self.addEventListener("notificationclick", (event) => {
 });
 
 self.addEventListener("fetch", (event) => {
+  if (IS_LOCAL_LIKE) {
+    return;
+  }
+
   if (event.request.method !== "GET") {
     return;
   }

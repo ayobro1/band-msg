@@ -218,16 +218,18 @@
               </div>
               <div class="space-y-3">
                 <div>
-                  <label class="block text-xs font-medium text-white/40 mb-1 px-1">Starts</label>
+                  <label for="event-starts-at" class="block text-xs font-medium text-white/40 mb-1 px-1">Starts</label>
                   <input
+                    id="event-starts-at"
                     type="datetime-local"
                     bind:value={newEventStartsAt}
                     class="w-full px-3 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white text-sm outline-none focus:border-white/30 transition-colors"
                   />
                 </div>
                 <div>
-                  <label class="block text-xs font-medium text-white/40 mb-1 px-1">Ends</label>
+                  <label for="event-ends-at" class="block text-xs font-medium text-white/40 mb-1 px-1">Ends</label>
                   <input
+                    id="event-ends-at"
                     type="datetime-local"
                     bind:value={newEventEndsAt}
                     class="w-full px-3 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white text-sm outline-none focus:border-white/30 transition-colors"

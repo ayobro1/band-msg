@@ -2,6 +2,7 @@
   import { onMount, onDestroy } from 'svelte';
   import { goto } from '$app/navigation';
   import { browser } from '$app/environment';
+  import { apiPost } from '$lib/utils/api';
 
   let username = '';
   let displayName = '';
@@ -74,7 +75,6 @@
     error = '';
 
     try {
-      const { apiPost } = await import('$lib/utils/api');
       const result = await apiPost('/api/auth/set-username', {
         username: username.trim(),
         displayName: displayName.trim()
@@ -102,7 +102,6 @@
   async function logout() {
     stopPolling();
     try {
-      const { apiPost } = await import('$lib/utils/api');
       await apiPost('/api/auth/logout', {});
     } catch (err) {
       console.error('Logout failed:', err);

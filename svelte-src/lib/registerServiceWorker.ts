@@ -2,33 +2,43 @@ import { browser } from '$app/environment';
 
 export async function registerServiceWorker() {
   if (!browser || !('serviceWorker' in navigator)) {
-    console.log('Service workers not supported');
     return null;
   }
 
   try {
-    // Register the Firebase messaging service worker
-    const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js', {
+    const registrations = await navigator.serviceWorker.getRegistrations();
+    await Promise.all(
+      registrations.map(async (registration) => {
+        const scriptUrl =
+          registration.active?.scriptURL ||
+          registration.waiting?.scriptURL ||
+          registration.installing?.scriptURL ||
+          '';
+
+        if (scriptUrl.includes('/firebase-messaging-sw.js')) {
+          await registration.unregister().catch(() => {});
+        }
+      })
+    );
+
+    const registration = await navigator.serviceWorker.register('/sw.js', {
       scope: '/'
     });
-    
-    console.log('Service Worker registered successfully:', registration);
-    
-    // Wait for the service worker to be ready with timeout
+
+    await registration.update().catch(() => {});
+
     const readyPromise = navigator.serviceWorker.ready;
     const timeoutPromise = new Promise<ServiceWorkerRegistration>((_, reject) => 
       setTimeout(() => reject(new Error('Service worker ready timeout')), 5000)
     );
-    
+
     await Promise.race([readyPromise, timeoutPromise]).catch(err => {
-      console.warn('Service Worker ready timeout, continuing anyway:', err);
+      console.warn('[SW] Ready timeout, continuing anyway:', err);
     });
-    
-    console.log('Service Worker is ready');
-    
+
     return registration;
   } catch (error) {
-    console.error('Service Worker registration failed:', error);
+    console.error('[SW] Registration failed:', error);
     return null;
   }
 }

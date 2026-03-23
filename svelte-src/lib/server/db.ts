@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import { neon } from "@neondatabase/serverless";
+import { ensureServerEnv } from "./env";
 
 type AppUser = {
   id: string;
@@ -19,6 +20,8 @@ let sqlClient: ReturnType<typeof neon> | null = null;
 
 function getSqlClient() {
   if (!sqlClient) {
+    ensureServerEnv();
+
     // Try multiple sources for DATABASE_URL
     const databaseUrl = process.env.DATABASE_URL || 
                        process.env.POSTGRES_URL ||
@@ -1451,6 +1454,18 @@ export async function removePushSubscription(args: {
   return { ok: true, value: { ok: true } };
 }
 
+export async function clearPushSubscriptions(args: {
+  sessionToken: string;
+}): Promise<Result<{ ok: true }>> {
+  const user = await getUserBySession(args.sessionToken);
+  if (!user) {
+    return { ok: false, code: 401, error: "Unauthorized" };
+  }
+
+  await sql`DELETE FROM push_subscriptions WHERE user_id = ${user.id}`;
+  return { ok: true, value: { ok: true } };
+}
+
 export async function setChannelMuted(args: {
   sessionToken: string;
   channelId: string;
@@ -1498,6 +1513,9 @@ export async function getPushSubscriptionsForMessage(args: {
     LEFT JOIN channel_notification_settings cns ON p.user_id = cns.user_id AND cns.channel_id = ${args.channelId}
     WHERE p.user_id != ${args.userId}
       AND (cns.muted IS NULL OR cns.muted = false)
+      AND p.endpoint LIKE 'http%'
+      AND p.p256dh_key != 'fcm'
+      AND p.auth_key != 'fcm'
   `;
 
   return rows.map((r: any) => ({
@@ -1519,6 +1537,9 @@ export async function getPushSubscriptionsForUser(args: {
     SELECT endpoint, p256dh_key, auth_key
     FROM push_subscriptions
     WHERE user_id = ${user.id}
+      AND endpoint LIKE 'http%'
+      AND p256dh_key != 'fcm'
+      AND auth_key != 'fcm'
   `;
 
   return {
@@ -1535,6 +1556,9 @@ export async function getAllPushSubscriptions(): Promise<Array<{ endpoint: strin
   const rows = await sql`
     SELECT endpoint, p256dh_key, auth_key
     FROM push_subscriptions
+    WHERE endpoint LIKE 'http%'
+      AND p256dh_key != 'fcm'
+      AND auth_key != 'fcm'
   `;
 
   return rows.map((r: any) => ({

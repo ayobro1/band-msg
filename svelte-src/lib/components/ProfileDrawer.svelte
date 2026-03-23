@@ -125,7 +125,7 @@
 
         <div class="space-y-4">
           <div>
-            <label class="block text-sm font-medium text-white/70 mb-2">Avatar</label>
+            <p class="block text-sm font-medium text-white/70 mb-2">Avatar</p>
             <div class="flex items-center gap-3">
               <div class="relative">
                 {#if avatarUrl}
@@ -160,6 +160,7 @@
             </div>
             <input
               type="url"
+              id="profile-avatar-url"
               bind:value={avatarUrl}
               disabled={isLoading}
               class="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-lg text-white placeholder:text-white/30 outline-none focus:border-white/30 transition-colors disabled:opacity-50 mt-2 text-sm"
@@ -168,8 +169,9 @@
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-white/70 mb-2">Username</label>
+            <label for="profile-username" class="block text-sm font-medium text-white/70 mb-2">Username</label>
             <input
+              id="profile-username"
               type="text"
               bind:value={username}
               disabled={isLoading}
@@ -181,8 +183,9 @@
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-white/70 mb-2">Bio</label>
+            <label for="profile-bio" class="block text-sm font-medium text-white/70 mb-2">Bio</label>
             <textarea
+              id="profile-bio"
               bind:value={bio}
               disabled={isLoading}
               maxlength="160"

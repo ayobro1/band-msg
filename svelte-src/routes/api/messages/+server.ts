@@ -1,17 +1,23 @@
 import { listMessages, sendMessage, deleteMessage, getPushSubscriptionsForMessage, getUserBySession } from "$lib/server/db";
 import { triggerNewMessage, triggerMessageDeleted } from "$lib/server/pusher";
 import webPush from 'web-push';
+import { ensureServerEnv } from "$lib/server/env";
 
-// VAPID keys should be set in environment variables
-const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY;
-const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY;
+function getVapidConfig() {
+  ensureServerEnv();
 
-if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
-  webPush.setVapidDetails(
-    'mailto:admin@bandchat.local',
-    VAPID_PUBLIC_KEY,
-    VAPID_PRIVATE_KEY
-  );
+  const publicKey = process.env.VAPID_PUBLIC_KEY;
+  const privateKey = process.env.VAPID_PRIVATE_KEY;
+
+  if (publicKey && privateKey) {
+    webPush.setVapidDetails(
+      'mailto:admin@bandchat.local',
+      publicKey,
+      privateKey
+    );
+  }
+
+  return { publicKey, privateKey };
 }
 
 
@@ -48,6 +54,8 @@ export const POST = async ({ locals, request }: any) => {
     return toJson({ error: "unauthorized" }, 401);
   }
 
+  const { publicKey, privateKey } = getVapidConfig();
+
   const body = await request.json().catch(() => null);
   const channelId = typeof body?.channelId === "string" ? body.channelId : "";
   const content = typeof body?.content === "string" ? body.content : "";
@@ -80,7 +88,7 @@ export const POST = async ({ locals, request }: any) => {
 
   // Trigger push notifications in the background
   try {
-    if (user && VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
+    if (user && publicKey && privateKey) {
       const subscriptions = await getPushSubscriptionsForMessage({
         userId: user.id,
         channelId: channelId

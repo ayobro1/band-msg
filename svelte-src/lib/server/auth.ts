@@ -1,10 +1,12 @@
 import crypto from "node:crypto";
+import { ensureServerEnv } from "./env";
 
 export const SESSION_COOKIE = "band_chat_session";
 export const CSRF_COOKIE = "band_chat_csrf";
 const SESSION_TTL_MS = 24 * 60 * 60 * 1000;
 
 function resolveSecureCookie(): boolean {
+  ensureServerEnv();
   const mode = (process.env.AUTH_COOKIE_SECURE ?? "auto").toLowerCase();
   if (mode === "true") return true;
   if (mode === "false") return false;
@@ -12,6 +14,7 @@ function resolveSecureCookie(): boolean {
 }
 
 function resolveSameSiteCookie(): "strict" | "lax" | "none" {
+  ensureServerEnv();
   const mode = (process.env.AUTH_COOKIE_SAME_SITE ?? "lax").toLowerCase();
   if (mode === "strict") return "strict";
   if (mode === "none") return "none";

@@ -15,6 +15,7 @@
   import { memberStore } from '../lib/stores/members';
   import { themeStore } from '../lib/stores/theme';
   import { pusherStore } from '../lib/stores/pusher';
+  import { apiPost } from '../lib/utils/api';
 
   export let data;
 
@@ -50,26 +51,14 @@
   }
 
   async function initApp() {
-    console.log('[Page] initApp started');
-    
     // Connect to Pusher for real-time updates
     pusherStore.connect();
 
     // Load initial data from Convex
-    console.log('[Page] Loading channels from Convex');
-    await convexChannelStore.loadChannels();
-    console.log('[Page] Channels loaded:', $convexChannelStore.channels.length, 'channels');
-
-    if ($convexChannelStore.selectedChannelId) {
-      await convexMessageStore.loadMessages($convexChannelStore.selectedChannelId);
-      convexMessageStore.subscribeToTyping($convexChannelStore.selectedChannelId);
-      lastChannelId = $convexChannelStore.selectedChannelId;
-    }
-
-    await memberStore.loadMembers();
-    console.log('[Page] Members loaded');
-
-    console.log('[Page] initApp completed');
+    await Promise.all([
+      convexChannelStore.loadChannels(),
+      memberStore.loadMembers()
+    ]);
 
     // Start heartbeat to keep user online
     if (browser) {
@@ -82,7 +71,6 @@
             // Update Convex presence
             await convex.mutation(api.auth.heartbeat, { sessionToken: data.sessionToken });
             // Also update SQL presence so member list shows correct status
-            const { apiPost } = await import('../lib/utils/api');
             await apiPost('/api/presence', { status: 'online' });
           } catch (error) {
             console.error('[Page] Heartbeat failed:', error);
@@ -114,22 +102,16 @@
   }
 
   onMount(async () => {
-    console.log('[Page] onMount started');
-    
     // Initialize theme first
     themeStore.init();
 
-    // Check if user is authenticated
-    console.log('[Page] Checking auth...');
-    await authStore.checkAuth();
-    console.log('[Page] Auth check complete, user:', $authStore.user?.username, 'status:', $authStore.user?.status);
-
-    // Set session token AFTER auth check
     if (data.sessionToken) {
-      console.log('[Page] Setting session token for Convex');
       convexMessageStore.setSessionToken(data.sessionToken);
       convexChannelStore.setSessionToken(data.sessionToken);
     }
+
+    // Check if user is authenticated
+    await authStore.checkAuth();
 
     // Only show PWA guide if user is NOT logged in (first time visitor)
     if (!$authStore.user && browser) {

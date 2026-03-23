@@ -1,6 +1,9 @@
 import { ConvexHttpClient } from "convex/browser";
+import { ensureServerEnv } from "./env";
 
 export function getConvexUrl(): string {
+  ensureServerEnv();
+
   const url =
     process.env.CONVEX_URL ||
     process.env.PUBLIC_CONVEX_URL ||

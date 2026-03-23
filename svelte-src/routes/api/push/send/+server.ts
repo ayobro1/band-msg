@@ -2,6 +2,7 @@ import webPush from 'web-push';
 import { getAllPushSubscriptions } from "$lib/server/db";
 import { getSessionToken } from "$lib/server/auth";
 import { getUserBySession } from "$lib/server/db";
+import { ensureServerEnv } from "$lib/server/env";
 
 const toJson = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -9,24 +10,29 @@ const toJson = (body: unknown, status = 200) =>
     headers: { "content-type": "application/json" }
   });
 
-// VAPID keys should be set in environment variables
-const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY;
-const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY;
+function getVapidConfig() {
+  ensureServerEnv();
 
-if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
-  webPush.setVapidDetails(
-    'mailto:admin@bandchat.local',
-    VAPID_PUBLIC_KEY,
-    VAPID_PRIVATE_KEY
-  );
-} else {
-  console.warn('VAPID keys not configured. Push notifications will not work.');
+  const publicKey = process.env.VAPID_PUBLIC_KEY;
+  const privateKey = process.env.VAPID_PRIVATE_KEY;
+
+  if (publicKey && privateKey) {
+    webPush.setVapidDetails(
+      'mailto:admin@bandchat.local',
+      publicKey,
+      privateKey
+    );
+  }
+
+  return { publicKey, privateKey };
 }
 
 export const POST = async ({ request, cookies }: any) => {
   try {
+    const { publicKey, privateKey } = getVapidConfig();
+
     // Check if VAPID keys are configured
-    if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) {
+    if (!publicKey || !privateKey) {
       return toJson({ error: "Push notifications not configured" }, 503);
     }
 

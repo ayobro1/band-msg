@@ -7,13 +7,18 @@
   import { api } from '../../../convex/_generated/api';
   import { convexMessageStore } from '../stores/convexMessages';
   import Spinner from './Spinner.svelte';
+  import { apiPost } from '../utils/api';
   
   export let onClose: () => void;
   
   let debugInfo: any = null;
+  let isIOSDevice = false;
+  let isStandaloneApp = false;
+  let supportsPush = false;
   
   onMount(async () => {
     console.log('[NotificationSettings] Component mounted');
+    detectPushCapabilities();
     await notificationStore.init();
     await loadDebugInfo();
   });
@@ -49,6 +54,17 @@
   async function toggleChannelMute(channelId: string) {
     await notificationStore.toggleChannelMute(channelId);
   }
+
+  function detectPushCapabilities() {
+    if (typeof window === 'undefined') return;
+
+    isIOSDevice = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    isStandaloneApp = window.matchMedia('(display-mode: standalone)').matches ||
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (navigator as any).standalone === true;
+    supportsPush = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+  }
   
   async function testNotification() {
     if ($notificationStore.permission !== 'granted') {
@@ -57,14 +73,14 @@
     }
     
     try {
-      const registration = await navigator.serviceWorker.ready;
-      await registration.showNotification('Band Chat', {
-        body: 'Test notification - you\'re all set!',
-        icon: '/notification-icon.png',
-        badge: '/notification-icon.png',
-        tag: 'test-notification',
-        requireInteraction: false
-      });
+      const response = await apiPost('/api/push/test', {});
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        notificationStore.setError(typeof body.error === 'string' ? body.error : 'Failed to send test notification');
+        return;
+      }
+
+      notificationStore.setError(null);
     } catch (err) {
       console.error('Test notification error:', err);
       notificationStore.setError('Failed to show test notification');
@@ -102,6 +118,40 @@
             {$notificationStore.error}
           </div>
         {/if}
+
+        <div class="rounded-2xl border border-white/10 bg-white/[0.03] p-4 space-y-3">
+          <div>
+            <h3 class="text-sm font-semibold text-white">Device Status</h3>
+            <p class="mt-1 text-xs text-white/40">Quick check for whether this device is ready to receive push notifications.</p>
+          </div>
+
+          <div class="grid grid-cols-1 gap-2 sm:grid-cols-3">
+            <div class="rounded-xl border border-white/8 bg-black/30 px-3 py-2">
+              <div class="text-[10px] uppercase tracking-[0.18em] text-white/35">Push</div>
+              <div class="mt-1 text-sm font-medium {supportsPush ? 'text-green-400' : 'text-red-400'}">
+                {supportsPush ? 'Supported' : 'Unavailable'}
+              </div>
+            </div>
+            <div class="rounded-xl border border-white/8 bg-black/30 px-3 py-2">
+              <div class="text-[10px] uppercase tracking-[0.18em] text-white/35">Install</div>
+              <div class="mt-1 text-sm font-medium {isStandaloneApp ? 'text-green-400' : 'text-white/70'}">
+                {isStandaloneApp ? 'App mode' : 'Browser tab'}
+              </div>
+            </div>
+            <div class="rounded-xl border border-white/8 bg-black/30 px-3 py-2">
+              <div class="text-[10px] uppercase tracking-[0.18em] text-white/35">Permission</div>
+              <div class="mt-1 text-sm font-medium {($notificationStore.permission === 'granted') ? 'text-green-400' : (($notificationStore.permission === 'denied') ? 'text-red-400' : 'text-white/70')}">
+                {$notificationStore.permission}
+              </div>
+            </div>
+          </div>
+
+          {#if isIOSDevice && !isStandaloneApp}
+            <div class="rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs text-amber-100/90">
+              On iPhone and iPad, push notifications only work after you add Band Chat to your Home Screen and open it from there.
+            </div>
+          {/if}
+        </div>
 
         <!-- Push Notifications Toggle -->
         <div class="flex items-start justify-between gap-4">
@@ -143,8 +193,9 @@
               on:click={testNotification}
               class="w-full px-4 py-2.5 bg-white/5 border border-white/10 text-white rounded-xl hover:bg-white/10 transition-colors text-sm font-medium"
             >
-              Send Test Notification
+              Send Real Test Push
             </button>
+            <p class="mt-2 text-xs text-white/35">This sends a real push through the server to this device, so it’s useful for checking mobile delivery.</p>
           </div>
           
           <!-- Channel-specific notifications -->

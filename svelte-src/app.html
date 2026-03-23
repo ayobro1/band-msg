@@ -20,7 +20,24 @@
     <div style="display:contents">%sveltekit.body%</div>
     <script>
       if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('/sw.js').catch(() => {});
+        navigator.serviceWorker.getRegistrations()
+          .then((registrations) => Promise.all(
+            registrations.map((registration) => {
+              const scriptUrl =
+                (registration.active && registration.active.scriptURL) ||
+                (registration.waiting && registration.waiting.scriptURL) ||
+                (registration.installing && registration.installing.scriptURL) ||
+                '';
+
+              if (scriptUrl.includes('/firebase-messaging-sw.js')) {
+                return registration.unregister();
+              }
+
+              return Promise.resolve(false);
+            })
+          ))
+          .then(() => navigator.serviceWorker.register('/sw.js'))
+          .catch(() => {});
       }
     </script>
   </body>

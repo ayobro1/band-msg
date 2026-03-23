@@ -35,7 +35,7 @@ function createAuthStore() {
           const user = await res.json();
           set({ user, isLoading: false, error: null });
           // Set presence to online
-          await apiPost('/api/presence', { status: 'online' });
+          void apiPost('/api/presence', { status: 'online' }).catch(() => {});
         } else {
           set({ user: null, isLoading: false, error: null });
         }
@@ -52,7 +52,7 @@ function createAuthStore() {
           const data = await res.json();
           set({ user: data, isLoading: false, error: null });
           // Set presence to online
-          await apiPost('/api/presence', { status: 'online' });
+          void apiPost('/api/presence', { status: 'online' }).catch(() => {});
           return { success: true };
         } else {
           const error = await res.json();

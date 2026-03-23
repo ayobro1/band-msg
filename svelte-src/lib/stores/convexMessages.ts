@@ -41,6 +41,7 @@ function createConvexMessageStore() {
   let currentTypingChannelId: string | null = null;
   let currentMessageChannelId: string | null = null;
   let pendingMessageChannelId: string | null = null;
+  let activeMessageRequestId = 0;
 
   return {
     subscribe,
@@ -65,10 +66,10 @@ function createConvexMessageStore() {
         return;
       }
 
+      const requestId = ++activeMessageRequestId;
+      const sessionToken = currentSessionToken;
       pendingMessageChannelId = channelId;
       update(state => ({ ...state, messages: [], isLoading: true }));
-
-      console.log('[Convex] Loading messages for channel:', channelId, 'with session token:', currentSessionToken.substring(0, 10) + '...');
 
       try {
         // Unsubscribe from previous channel
@@ -80,29 +81,39 @@ function createConvexMessageStore() {
         // First, get initial messages with a query
         const initialMessages = await convex.query(api.messages.list, {
           channelId: channelId as Id<"channels">,
-          sessionToken: currentSessionToken
+          sessionToken
         });
-        console.log('[Convex] Initial messages loaded:', initialMessages.length, 'messages');
+
+        if (requestId !== activeMessageRequestId || pendingMessageChannelId !== channelId || sessionToken !== currentSessionToken) {
+          return;
+        }
+
         currentMessageChannelId = channelId;
-        update(state => ({ messages: initialMessages, isLoading: false, sessionToken: currentSessionToken, typingUsers: state.typingUsers }));
+        update(state => ({ messages: initialMessages, isLoading: false, sessionToken, typingUsers: state.typingUsers }));
 
         // Then subscribe to real-time updates
         unsubscribe = convex.onUpdate(
           api.messages.list,
-          { channelId: channelId as Id<"channels">, sessionToken: currentSessionToken },
+          { channelId: channelId as Id<"channels">, sessionToken },
           (messages) => {
-            console.log('[Convex] Messages updated:', messages.length, 'messages');
+            if (currentMessageChannelId !== channelId) {
+              return;
+            }
+
             update(state => ({ messages, isLoading: false, sessionToken: currentSessionToken, typingUsers: state.typingUsers }));
           }
         );
       } catch (error) {
         console.error('[Convex] Error loading messages:', error);
-        if (currentMessageChannelId === channelId) {
-          currentMessageChannelId = null;
+        if (requestId === activeMessageRequestId) {
+          if (currentMessageChannelId === channelId) {
+            currentMessageChannelId = null;
+          }
+
+          update(state => ({ ...state, isLoading: false }));
         }
-        update(state => ({ ...state, isLoading: false }));
       } finally {
-        if (pendingMessageChannelId === channelId) {
+        if (requestId === activeMessageRequestId && pendingMessageChannelId === channelId) {
           pendingMessageChannelId = null;
         }
       }
@@ -305,6 +316,7 @@ function createConvexMessageStore() {
     },
 
     cleanup() {
+      activeMessageRequestId += 1;
       if (unsubscribe) {
         unsubscribe();
         unsubscribe = null;

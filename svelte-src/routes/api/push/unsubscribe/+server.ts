@@ -1,4 +1,4 @@
-import { removePushSubscription, getUserBySession } from "$lib/server/db";
+import { clearPushSubscriptions, removePushSubscription, getUserBySession } from "$lib/server/db";
 import { getSessionToken } from "$lib/server/auth";
 
 const toJson = (body: unknown, status = 200) =>
@@ -12,10 +12,6 @@ export const POST = async ({ request, cookies }: any) => {
     const body = await request.json().catch(() => null);
     const { endpoint } = body || {};
 
-    if (!endpoint) {
-      return toJson({ error: "Missing endpoint" }, 400);
-    }
-
     const sessionToken = getSessionToken(cookies);
     if (!sessionToken) {
       return toJson({ error: "Unauthorized" }, 401);
@@ -26,10 +22,12 @@ export const POST = async ({ request, cookies }: any) => {
       return toJson({ error: "Unauthorized" }, 401);
     }
 
-    const result = await removePushSubscription({
-      sessionToken,
-      endpoint
-    });
+    const result = endpoint
+      ? await removePushSubscription({
+          sessionToken,
+          endpoint
+        })
+      : await clearPushSubscriptions({ sessionToken });
 
     if (result.ok === false) {
       return toJson({ error: result.error }, result.code ?? 500);

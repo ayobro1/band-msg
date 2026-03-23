@@ -1,62 +1,37 @@
-import { initializeApp, getApps, type FirebaseApp } from 'firebase/app';
-import { getMessaging, getToken, onMessage, type Messaging } from 'firebase/messaging';
 import { browser } from '$app/environment';
 import { registerServiceWorker } from './registerServiceWorker';
-import { apiPost } from './utils/api';
+import { apiGet, apiPost } from './utils/api';
 
-// Firebase configuration from environment variables
-const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID
+type SubscriptionResult = {
+  success: boolean;
+  error?: string;
 };
 
-let app: FirebaseApp | null = null;
-let messaging: Messaging | null = null;
-let swRegistration: ServiceWorkerRegistration | null = null;
+type SerializedSubscription = {
+  endpoint: string;
+  p256dhKey: string;
+  authKey: string;
+};
 
-// Initialize Firebase
-export async function initializeFirebase() {
-  if (!browser) return null;
-  
-  // Register service worker first
-  if (!swRegistration) {
-    swRegistration = await registerServiceWorker();
-  }
-  
-  if (getApps().length === 0) {
-    app = initializeApp(firebaseConfig);
-  } else {
-    app = getApps()[0];
-  }
-  
-  return app;
-}
-
-// Get Firebase Messaging instance
-export function getFirebaseMessaging() {
-  if (!browser || !app) return null;
-  
-  if (!messaging) {
-    try {
-      messaging = getMessaging(app);
-    } catch (error) {
-      console.error('Error initializing Firebase Messaging:', error);
-      return null;
-    }
-  }
-  
-  return messaging;
-}
-
-// Detect if running on iOS
 function isIOS(): boolean {
   if (!browser) return false;
-  return /iPad|iPhone|iPod/.test(navigator.userAgent) || 
-         (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+}
+
+function isStandalone(): boolean {
+  if (!browser) return false;
+
+  return window.matchMedia('(display-mode: standalone)').matches ||
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (window.navigator as any).standalone === true;
+}
+
+function supportsPushNotifications(): boolean {
+  if (!browser) return false;
+
+  return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
 }
 
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
@@ -64,181 +39,187 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
   const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
   const rawData = window.atob(base64);
   const outputArray = new Uint8Array(rawData.length);
+
   for (let i = 0; i < rawData.length; ++i) {
     outputArray[i] = rawData.charCodeAt(i);
   }
+
   return outputArray;
 }
 
-// Request notification permission and get FCM token
-export async function requestNotificationPermission(): Promise<string | null> {
-  if (!browser) return null;
-  
-  try {
-    console.log('[Firebase] Requesting notification permission...');
-    console.log('[Firebase] Is iOS:', isIOS());
-    
-    // First, initialize Firebase before requesting permission
-    console.log('[Firebase] Initializing Firebase...');
-    const initResult = await initializeFirebase();
-    if (!initResult) {
-      console.error('[Firebase] Failed to initialize Firebase');
-      return null;
-    }
-    console.log('[Firebase] Firebase initialized successfully');
-    
-    console.log('[Firebase] Requesting permission from browser...');
-    const permission = await Notification.requestPermission();
-    console.log('[Firebase] Permission result:', permission);
-    
-    if (permission !== 'granted') {
-      console.log('[Firebase] Notification permission denied');
-      return null;
-    }
-    
-    // Use Firebase Cloud Messaging for all platforms (including iOS)
-    // Firebase handles the complexity of APNs for iOS
-    console.log('[Firebase] Getting Firebase Messaging instance...');
-    const messaging = getFirebaseMessaging();
-    if (!messaging) {
-      console.error('[Firebase] Firebase Messaging not initialized');
-      return null;
-    }
-    
-    const vapidKey = import.meta.env.VITE_FIREBASE_VAPID_KEY;
-    console.log('[Firebase] VAPID key available:', !!vapidKey);
-    
-    if (!vapidKey) {
-      console.error('[Firebase] VAPID key is missing from environment variables');
-      return null;
-    }
-    
-    // Get FCM token with timeout
-    console.log('[Firebase] Getting FCM token...');
-    const tokenPromise = getToken(messaging, { 
-      vapidKey, 
-      serviceWorkerRegistration: swRegistration || undefined 
-    });
-    const timeoutPromise = new Promise<never>((_, reject) => 
-      setTimeout(() => reject(new Error('FCM token request timed out after 10 seconds')), 10000)
-    );
-    
-    const token = await Promise.race([tokenPromise, timeoutPromise]);
-    console.log('[Firebase] FCM token received:', token ? 'Yes' : 'No');
-    
-    return token;
-  } catch (error) {
-    console.error('[Firebase] Error getting FCM token:', error);
-    if (error instanceof Error) {
-      console.error('[Firebase] Error message:', error.message);
-    }
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  let binary = '';
+  const bytes = new Uint8Array(buffer);
+
+  for (let i = 0; i < bytes.byteLength; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+
+  return window.btoa(binary);
+}
+
+function serializeSubscription(subscription: PushSubscription): SerializedSubscription {
+  return {
+    endpoint: subscription.endpoint,
+    p256dhKey: arrayBufferToBase64(subscription.getKey('p256dh')!),
+    authKey: arrayBufferToBase64(subscription.getKey('auth')!)
+  };
+}
+
+async function getVapidPublicKey(): Promise<string | null> {
+  const response = await apiGet('/api/push/vapid-key');
+  if (!response.ok) {
     return null;
   }
+
+  const data = await response.json().catch(() => ({}));
+  return typeof data.publicKey === 'string' ? data.publicKey : null;
 }
 
-// Listen for foreground messages
-export function onForegroundMessage(callback: (payload: any) => void) {
-  if (!browser) return () => {};
-  
-  const messaging = getFirebaseMessaging();
-  if (!messaging) return () => {};
-  
-  return onMessage(messaging, callback);
+async function getExistingSubscription(): Promise<PushSubscription | null> {
+  const registration = await registerServiceWorker();
+  if (!registration) return null;
+
+  return registration.pushManager.getSubscription();
 }
 
-// Subscribe to push notifications
-export async function subscribeToPushNotifications(): Promise<{ success: boolean; error?: string }> {
+async function syncSubscription(subscription: PushSubscription): Promise<SubscriptionResult> {
+  const response = await apiPost('/api/push/subscribe', serializeSubscription(subscription));
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    return {
+      success: false,
+      error: typeof body.error === 'string' ? body.error : 'Failed to save subscription'
+    };
+  }
+
+  return { success: true };
+}
+
+async function createPushSubscription(): Promise<PushSubscription | null> {
+  const registration = await registerServiceWorker();
+  if (!registration) {
+    return null;
+  }
+
+  const vapidPublicKey = await getVapidPublicKey();
+  if (!vapidPublicKey) {
+    throw new Error('Push notifications are not configured yet.');
+  }
+
+  return registration.pushManager.subscribe({
+    userVisibleOnly: true,
+    applicationServerKey: urlBase64ToUint8Array(vapidPublicKey) as unknown as BufferSource
+  });
+}
+
+export async function requestNotificationPermission(): Promise<NotificationPermission | null> {
+  if (!browser || !('Notification' in window)) {
+    return null;
+  }
+
+  if (Notification.permission === 'granted') {
+    return 'granted';
+  }
+
+  if (Notification.permission === 'denied') {
+    return 'denied';
+  }
+
+  return Notification.requestPermission();
+}
+
+export async function subscribeToPushNotifications(): Promise<SubscriptionResult> {
+  if (!browser) {
+    return { success: false, error: 'Notifications are only available in the browser.' };
+  }
+
+  if (!supportsPushNotifications()) {
+    return { success: false, error: 'This browser does not support push notifications.' };
+  }
+
+  if (isIOS() && !isStandalone()) {
+    return {
+      success: false,
+      error: 'On iPhone and iPad, install Band Chat to your Home Screen first, then open the app there to enable notifications.'
+    };
+  }
+
+  const permission = await requestNotificationPermission();
+  if (permission !== 'granted') {
+    return { success: false, error: 'Notification permission was not granted.' };
+  }
+
   try {
-    const tokenOrSubscription = await requestNotificationPermission();
-    
-    if (!tokenOrSubscription) {
-      return { success: false, error: 'Failed to get push subscription' };
-    }
-    
-    const { convex } = await import('./convex');
-    const { api } = await import('../../convex/_generated/api');
-    const { convexMessageStore } = await import('./stores/convexMessages');
-    
-    let sessionToken = '';
-    const unsubscribe = convexMessageStore.subscribe(state => {
-      sessionToken = state.sessionToken;
-    });
-    unsubscribe();
+    const existingSubscription = await getExistingSubscription();
+    const subscription = existingSubscription ?? await createPushSubscription();
 
-    if (!sessionToken) {
-      return { success: false, error: 'Not authenticated' };
+    if (!subscription) {
+      return { success: false, error: 'Failed to create a push subscription.' };
     }
 
-    // tokenOrSubscription is now always a plain FCM token
-    await convex.mutation(api.pushSubscriptions.subscribe, {
-      sessionToken,
-      endpoint: tokenOrSubscription,
-      p256dhKey: 'fcm',
-      authKey: 'fcm'
-    });
-    
-    return { success: true };
-  } catch (error: any) {
-    console.error('Error subscribing to push notifications:', error);
-    return { success: false, error: error.message };
+    return await syncSubscription(subscription);
+  } catch (error) {
+    console.error('[Push] Failed to subscribe:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to enable notifications.'
+    };
   }
 }
 
-// Unsubscribe from push notifications
-export async function unsubscribeFromPushNotifications(): Promise<{ success: boolean; error?: string }> {
-  try {
-    const { convex } = await import('./convex');
-    const { api } = await import('../../convex/_generated/api');
-    const { convexMessageStore } = await import('./stores/convexMessages');
-    
-    let sessionToken = '';
-    const unsubscribe = convexMessageStore.subscribe(state => {
-      sessionToken = state.sessionToken;
-    });
-    unsubscribe();
+export async function unsubscribeFromPushNotifications(): Promise<SubscriptionResult> {
+  if (!browser || !supportsPushNotifications()) {
+    return { success: false, error: 'Push notifications are not supported here.' };
+  }
 
-    if (!sessionToken) {
-      return { success: false, error: 'Not authenticated' };
+  try {
+    const registration = await registerServiceWorker();
+    if (!registration) {
+      return { success: false, error: 'Service worker is not available.' };
     }
 
-    await convex.mutation(api.pushSubscriptions.unsubscribe, { sessionToken });
-    
+    const subscription = await registration.pushManager.getSubscription();
+    const endpoint = subscription?.endpoint;
+
+    if (subscription) {
+      await subscription.unsubscribe().catch(() => {});
+    }
+
+    const response = await apiPost('/api/push/unsubscribe', endpoint ? { endpoint } : {});
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      return {
+        success: false,
+        error: typeof body.error === 'string' ? body.error : 'Failed to disable notifications.'
+      };
+    }
+
     return { success: true };
-  } catch (error: any) {
-    console.error('Error unsubscribing from push notifications:', error);
-    return { success: false, error: error.message };
+  } catch (error) {
+    console.error('[Push] Failed to unsubscribe:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to disable notifications.'
+    };
   }
 }
 
-// Check if user is subscribed
 export async function isPushSubscribed(): Promise<boolean> {
-  if (!browser) return false;
-  
+  if (!browser || !supportsPushNotifications()) {
+    return false;
+  }
+
   try {
-    console.log('[Firebase] Checking push subscription status...');
-    await initializeFirebase();
-    const { convex } = await import('./convex');
-    const { api } = await import('../../convex/_generated/api');
-    const { convexMessageStore } = await import('./stores/convexMessages');
-    
-    let sessionToken = '';
-    const unsubscribe = convexMessageStore.subscribe(state => {
-      sessionToken = state.sessionToken;
-    });
-    unsubscribe(); // Immediately unsubscribe after getting the value
-
-    console.log('[Firebase] Session token exists:', !!sessionToken);
-
-    if (!sessionToken) {
-      console.log('[Firebase] No session token, returning false');
+    const subscription = await getExistingSubscription();
+    if (!subscription) {
       return false;
     }
 
-    const result = await convex.query(api.pushSubscriptions.isSubscribed, { sessionToken });
-    console.log('[Firebase] Subscription check result:', result);
-    return result.subscribed === true;
+    const syncResult = await syncSubscription(subscription);
+    return syncResult.success;
   } catch (error) {
-    console.error('[Firebase] Error checking subscription status:', error);
+    console.error('[Push] Failed to inspect subscription state:', error);
     return false;
   }
 }
