@@ -13,7 +13,7 @@ export const GET = async ({ locals, params }: any) => {
     return toJson({ error: "unauthorized" }, 401);
   }
 
-  const user = await getUserBySession(locals.sessionToken);
+  const user = await getUserBySession(locals.sessionToken, locals.sessionBinding);
   if (!user || user.role !== "admin") {
     return toJson({ error: "unauthorized" }, 401);
   }
@@ -36,7 +36,7 @@ export const POST = async ({ locals, params, request }: any) => {
     return toJson({ error: "unauthorized" }, 401);
   }
 
-  const user = await getUserBySession(locals.sessionToken);
+  const user = await getUserBySession(locals.sessionToken, locals.sessionBinding);
   if (!user || user.role !== "admin") {
     return toJson({ error: "unauthorized" }, 401);
   }
@@ -76,7 +76,7 @@ export const DELETE = async ({ locals, params, request }: any) => {
     return toJson({ error: "unauthorized" }, 401);
   }
 
-  const user = await getUserBySession(locals.sessionToken);
+  const user = await getUserBySession(locals.sessionToken, locals.sessionBinding);
   if (!user || user.role !== "admin") {
     return toJson({ error: "unauthorized" }, 401);
   }

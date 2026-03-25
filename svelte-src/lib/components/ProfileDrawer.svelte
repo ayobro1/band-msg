@@ -4,6 +4,7 @@
   import { authStore } from '../stores/auth';
   import { convexMessageStore } from '../stores/convexMessages';
   import { convex } from '../convex';
+  import { getBrowserUserAgentHash } from '../userAgentHash';
   import { api } from '../../../convex/_generated/api';
   import Avatar from './Avatar.svelte';
   import Spinner from './Spinner.svelte';
@@ -60,15 +61,14 @@
     try {
       await convex.mutation(api.users.updateProfile, {
         sessionToken: $convexMessageStore.sessionToken,
+        userAgentHash: await getBrowserUserAgentHash(),
         username: username.trim() || undefined,
         bio: bio.trim() || undefined,
-        avatarUrl: avatarUrl.trim() || undefined,
       });
 
       authStore.updateUser({
         username: username.trim(),
         bio: bio.trim() || null,
-        avatarUrl: avatarUrl.trim() || null,
       });
 
       success = true;

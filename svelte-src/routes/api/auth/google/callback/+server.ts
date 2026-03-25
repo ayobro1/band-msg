@@ -1,13 +1,19 @@
 import { redirect } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getSqlClient } from '$lib/server/db';
-import { createSessionToken, setSessionCookie, expiresAtMs } from '$lib/server/auth';
+import {
+  createSessionToken,
+  setSessionCookie,
+  expiresAtMs,
+  getAuthBridgeSecret,
+  getRequestUserAgentHash
+} from '$lib/server/auth';
 import { api } from "../../../../../../convex/_generated/api";
 import crypto from 'node:crypto';
 import { getConvexHttpClient } from "$lib/server/convex";
 import { env } from '$env/dynamic/private';
 
-export const GET: RequestHandler = async ({ url, cookies }) => {
+export const GET: RequestHandler = async ({ url, cookies, request }) => {
   const GOOGLE_CLIENT_ID = env.GOOGLE_CLIENT_ID || '';
   const GOOGLE_CLIENT_SECRET = env.GOOGLE_CLIENT_SECRET || '';
   const GOOGLE_REDIRECT_URI = env.GOOGLE_REDIRECT_URI || `${url.origin}/api/auth/google/callback`;
@@ -60,11 +66,14 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
     }
 
     const googleUser = await userInfoResponse.json();
+    if (googleUser.verified_email !== true) {
+      throw new Error('Google account email is not verified');
+    }
 
     // Check SQL for existing user
     const existingUsers = (await sql`
       SELECT * FROM users 
-      WHERE google_id = ${googleUser.id} OR username = ${googleUser.email}
+      WHERE google_id = ${googleUser.id} OR LOWER(username) = LOWER(${googleUser.email})
       LIMIT 1
     `) as any[];
 
@@ -106,15 +115,11 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
     // Create session
     const sessionToken = createSessionToken();
     const expiresAt = expiresAtMs();
+    const userAgentHash = getRequestUserAgentHash(request);
+    const serverSecret = getAuthBridgeSecret();
     
-    await sql`
-      INSERT INTO sessions (token, user_id, expires_at, created_at)
-      VALUES (${sessionToken}, ${user.id}, ${expiresAt}, ${Date.now()})
-    `;
-    
-    // Only sync new users to Convex - existing users keep their Convex status (which may be approved)
-    if (user.needs_username_setup) {
-      try {
+    try {
+      if (user.needs_username_setup) {
         await convex.mutation(api.auth.syncExternalUser, {
           username: user.username,
           externalId: user.google_id || '',
@@ -122,12 +127,29 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
           status: user.status,
           needsUsernameSetup: true,
           sessionToken,
-          expiresAt
+          userAgentHash,
+          expiresAt,
+          serverSecret
         });
-      } catch (syncError) {
-        console.error('Convex sync failed:', syncError);
+      } else {
+        await convex.mutation(api.auth.syncExternalSession, {
+          username: user.username,
+          externalId: user.google_id || '',
+          sessionToken,
+          userAgentHash,
+          expiresAt,
+          serverSecret
+        });
       }
+    } catch (syncError) {
+      console.error('Convex sync failed:', syncError);
+      throw new Error('Failed to synchronize authenticated session');
     }
+
+    await sql`
+      INSERT INTO sessions (token, user_id, expires_at, created_at)
+      VALUES (${sessionToken}, ${user.id}, ${expiresAt}, ${Date.now()})
+    `;
     
     setSessionCookie(cookies, sessionToken);
     

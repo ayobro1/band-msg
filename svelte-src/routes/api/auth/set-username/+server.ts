@@ -1,5 +1,6 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
+import { getAuthBridgeSecret, getRequestUserAgentHash } from '$lib/server/auth';
 import { getSqlClient, getUserBySession } from '$lib/server/db';
 import { getConvexHttpClient } from "$lib/server/convex";
 import { api } from "../../../../../convex/_generated/api";
@@ -45,27 +46,31 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       return json({ error: 'Username is already taken' }, { status: 400 });
     }
 
-    // Update user in SQL
+    const userRows = await sql`
+      SELECT google_id
+      FROM users
+      WHERE id = ${user.id}
+      LIMIT 1
+    ` as any[];
+
+    await convex.mutation(api.auth.syncExternalUser, {
+      username: trimmedUsername,
+      externalId: typeof userRows[0]?.google_id === 'string' ? userRows[0].google_id : '',
+      role: user.role,
+      status: user.status,
+      needsUsernameSetup: false,
+      sessionToken,
+      userAgentHash: getRequestUserAgentHash(request),
+      expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000,
+      serverSecret: getAuthBridgeSecret()
+    });
+
+    // Update user in SQL only after Convex succeeds.
     await sql`
       UPDATE users 
       SET username = ${trimmedUsername}, display_name = ${displayName?.trim()?.substring(0, 50) || null}, needs_username_setup = false
       WHERE id = ${user.id}
     `;
-
-    // Sync to Convex
-    try {
-      await convex.mutation(api.auth.syncExternalUser, {
-        username: trimmedUsername,
-        externalId: '',
-        role: user.role,
-        status: user.status,
-        needsUsernameSetup: false,
-        sessionToken,
-        expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000
-      });
-    } catch (syncError) {
-      console.error('Convex sync failed:', syncError);
-    }
 
     return json({ success: true, username: trimmedUsername });
   } catch (error) {

@@ -2,7 +2,9 @@
   import { onMount } from 'svelte';
   import { Drawer } from 'vaul-svelte';
   import { fade } from 'svelte/transition';
+  import { authStore } from '../stores/auth';
   import { convex } from '../convex';
+  import { getBrowserUserAgentHash } from '../userAgentHash';
   import { api } from '../../../convex/_generated/api';
   import type { Id } from '../../../convex/_generated/dataModel';
 
@@ -32,14 +34,17 @@
   let isAdmin = false;
 
   onMount(async () => {
-    console.log('[AdminPanel] Component mounted with session token:', !!sessionToken);
-    
     if (sessionToken) {
       await checkAdminAndLoad();
-    } else {
-      console.error('[AdminPanel] No session token provided');
     }
   });
+
+  async function getAdminAuthArgs() {
+    return {
+      sessionToken,
+      userAgentHash: await getBrowserUserAgentHash()
+    };
+  }
 
   async function checkAdminAndLoad() {
     // Prevent multiple checks
@@ -51,33 +56,18 @@
       return;
     }
     
-    console.log('[AdminPanel] Checking admin status...');
-    
     try {
-      const debugInfo = await convex.query(api.auth.debugSession, { sessionToken });
-      console.log('[AdminPanel] Debug info:', debugInfo);
-      
-      if (!debugInfo.sessionValid) {
-        console.error('[AdminPanel] Session is not valid');
-        return;
-      }
-      
-      if (!debugInfo.user) {
-        console.error('[AdminPanel] No user found for session');
-        return;
-      }
-      
-      if (debugInfo.user.role !== 'admin') {
-        console.error('[AdminPanel] User is not admin. Role:', debugInfo.user.role);
+      await authStore.refreshUser();
+
+      if ($authStore.user?.role !== 'admin') {
         isAdmin = false;
-        return; // STOP HERE - don't load data if not admin
+        return;
       }
       
       isAdmin = true;
-      console.log('[AdminPanel] User is admin, loading data...');
       await loadData();
-    } catch (debugError) {
-      console.error('[AdminPanel] Session check failed:', debugError);
+    } catch (error) {
+      console.error('[AdminPanel] Session check failed:', error);
     }
   }
 
@@ -87,29 +77,16 @@
       return;
     }
     
-    console.log('[AdminPanel] Loading data with session token:', sessionToken.substring(0, 10) + '...');
-    
     isLoading = true;
     try {
-      console.log('[AdminPanel] Loading signup requests...');
-      const requests = await convex.query(api.signupRequests.getPending, { sessionToken });
-      console.log('[AdminPanel] Signup requests loaded:', requests);
-      
-      console.log('[AdminPanel] Loading all users...');
-      const users = await convex.query(api.auth.getAllUsers, { sessionToken });
-      console.log('[AdminPanel] All users loaded:', users);
-      console.log('[AdminPanel] User IDs and roles:', users.map(u => ({ id: u.id, username: u.username, role: u.role })));
+      const authArgs = await getAdminAuthArgs();
+      const requests = await convex.query(api.signupRequests.getPending, authArgs);
+      const users = await convex.query(api.auth.getAllUsers, authArgs);
       
       signupRequests = requests;
       allUsers = users;
-      console.log('[AdminPanel] Data loaded successfully:', { requests: requests.length, users: users.length });
     } catch (error) {
       console.error('[AdminPanel] Failed to load data:', error);
-      console.error('[AdminPanel] Error details:', {
-        name: error.name,
-        message: error.message,
-        stack: error.stack
-      });
     } finally {
       isLoading = false;
     }
@@ -119,8 +96,9 @@
     if (!sessionToken || isLoading) return;
     isLoading = true;
     try {
+      const authArgs = await getAdminAuthArgs();
       await convex.mutation(api.signupRequests.approve, { 
-        sessionToken, 
+        ...authArgs,
         requestId: requestId as Id<"signupRequests"> 
       });
       await loadData();
@@ -135,8 +113,9 @@
     if (!sessionToken || isLoading) return;
     isLoading = true;
     try {
+      const authArgs = await getAdminAuthArgs();
       await convex.mutation(api.signupRequests.reject, { 
-        sessionToken, 
+        ...authArgs,
         requestId: requestId as Id<"signupRequests"> 
       });
       await loadData();
@@ -148,13 +127,11 @@
   }
 
   async function promoteUser(userId: string) {
-    console.log('[AdminPanel] Promoting user:', userId);
     if (!sessionToken || isLoading) return;
     isLoading = true;
     try {
-      console.log('[AdminPanel] Calling promoteUser mutation...');
-      await convex.mutation(api.auth.promoteUser, { sessionToken, userId: userId as Id<"users"> });
-      console.log('[AdminPanel] Promote successful, reloading data...');
+      const authArgs = await getAdminAuthArgs();
+      await convex.mutation(api.auth.promoteUser, { ...authArgs, userId: userId as Id<"users"> });
       await loadData();
     } catch (error) {
       console.error('[AdminPanel] Failed to promote:', error);
@@ -164,8 +141,6 @@
   }
 
   async function demoteUser(userId: string) {
-    console.log('[AdminPanel] Demoting user:', userId);
-    
     // Prevent self-demotion
     const currentUser = allUsers.find(u => u.id === userId);
     if (currentUser && currentUser.username.toLowerCase() === 'nolanc') {
@@ -176,9 +151,8 @@
     if (!sessionToken || isLoading) return;
     isLoading = true;
     try {
-      console.log('[AdminPanel] Calling demoteUser mutation...');
-      await convex.mutation(api.auth.demoteUser, { sessionToken, userId: userId as Id<"users"> });
-      console.log('[AdminPanel] Demote successful, reloading data...');
+      const authArgs = await getAdminAuthArgs();
+      await convex.mutation(api.auth.demoteUser, { ...authArgs, userId: userId as Id<"users"> });
       await loadData();
     } catch (error) {
       console.error('[AdminPanel] Failed to demote:', error);
@@ -192,7 +166,8 @@
     if (!confirm(`Remove ${username}? This cannot be undone.`)) return;
     isLoading = true;
     try {
-      await convex.mutation(api.auth.removeUser, { sessionToken, userId: userId as Id<"users"> });
+      const authArgs = await getAdminAuthArgs();
+      await convex.mutation(api.auth.removeUser, { ...authArgs, userId: userId as Id<"users"> });
       await loadData();
     } catch (error) {
       console.error('[AdminPanel] Failed to remove:', error);
@@ -202,19 +177,14 @@
   }
 
   async function approveUser(userId: string) {
-    console.log('[AdminPanel] Approving user:', userId);
     if (!sessionToken || isLoading) {
-      console.error('[AdminPanel] Cannot approve - no session token or loading');
       return;
     }
     isLoading = true;
     try {
-      console.log('[AdminPanel] Calling approveUser mutation...');
-      const result = await convex.mutation(api.auth.approveUser, { sessionToken, userId: userId as Id<"users"> });
-      console.log('[AdminPanel] Approve result:', result);
-      console.log('[AdminPanel] Reloading data...');
+      const authArgs = await getAdminAuthArgs();
+      await convex.mutation(api.auth.approveUser, { ...authArgs, userId: userId as Id<"users"> });
       await loadData();
-      console.log('[AdminPanel] Data reloaded');
     } catch (error: any) {
       console.error('[AdminPanel] Failed to approve user:', error?.message || error);
       console.error('[AdminPanel] Error details:', error);

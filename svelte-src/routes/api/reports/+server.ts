@@ -3,7 +3,8 @@ import type { RequestHandler } from './$types';
 
 export const POST: RequestHandler = async ({ request, locals }) => {
   try {
-    const { message, sessionToken } = await request.json();
+    const { message } = await request.json();
+    const sessionToken = locals.sessionToken;
 
     if (!message || !sessionToken) {
       return json({ error: 'Missing message or session token' }, { status: 400 });

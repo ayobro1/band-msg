@@ -1,12 +1,19 @@
 import webPush from 'web-push';
 import { ensureServerEnv } from "$lib/server/env";
-import { getSessionToken } from "$lib/server/auth";
-import { getPushSubscriptionsForUser, getUserBySession } from "$lib/server/db";
+import { consumeRateLimit, getPushSubscriptionsForUser, getUserBySession } from "$lib/server/db";
+import { getClientIp } from '$lib/server/request';
 
-const toJson = (body: unknown, status = 200) =>
+const PUSH_TEST_IP_MAX_ATTEMPTS = 5;
+const PUSH_TEST_USER_MAX_ATTEMPTS = 3;
+const PUSH_TEST_WINDOW_MS = 15 * 60 * 1000;
+
+const toJson = (body: unknown, status = 200, headers?: Record<string, string>) =>
   new Response(JSON.stringify(body), {
     status,
-    headers: { "content-type": "application/json" }
+    headers: {
+      "content-type": "application/json",
+      ...headers
+    }
   });
 
 function configureWebPush() {
@@ -26,24 +33,52 @@ function configureWebPush() {
   return { publicKey, privateKey };
 }
 
-export const POST = async ({ cookies }: any) => {
+export const POST = async ({ locals, request }: any) => {
   try {
     const { publicKey, privateKey } = configureWebPush();
     if (!publicKey || !privateKey) {
       return toJson({ error: "Push notifications are not configured on the server." }, 503);
     }
 
-    const sessionToken = getSessionToken(cookies);
+    const sessionToken = locals.sessionToken;
     if (!sessionToken) {
       return toJson({ error: "Unauthorized" }, 401);
     }
 
-    const user = await getUserBySession(sessionToken);
+    const ip = getClientIp(request);
+    const actorId =
+      typeof locals.user?.id === "string" && locals.user.id.length > 0
+        ? locals.user.id
+        : sessionToken;
+    const ipLimit = await consumeRateLimit(
+      `push-test-ip:${ip}`,
+      PUSH_TEST_IP_MAX_ATTEMPTS,
+      PUSH_TEST_WINDOW_MS
+    );
+    const userLimit = await consumeRateLimit(
+      `push-test-user:${actorId}`,
+      PUSH_TEST_USER_MAX_ATTEMPTS,
+      PUSH_TEST_WINDOW_MS
+    );
+
+    if (!ipLimit.allowed || !userLimit.allowed) {
+      const retryAfterMs = Math.max(ipLimit.retryAfterMs ?? 0, userLimit.retryAfterMs ?? 0);
+      return toJson(
+        { error: "Too many test push attempts, try again later" },
+        429,
+        retryAfterMs > 0 ? { "Retry-After": String(Math.max(1, Math.ceil(retryAfterMs / 1000))) } : undefined
+      );
+    }
+
+    const user = await getUserBySession(sessionToken, locals.sessionBinding);
     if (!user) {
       return toJson({ error: "Unauthorized" }, 401);
     }
 
-    const subscriptions = await getPushSubscriptionsForUser({ sessionToken });
+    const subscriptions = await getPushSubscriptionsForUser({
+      sessionToken,
+      userAgentHash: locals.sessionBinding
+    });
     if (subscriptions.ok === false) {
       return toJson({ error: subscriptions.error }, subscriptions.code ?? 400);
     }

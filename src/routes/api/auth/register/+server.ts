@@ -1,33 +1,18 @@
-import { hashPassword } from "$lib/server/auth";
+import {
+  getAuthBridgeSecret,
+  hashPassword,
+  isRegistrationEnabled
+} from "$lib/server/auth";
+import { consumeRateLimit } from "$lib/server/db";
 import { getClientIp } from "$lib/server/request";
 import { api } from "../../../../../convex/_generated/api";
 import { getConvexHttpClient } from "$lib/server/convex";
 
-const REGISTER_MAX_ATTEMPTS = 8;
-const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
-const AUTH_BRIDGE_SECRET =
-  process.env.AUTH_BRIDGE_SECRET ||
-  "rotate-this-auth-bridge-secret-2026-03-24-a7f48c2c14f34d2ab0c7b5b31d2f6e8c";
-
-// Simple in-memory rate limiting for registration
-const rateLimits = new Map<string, { count: number; resetAt: number }>();
-
-function consumeRateLimit(key: string): { allowed: boolean } {
-  const now = Date.now();
-  const limit = rateLimits.get(key);
-
-  if (!limit || limit.resetAt < now) {
-    rateLimits.set(key, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
-    return { allowed: true };
-  }
-
-  if (limit.count >= REGISTER_MAX_ATTEMPTS) {
-    return { allowed: false };
-  }
-
-  limit.count++;
-  return { allowed: true };
-}
+const REGISTER_USERNAME_PATTERN = /^[a-zA-Z0-9_-]{3,20}$/;
+const REGISTER_IP_MAX_ATTEMPTS = 4;
+const REGISTER_IP_WINDOW_MS = 15 * 60 * 1000;
+const REGISTER_ACCOUNT_MAX_ATTEMPTS = 2;
+const REGISTER_ACCOUNT_WINDOW_MS = 60 * 60 * 1000;
 
 const toJson = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -37,31 +22,48 @@ const toJson = (body: unknown, status = 200) =>
 
 export const POST = async ({ request }: any) => {
   try {
-    const convex = await getConvexHttpClient();
+    if (!isRegistrationEnabled()) {
+      return toJson({ error: "Registration is temporarily disabled" }, 503);
+    }
+
     const body = await request.json().catch(() => null);
     const username = typeof body?.username === "string" ? body.username : "";
     const password = typeof body?.password === "string" ? body.password : "";
+    const normalizedUsername = username.trim().toLowerCase();
 
-    if (!username || password.length < 12 || password.length > 128) {
+    if (
+      !REGISTER_USERNAME_PATTERN.test(normalizedUsername) ||
+      password.length < 12 ||
+      password.length > 128
+    ) {
       return toJson({ error: "username and strong password are required" }, 400);
     }
 
-    const { salt, hash } = await hashPassword(password);
     const ip = getClientIp(request);
-    const key = `register:${ip}:${username.trim().toLowerCase()}`;
+    const ipLimit = await consumeRateLimit(
+      `register-ip:${ip}`,
+      REGISTER_IP_MAX_ATTEMPTS,
+      REGISTER_IP_WINDOW_MS
+    );
+    const accountLimit = await consumeRateLimit(
+      `register-user:${normalizedUsername}`,
+      REGISTER_ACCOUNT_MAX_ATTEMPTS,
+      REGISTER_ACCOUNT_WINDOW_MS
+    );
 
-    const limit = consumeRateLimit(key);
-
-    if (!limit.allowed) {
+    if (!ipLimit.allowed || !accountLimit.allowed) {
       return toJson({ error: "Too many registration attempts, try again later" }, 429);
     }
+
+    const { salt, hash } = await hashPassword(password);
+    const convex = await getConvexHttpClient();
 
     try {
       const result = await convex.mutation(api.auth.register, {
         username,
         passwordHash: hash,
         passwordSalt: salt,
-        serverSecret: AUTH_BRIDGE_SECRET
+        serverSecret: getAuthBridgeSecret()
       });
 
       return toJson(result, 201);

@@ -1,10 +1,9 @@
 import { json } from "@sveltejs/kit";
-import { getSessionToken } from "$lib/server/auth";
 
 const GIPHY_API = "https://api.giphy.com/v1/gifs";
 
-export async function GET({ url, cookies }: any) {
-  const sessionToken = getSessionToken(cookies);
+export async function GET({ url, locals }: any) {
+  const sessionToken = locals.sessionToken;
   if (!sessionToken) {
     return json({ error: "Unauthorized" }, { status: 401 });
   }

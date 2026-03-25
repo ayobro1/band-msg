@@ -17,7 +17,7 @@ export const GET = async ({ locals, params }: any) => {
   }
 
   try {
-    const user = await getUserBySession(locals.sessionToken);
+    const user = await getUserBySession(locals.sessionToken, locals.sessionBinding);
     if (!user) {
       return toJson({ error: "unauthorized" }, 401);
     }

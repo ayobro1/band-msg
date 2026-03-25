@@ -1,12 +1,14 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { clearSessionCookie, expiresAtMs, getSessionToken, setSessionCookie } from '$lib/server/auth';
+import { clearSessionCookie, expiresAtMs, setSessionCookie } from '$lib/server/auth';
 import { refreshSessionExpiry } from '$lib/server/db';
+import { getSessionBinding } from '$lib/server/request';
 import { api } from "../../../../../convex/_generated/api";
 import { getConvexHttpClient } from "$lib/server/convex";
 
-export const GET: RequestHandler = async ({ cookies }) => {
-  const sessionToken = getSessionToken(cookies);
+export const GET: RequestHandler = async ({ cookies, locals, request }) => {
+  const sessionToken = locals.sessionToken;
+  const sessionBinding = getSessionBinding(request);
 
   if (!sessionToken) {
     return json({ error: 'Unauthorized' }, { status: 401 });
@@ -15,7 +17,7 @@ export const GET: RequestHandler = async ({ cookies }) => {
   try {
     const convex = await getConvexHttpClient();
     // Read from Convex to get fresh user data (including updated status after approval)
-    const user = await convex.query(api.auth.getUser, { sessionToken });
+    const user = await convex.query(api.auth.getUser, { sessionToken, userAgentHash: sessionBinding });
 
     if (!user) {
       clearSessionCookie(cookies);
@@ -28,9 +30,10 @@ export const GET: RequestHandler = async ({ cookies }) => {
     await Promise.allSettled([
       convex.mutation(api.auth.refreshSession, {
         sessionToken,
+        userAgentHash: sessionBinding,
         expiresAt: refreshedExpiry
       }),
-      refreshSessionExpiry(sessionToken, refreshedExpiry)
+      refreshSessionExpiry(sessionToken, refreshedExpiry, sessionBinding)
     ]);
 
     return json(user);

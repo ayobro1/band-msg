@@ -1,6 +1,5 @@
 import webPush from 'web-push';
 import { getAllPushSubscriptions } from "$lib/server/db";
-import { getSessionToken } from "$lib/server/auth";
 import { getUserBySession } from "$lib/server/db";
 import { ensureServerEnv } from "$lib/server/env";
 
@@ -27,7 +26,7 @@ function getVapidConfig() {
   return { publicKey, privateKey };
 }
 
-export const POST = async ({ request, cookies }: any) => {
+export const POST = async ({ request, locals }: any) => {
   try {
     const { publicKey, privateKey } = getVapidConfig();
 
@@ -36,12 +35,12 @@ export const POST = async ({ request, cookies }: any) => {
       return toJson({ error: "Push notifications not configured" }, 503);
     }
 
-    const sessionToken = getSessionToken(cookies);
+    const sessionToken = locals.sessionToken;
     if (!sessionToken) {
       return toJson({ error: "Unauthorized" }, 401);
     }
 
-    const user = await getUserBySession(sessionToken);
+    const user = await getUserBySession(sessionToken, locals.sessionBinding);
     if (!user) {
       return toJson({ error: "Unauthorized" }, 401);
     }

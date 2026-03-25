@@ -12,16 +12,17 @@ async function fixAdminStatus() {
   
   // Get your session token from the environment or pass it as argument
   const sessionToken = process.argv[2];
+  const userAgentHash = process.argv[3];
   
-  if (!sessionToken) {
-    console.error("Usage: npx tsx scripts/fix-admin-status.ts <your-session-token>");
-    console.error("Get your session token from browser console: document.cookie");
+  if (!sessionToken || !userAgentHash) {
+    console.error("Usage: npx tsx scripts/fix-admin-status.ts <your-session-token> <your-session-binding>");
+    console.error("Get the binding from the active app session context before running this script.");
     process.exit(1);
   }
 
   try {
     // Get all users
-    const users = await convex.query(api.auth.getAllUsers, { sessionToken });
+    const users = await convex.query(api.auth.getAllUsers, { sessionToken, userAgentHash });
     console.log("All users:", users);
 
     // Find admin users

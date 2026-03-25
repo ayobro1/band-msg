@@ -33,9 +33,9 @@ export const create = mutation({
 
 // Get all pending signup requests (admin only)
 export const getPending = query({
-  args: { sessionToken: v.string() },
+  args: { sessionToken: v.string(), userAgentHash: v.string() },
   handler: async (ctx, args) => {
-    const admin = await getUserByToken(ctx, args.sessionToken);
+    const admin = await getUserByToken(ctx, args.sessionToken, args.userAgentHash);
     if (!admin || admin.role !== "admin") {
       throw new Error("Unauthorized");
     }
@@ -57,9 +57,9 @@ export const getPending = query({
 
 // Get all signup requests (admin only)
 export const getAll = query({
-  args: { sessionToken: v.string() },
+  args: { sessionToken: v.string(), userAgentHash: v.string() },
   handler: async (ctx, args) => {
-    const admin = await getUserByToken(ctx, args.sessionToken);
+    const admin = await getUserByToken(ctx, args.sessionToken, args.userAgentHash);
     if (!admin || admin.role !== "admin") {
       throw new Error("Unauthorized");
     }
@@ -84,13 +84,14 @@ export const getAll = query({
 export const approve = mutation({
   args: {
     sessionToken: v.string(),
+    userAgentHash: v.string(),
     requestId: v.id("signupRequests"),
   },
   handler: async (ctx, args) => {
     console.log('[signupRequests.approve] ========== START ==========');
     console.log('[signupRequests.approve] Request ID:', args.requestId);
     
-    const admin = await getUserByToken(ctx, args.sessionToken);
+    const admin = await getUserByToken(ctx, args.sessionToken, args.userAgentHash);
     console.log('[signupRequests.approve] Admin:', admin?._id, 'Role:', admin?.role);
     
     if (!admin || admin.role !== "admin") {
@@ -163,10 +164,11 @@ export const approve = mutation({
 export const reject = mutation({
   args: {
     sessionToken: v.string(),
+    userAgentHash: v.string(),
     requestId: v.id("signupRequests"),
   },
   handler: async (ctx, args) => {
-    const admin = await getUserByToken(ctx, args.sessionToken);
+    const admin = await getUserByToken(ctx, args.sessionToken, args.userAgentHash);
     if (!admin || admin.role !== "admin") {
       throw new Error("Unauthorized");
     }

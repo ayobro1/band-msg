@@ -1,9 +1,8 @@
 import { json } from "@sveltejs/kit";
-import { getSessionToken } from "$lib/server/auth";
 import { listServers } from "$lib/server/db";
 
-export async function GET({ cookies }: any) {
-  const sessionToken = getSessionToken(cookies);
+export async function GET({ locals }: any) {
+  const sessionToken = locals.sessionToken;
   if (!sessionToken) {
     return json({ error: "Unauthorized" }, { status: 401 });
   }

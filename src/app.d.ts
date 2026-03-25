@@ -4,6 +4,7 @@ declare global {
       sessionToken: string | null;
       sessionFromHeader: boolean;
       csrfToken: string;
+      sessionBinding: string;
       user?: any;
     }
   }

@@ -1,15 +1,102 @@
 import { v } from "convex/values";
-import { internalMutation, internalQuery, mutation, query, type QueryCtx } from "./_generated/server";
+import {
+  internalMutation,
+  internalQuery,
+  mutation,
+  query,
+  type MutationCtx,
+  type QueryCtx
+} from "./_generated/server";
 
-const SESSION_INVALID_BEFORE_MS = 1774414350668;
-const AUTH_BRIDGE_SECRET =
-  process.env.AUTH_BRIDGE_SECRET ||
-  "rotate-this-auth-bridge-secret-2026-03-24-a7f48c2c14f34d2ab0c7b5b31d2f6e8c";
+const SESSION_INVALID_BEFORE_MS = 1774415633930;
+const AUTH_BRIDGE_SECRET = process.env.AUTH_BRIDGE_SECRET;
+const DUMMY_PASSWORD_SALT = "00000000000000000000000000000000";
+const LOGIN_ACCOUNT_MAX_ATTEMPTS = 10;
+const LOGIN_ACCOUNT_WINDOW_MS = 10 * 60 * 1000;
+
+function isPasswordResetEnabled() {
+  return (process.env.AUTH_PASSWORD_RESET_ENABLED ?? "false").toLowerCase() === "true";
+}
 
 function requireBridgeSecret(serverSecret: string) {
+  if (!AUTH_BRIDGE_SECRET) {
+    throw new Error("AUTH_BRIDGE_SECRET is not configured");
+  }
+
   if (serverSecret !== AUTH_BRIDGE_SECRET) {
     throw new Error("Unauthorized");
   }
+}
+
+async function consumeAuthRateLimit(
+  ctx: MutationCtx,
+  key: string,
+  maxAttempts: number,
+  windowMs: number
+) {
+  const now = Date.now();
+  const current = await ctx.db
+    .query("authRateLimits")
+    .withIndex("by_key", (q) => q.eq("key", key))
+    .first();
+
+  if (!current || current.resetAt < now) {
+    if (current) {
+      await ctx.db.patch(current._id, {
+        count: 1,
+        resetAt: now + windowMs,
+      });
+    } else {
+      await ctx.db.insert("authRateLimits", {
+        key,
+        count: 1,
+        resetAt: now + windowMs,
+      });
+    }
+
+    return { allowed: true as const };
+  }
+
+  if (current.count >= maxAttempts) {
+    return {
+      allowed: false as const,
+      retryAfterMs: Math.max(0, current.resetAt - now),
+    };
+  }
+
+  await ctx.db.patch(current._id, {
+    count: current.count + 1,
+  });
+
+  return { allowed: true as const };
+}
+
+async function clearAuthRateLimit(ctx: MutationCtx, key: string) {
+  const current = await ctx.db
+    .query("authRateLimits")
+    .withIndex("by_key", (q) => q.eq("key", key))
+    .first();
+
+  if (current) {
+    await ctx.db.delete(current._id);
+  }
+}
+
+async function getValidPasswordResetToken(ctx: QueryCtx, tokenHash: string) {
+  if (!isPasswordResetEnabled()) {
+    return null;
+  }
+
+  const resetToken = await ctx.db
+    .query("passwordResetTokens")
+    .withIndex("by_token_hash", (q) => q.eq("tokenHash", tokenHash))
+    .first();
+
+  if (!resetToken || resetToken.usedAt || resetToken.expiresAt < Date.now()) {
+    return null;
+  }
+
+  return resetToken;
 }
 
 // Debug function to check session and user
@@ -73,7 +160,7 @@ export const debugSession = internalQuery({
   },
 });
 
-export async function getUserByToken(ctx: QueryCtx, token: string) {
+export async function getUserByToken(ctx: QueryCtx, token: string, userAgentHash?: string) {
   const session = await ctx.db
     .query("sessions")
     .withIndex("by_token", (q) => q.eq("token", token))
@@ -82,7 +169,8 @@ export async function getUserByToken(ctx: QueryCtx, token: string) {
   if (
     !session ||
     session.expiresAt < Date.now() ||
-    (session.createdAt ?? 0) < SESSION_INVALID_BEFORE_MS
+    (session.createdAt ?? 0) < SESSION_INVALID_BEFORE_MS ||
+    (userAgentHash !== undefined && session.userAgentHash !== userAgentHash)
   ) {
     return null;
   }
@@ -91,9 +179,9 @@ export async function getUserByToken(ctx: QueryCtx, token: string) {
 }
 
 export const getUser = query({
-  args: { sessionToken: v.string() },
+  args: { sessionToken: v.string(), userAgentHash: v.string() },
   handler: async (ctx, args) => {
-    const user = await getUserByToken(ctx, args.sessionToken);
+    const user = await getUserByToken(ctx, args.sessionToken, args.userAgentHash);
     if (!user) return null;
 
     return {
@@ -109,9 +197,9 @@ export const getUser = query({
 
 // Get all approved users (for member list)
 export const getApprovedUsers = query({
-  args: { sessionToken: v.string() },
+  args: { sessionToken: v.string(), userAgentHash: v.string() },
   handler: async (ctx, args) => {
-    const user = await getUserByToken(ctx, args.sessionToken);
+    const user = await getUserByToken(ctx, args.sessionToken, args.userAgentHash);
     if (!user) {
       throw new Error("Unauthorized");
     }
@@ -131,10 +219,10 @@ export const getApprovedUsers = query({
 });
 
 // Admin: Get all users
-export const getAllUsers = internalQuery({
-  args: { sessionToken: v.string() },
+export const getAllUsers = query({
+  args: { sessionToken: v.string(), userAgentHash: v.string() },
   handler: async (ctx, args) => {
-    const admin = await getUserByToken(ctx, args.sessionToken);
+    const admin = await getUserByToken(ctx, args.sessionToken, args.userAgentHash);
     if (!admin || admin.role !== "admin") {
       throw new Error("Unauthorized");
     }
@@ -154,10 +242,10 @@ export const getAllUsers = internalQuery({
 });
 
 // Admin: Get pending users
-export const getPendingUsers = internalQuery({
-  args: { sessionToken: v.string() },
+export const getPendingUsers = query({
+  args: { sessionToken: v.string(), userAgentHash: v.string() },
   handler: async (ctx, args) => {
-    const admin = await getUserByToken(ctx, args.sessionToken);
+    const admin = await getUserByToken(ctx, args.sessionToken, args.userAgentHash);
     if (!admin || admin.role !== "admin") {
       throw new Error("Unauthorized");
     }
@@ -179,13 +267,14 @@ export const getPendingUsers = internalQuery({
 });
 
 // Admin: Approve user
-export const approveUser = internalMutation({
+export const approveUser = mutation({
   args: {
     sessionToken: v.string(),
+    userAgentHash: v.string(),
     userId: v.id("users"),
   },
   handler: async (ctx, args) => {
-    const admin = await getUserByToken(ctx, args.sessionToken);
+    const admin = await getUserByToken(ctx, args.sessionToken, args.userAgentHash);
     if (!admin || admin.role !== "admin") {
       throw new Error("Unauthorized");
     }
@@ -218,13 +307,14 @@ export const approveUser = internalMutation({
 });
 
 // Admin: Reject user
-export const rejectUser = internalMutation({
+export const rejectUser = mutation({
   args: { 
     sessionToken: v.string(),
+    userAgentHash: v.string(),
     userId: v.id("users"),
   },
   handler: async (ctx, args) => {
-    const admin = await getUserByToken(ctx, args.sessionToken);
+    const admin = await getUserByToken(ctx, args.sessionToken, args.userAgentHash);
     if (!admin || admin.role !== "admin") {
       throw new Error("Unauthorized");
     }
@@ -235,13 +325,14 @@ export const rejectUser = internalMutation({
 });
 
 // Admin: Promote user to admin
-export const promoteUser = internalMutation({
+export const promoteUser = mutation({
   args: { 
     sessionToken: v.string(),
+    userAgentHash: v.string(),
     userId: v.id("users"),
   },
   handler: async (ctx, args) => {
-    const admin = await getUserByToken(ctx, args.sessionToken);
+    const admin = await getUserByToken(ctx, args.sessionToken, args.userAgentHash);
     if (!admin || admin.role !== "admin") {
       throw new Error("Unauthorized");
     }
@@ -252,13 +343,14 @@ export const promoteUser = internalMutation({
 });
 
 // Admin: Demote user to member
-export const demoteUser = internalMutation({
+export const demoteUser = mutation({
   args: { 
     sessionToken: v.string(),
+    userAgentHash: v.string(),
     userId: v.id("users"),
   },
   handler: async (ctx, args) => {
-    const admin = await getUserByToken(ctx, args.sessionToken);
+    const admin = await getUserByToken(ctx, args.sessionToken, args.userAgentHash);
     if (!admin || admin.role !== "admin") {
       throw new Error("Unauthorized");
     }
@@ -269,13 +361,14 @@ export const demoteUser = internalMutation({
 });
 
 // Admin: Remove user completely
-export const removeUser = internalMutation({
+export const removeUser = mutation({
   args: { 
     sessionToken: v.string(),
+    userAgentHash: v.string(),
     userId: v.id("users"),
   },
   handler: async (ctx, args) => {
-    const admin = await getUserByToken(ctx, args.sessionToken);
+    const admin = await getUserByToken(ctx, args.sessionToken, args.userAgentHash);
     if (!admin || admin.role !== "admin") {
       throw new Error("Unauthorized");
     }
@@ -408,23 +501,38 @@ export const login = mutation({
     username: v.string(),
     passwordHash: v.string(),
     sessionToken: v.string(),
+    userAgentHash: v.string(),
     expiresAt: v.number(),
+    serverSecret: v.string(),
   },
   handler: async (ctx, args) => {
+    requireBridgeSecret(args.serverSecret);
     const username = args.username.trim().toLowerCase();
+    const loginKey = `login-user:${username}`;
+    const rateLimit = await consumeAuthRateLimit(
+      ctx,
+      loginKey,
+      LOGIN_ACCOUNT_MAX_ATTEMPTS,
+      LOGIN_ACCOUNT_WINDOW_MS
+    );
+
+    if (!rateLimit.allowed) {
+      throw new Error("Too many login attempts, try again later");
+    }
     
     const user = await ctx.db
       .query("users")
       .withIndex("by_username", (q) => q.eq("username", username))
       .first();
 
-    if (!user || user.passwordHash !== args.passwordHash) {
+    if (!user || !user.passwordHash || user.passwordHash !== args.passwordHash) {
       throw new Error("Invalid username or password");
     }
 
     // Create session (allow both approved and pending users to get sessions)
     await ctx.db.insert("sessions", {
       token: args.sessionToken,
+      userAgentHash: args.userAgentHash,
       userId: user._id,
       expiresAt: args.expiresAt,
       createdAt: Date.now(),
@@ -435,6 +543,8 @@ export const login = mutation({
       presenceStatus: "online",
       lastSeen: Date.now(),
     });
+
+    await clearAuthRateLimit(ctx, loginKey);
 
     return {
       id: user._id,
@@ -448,8 +558,9 @@ export const login = mutation({
 
 // Get login salt
 export const getLoginSalt = query({
-  args: { username: v.string() },
+  args: { username: v.string(), serverSecret: v.string() },
   handler: async (ctx, args) => {
+    requireBridgeSecret(args.serverSecret);
     const username = args.username.trim().toLowerCase();
     
     const user = await ctx.db
@@ -457,13 +568,14 @@ export const getLoginSalt = query({
       .withIndex("by_username", (q) => q.eq("username", username))
       .first();
 
-    return user?.passwordSalt || null;
+    return typeof user?.passwordSalt === "string" ? user.passwordSalt : DUMMY_PASSWORD_SALT;
   },
 });
 
 export const refreshSession = mutation({
   args: {
     sessionToken: v.string(),
+    userAgentHash: v.string(),
     expiresAt: v.number(),
   },
   handler: async (ctx, args) => {
@@ -475,7 +587,8 @@ export const refreshSession = mutation({
     if (
       !session ||
       session.expiresAt < Date.now() ||
-      (session.createdAt ?? 0) < SESSION_INVALID_BEFORE_MS
+      (session.createdAt ?? 0) < SESSION_INVALID_BEFORE_MS ||
+      session.userAgentHash !== args.userAgentHash
     ) {
       return { ok: false };
     }
@@ -491,6 +604,7 @@ export const refreshSession = mutation({
 export const removeSession = mutation({
   args: {
     sessionToken: v.string(),
+    userAgentHash: v.string(),
   },
   handler: async (ctx, args) => {
     const session = await ctx.db
@@ -498,7 +612,7 @@ export const removeSession = mutation({
       .withIndex("by_token", (q) => q.eq("token", args.sessionToken))
       .first();
 
-    if (session) {
+    if (session && session.userAgentHash === args.userAgentHash) {
       await ctx.db.delete(session._id);
     }
 
@@ -511,8 +625,14 @@ export const createPasswordResetToken = mutation({
     username: v.string(),
     tokenHash: v.string(),
     expiresAt: v.number(),
+    serverSecret: v.string(),
   },
   handler: async (ctx, args) => {
+    if (!isPasswordResetEnabled()) {
+      return { userFound: false };
+    }
+
+    requireBridgeSecret(args.serverSecret);
     const username = args.username.trim().toLowerCase();
 
     const user = await ctx.db
@@ -560,14 +680,17 @@ export const resetPasswordWithToken = mutation({
     tokenHash: v.string(),
     passwordHash: v.string(),
     passwordSalt: v.string(),
+    serverSecret: v.string(),
   },
   handler: async (ctx, args) => {
-    const resetToken = await ctx.db
-      .query("passwordResetTokens")
-      .withIndex("by_token_hash", (q) => q.eq("tokenHash", args.tokenHash))
-      .first();
+    if (!isPasswordResetEnabled()) {
+      throw new Error("This reset link is invalid or has expired");
+    }
 
-    if (!resetToken || resetToken.usedAt || resetToken.expiresAt < Date.now()) {
+    requireBridgeSecret(args.serverSecret);
+    const resetToken = await getValidPasswordResetToken(ctx, args.tokenHash);
+
+    if (!resetToken) {
       throw new Error("This reset link is invalid or has expired");
     }
 
@@ -599,14 +722,31 @@ export const resetPasswordWithToken = mutation({
   },
 });
 
+export const validatePasswordResetToken = query({
+  args: {
+    tokenHash: v.string(),
+    serverSecret: v.string(),
+  },
+  handler: async (ctx, args) => {
+    requireBridgeSecret(args.serverSecret);
+
+    const resetToken = await getValidPasswordResetToken(ctx, args.tokenHash);
+
+    return {
+      valid: !!resetToken,
+    };
+  },
+});
+
 // Update user presence status
 export const updatePresence = mutation({
   args: {
     sessionToken: v.string(),
+    userAgentHash: v.string(),
     status: v.string(), // "online" | "idle" | "dnd" | "offline"
   },
   handler: async (ctx, args) => {
-    const user = await getUserByToken(ctx, args.sessionToken);
+    const user = await getUserByToken(ctx, args.sessionToken, args.userAgentHash);
     if (!user) throw new Error("Unauthorized");
 
     await ctx.db.patch(user._id, {
@@ -620,9 +760,9 @@ export const updatePresence = mutation({
 
 // Heartbeat to keep user online
 export const heartbeat = mutation({
-  args: { sessionToken: v.string() },
+  args: { sessionToken: v.string(), userAgentHash: v.string() },
   handler: async (ctx, args) => {
-    const user = await getUserByToken(ctx, args.sessionToken);
+    const user = await getUserByToken(ctx, args.sessionToken, args.userAgentHash);
     if (!user) return { success: false };
 
     await ctx.db.patch(user._id, {
@@ -672,6 +812,7 @@ export const syncExternalUser = mutation({
     status: v.string(),
     needsUsernameSetup: v.boolean(),
     sessionToken: v.string(),
+    userAgentHash: v.string(),
     expiresAt: v.number(),
     serverSecret: v.string(),
   },
@@ -729,6 +870,7 @@ export const syncExternalUser = mutation({
       // Create session
       await ctx.db.insert("sessions", {
         token: args.sessionToken,
+        userAgentHash: args.userAgentHash,
         userId: user._id,
         expiresAt: args.expiresAt,
         createdAt: Date.now(),
@@ -749,6 +891,7 @@ export const syncExternalSession = mutation({
     username: v.string(),
     externalId: v.string(),
     sessionToken: v.string(),
+    userAgentHash: v.string(),
     expiresAt: v.number(),
     serverSecret: v.string(),
   },
@@ -790,6 +933,7 @@ export const syncExternalSession = mutation({
     if (!existingSession) {
       await ctx.db.insert("sessions", {
         token: args.sessionToken,
+        userAgentHash: args.userAgentHash,
         userId: user._id,
         expiresAt: args.expiresAt,
         createdAt: Date.now(),

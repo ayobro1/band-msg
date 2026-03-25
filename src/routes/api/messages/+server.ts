@@ -1,7 +1,21 @@
-import { listMessages, sendMessage, deleteMessage, getPushSubscriptionsForMessage, getUserBySession } from "$lib/server/db";
+import {
+  consumeRateLimit,
+  deleteMessage,
+  getPushSubscriptionsForMessage,
+  getUserBySession,
+  listMessages,
+  sendMessage
+} from "$lib/server/db";
 import { triggerNewMessage, triggerMessageDeleted } from "$lib/server/pusher";
 import webPush from 'web-push';
 import { ensureServerEnv } from "$lib/server/env";
+import { getClientIp } from "$lib/server/request";
+
+const MESSAGE_POST_IP_MAX_ATTEMPTS = 90;
+const MESSAGE_POST_USER_MAX_ATTEMPTS = 30;
+const MESSAGE_POST_WINDOW_MS = 60 * 1000;
+const MESSAGE_DELETE_SESSION_MAX_ATTEMPTS = 20;
+const MESSAGE_DELETE_WINDOW_MS = 5 * 60 * 1000;
 
 function getVapidConfig() {
   ensureServerEnv();
@@ -21,10 +35,13 @@ function getVapidConfig() {
 }
 
 
-const toJson = (body: unknown, status = 200) =>
+const toJson = (body: unknown, status = 200, headers?: Record<string, string>) =>
   new Response(JSON.stringify(body), {
     status,
-    headers: { "content-type": "application/json" }
+    headers: {
+      "content-type": "application/json",
+      ...headers
+    }
   });
 
 export const GET = async ({ locals, url }: any) => {
@@ -39,6 +56,7 @@ export const GET = async ({ locals, url }: any) => {
 
   const result = await listMessages({
     sessionToken: locals.sessionToken,
+    userAgentHash: locals.sessionBinding,
     channelId
   });
 
@@ -54,8 +72,6 @@ export const POST = async ({ locals, request }: any) => {
     return toJson({ error: "unauthorized" }, 401);
   }
 
-  const { publicKey, privateKey } = getVapidConfig();
-
   const body = await request.json().catch(() => null);
   const channelId = typeof body?.channelId === "string" ? body.channelId : "";
   const content = typeof body?.content === "string" ? body.content : "";
@@ -65,8 +81,36 @@ export const POST = async ({ locals, request }: any) => {
     return toJson({ error: "channelId and content are required" }, 400);
   }
 
+  const ip = getClientIp(request);
+  const actorId =
+    typeof locals.user?.id === "string" && locals.user.id.length > 0
+      ? locals.user.id
+      : locals.sessionToken;
+  const ipLimit = await consumeRateLimit(
+    `message-post-ip:${ip}`,
+    MESSAGE_POST_IP_MAX_ATTEMPTS,
+    MESSAGE_POST_WINDOW_MS
+  );
+  const userLimit = await consumeRateLimit(
+    `message-post-user:${actorId}`,
+    MESSAGE_POST_USER_MAX_ATTEMPTS,
+    MESSAGE_POST_WINDOW_MS
+  );
+
+  if (!ipLimit.allowed || !userLimit.allowed) {
+    const retryAfterMs = Math.max(ipLimit.retryAfterMs ?? 0, userLimit.retryAfterMs ?? 0);
+    return toJson(
+      { error: "Too many messages sent, try again later" },
+      429,
+      retryAfterMs > 0 ? { "Retry-After": String(Math.max(1, Math.ceil(retryAfterMs / 1000))) } : undefined
+    );
+  }
+
+  const { publicKey, privateKey } = getVapidConfig();
+
   const result = await sendMessage({
     sessionToken: locals.sessionToken,
+    userAgentHash: locals.sessionBinding,
     channelId,
     content,
     replyToId
@@ -77,7 +121,7 @@ export const POST = async ({ locals, request }: any) => {
   }
 
   // Get user info and trigger Pusher event
-  const user = await getUserBySession(locals.sessionToken);
+  const user = await getUserBySession(locals.sessionToken, locals.sessionBinding);
   if (user) {
       triggerNewMessage(channelId, {
         id: result.value.messageId,
@@ -151,8 +195,25 @@ export const DELETE = async ({ locals, request }: any) => {
     return toJson({ error: "messageId is required" }, 400);
   }
 
+  const deleteLimit = await consumeRateLimit(
+    `message-delete-session:${locals.sessionToken}`,
+    MESSAGE_DELETE_SESSION_MAX_ATTEMPTS,
+    MESSAGE_DELETE_WINDOW_MS
+  );
+
+  if (!deleteLimit.allowed) {
+    return toJson(
+      { error: "Too many message deletion attempts, try again later" },
+      429,
+      deleteLimit.retryAfterMs
+        ? { "Retry-After": String(Math.max(1, Math.ceil(deleteLimit.retryAfterMs / 1000))) }
+        : undefined
+    );
+  }
+
   const result = await deleteMessage({
     sessionToken: locals.sessionToken,
+    userAgentHash: locals.sessionBinding,
     messageId
   });
 

@@ -1,9 +1,9 @@
 import { json } from "@sveltejs/kit";
-import { getSessionToken } from "$lib/server/auth";
+import { getRequestUserAgentHash, getSessionToken } from "$lib/server/auth";
 import { api } from "../../../../convex/_generated/api";
 import { getConvexHttpClient } from "$lib/server/convex";
 
-export async function GET({ url, cookies, locals }: any) {
+export async function GET({ url, cookies, locals, request }: any) {
   const sessionToken = locals.sessionToken ?? getSessionToken(cookies);
   if (!sessionToken) {
     return json({ error: "Unauthorized" }, { status: 401 });
@@ -11,8 +11,9 @@ export async function GET({ url, cookies, locals }: any) {
 
   try {
     const convex = await getConvexHttpClient();
+    const userAgentHash = getRequestUserAgentHash(request);
     // Fetch all approved users from Convex
-    const users = await convex.query(api.auth.getApprovedUsers, { sessionToken });
+    const users = await convex.query(api.auth.getApprovedUsers, { sessionToken, userAgentHash });
     
     return json({ members: users });
   } catch (error) {

@@ -1,5 +1,12 @@
-import { createSessionToken, expiresAtMs, hashPassword, setSessionCookie } from "$lib/server/auth";
-import { delayMs, getClientIp } from "$lib/server/request";
+import {
+  createSessionToken,
+  expiresAtMs,
+  getAuthBridgeSecret,
+  hashPassword,
+  setSessionCookie
+} from "$lib/server/auth";
+import { clearRateLimit, consumeRateLimit } from "$lib/server/db";
+import { delayMs, getClientIp, getSessionBinding } from "$lib/server/request";
 import { api } from "../../../../../convex/_generated/api";
 import { getConvexHttpClient } from "$lib/server/convex";
 
@@ -7,30 +14,6 @@ const LOGIN_IP_MAX_ATTEMPTS = 30;
 const LOGIN_ACCOUNT_MAX_ATTEMPTS = 10;
 const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
 const LOGIN_FAILURE_DELAY_MS = 450;
-
-// Simple in-memory rate limiting for login
-const rateLimits = new Map<string, { count: number; resetAt: number }>();
-
-function consumeRateLimit(key: string, maxAttempts: number): { allowed: boolean } {
-  const now = Date.now();
-  const limit = rateLimits.get(key);
-
-  if (!limit || limit.resetAt < now) {
-    rateLimits.set(key, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
-    return { allowed: true };
-  }
-
-  if (limit.count >= maxAttempts) {
-    return { allowed: false };
-  }
-
-  limit.count++;
-  return { allowed: true };
-}
-
-function clearRateLimit(key: string) {
-  rateLimits.delete(key);
-}
 
 const toJson = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -41,6 +24,7 @@ const toJson = (body: unknown, status = 200) =>
 export const POST = async ({ request, cookies }: any) => {
   try {
     const convex = await getConvexHttpClient();
+    const sessionBinding = getSessionBinding(request);
     const body = await request.json().catch(() => null);
     const username = typeof body?.username === "string" ? body.username : "";
     const password = typeof body?.password === "string" ? body.password : "";
@@ -53,18 +37,23 @@ export const POST = async ({ request, cookies }: any) => {
     const ipKey = `login-ip:${ip}`;
     const userKey = `login-user:${username.trim().toLowerCase()}`;
 
-    const ipLimit = consumeRateLimit(ipKey, LOGIN_IP_MAX_ATTEMPTS);
+    const ipLimit = await consumeRateLimit(ipKey, LOGIN_IP_MAX_ATTEMPTS, RATE_LIMIT_WINDOW_MS);
     if (!ipLimit.allowed) {
       return toJson({ error: "Too many login attempts, try again later" }, 429);
     }
 
-    const userLimit = consumeRateLimit(userKey, LOGIN_ACCOUNT_MAX_ATTEMPTS);
+    const userLimit = await consumeRateLimit(
+      userKey,
+      LOGIN_ACCOUNT_MAX_ATTEMPTS,
+      RATE_LIMIT_WINDOW_MS
+    );
     if (!userLimit.allowed) {
       return toJson({ error: "Too many login attempts, try again later" }, 429);
     }
 
     // Get salt from Convex
-    const salt = await convex.query(api.auth.getLoginSalt, { username });
+    const bridgeSecret = getAuthBridgeSecret();
+    const salt = await convex.query(api.auth.getLoginSalt, { username, serverSecret: bridgeSecret });
     if (!salt) {
       await delayMs(LOGIN_FAILURE_DELAY_MS);
       return toJson({ error: "Invalid username or password" }, 401);
@@ -78,7 +67,9 @@ export const POST = async ({ request, cookies }: any) => {
         username,
         passwordHash: hashed.hash,
         sessionToken,
-        expiresAt: expiresAtMs()
+        userAgentHash: sessionBinding,
+        expiresAt: expiresAtMs(),
+        serverSecret: bridgeSecret
       });
 
       // BLOCK PENDING USERS FROM LOGGING IN
@@ -87,8 +78,8 @@ export const POST = async ({ request, cookies }: any) => {
         return toJson({ error: "Your account is pending admin approval. You will be able to log in once approved." }, 401);
       }
 
-      clearRateLimit(ipKey);
-      clearRateLimit(userKey);
+      await clearRateLimit(ipKey);
+      await clearRateLimit(userKey);
 
       setSessionCookie(cookies, sessionToken);
       
@@ -119,8 +110,8 @@ export const POST = async ({ request, cookies }: any) => {
         
         // Create session in SQL
         await sql`
-          INSERT INTO sessions (token, user_id, expires_at, created_at)
-          VALUES (${sessionToken}, ${sqlUserId}, ${expiresAtMs()}, ${Date.now()})
+          INSERT INTO sessions (token, user_id, user_agent_hash, expires_at, created_at)
+          VALUES (${sessionToken}, ${sqlUserId}, ${sessionBinding}, ${expiresAtMs()}, ${Date.now()})
         `;
       } catch (sqlError) {
         console.error('[Login] SQL sync failed:', sqlError);
@@ -129,6 +120,10 @@ export const POST = async ({ request, cookies }: any) => {
       return toJson(user);
     } catch (error: any) {
       await delayMs(LOGIN_FAILURE_DELAY_MS);
+      if (error?.message === "Too many login attempts, try again later") {
+        return toJson({ error: error.message }, 429);
+      }
+
       return toJson({ error: error.message || "Invalid username or password" }, 401);
     }
   } catch (error: any) {

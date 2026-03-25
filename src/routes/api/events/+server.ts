@@ -1,16 +1,15 @@
 import { json } from "@sveltejs/kit";
-import { getSessionToken } from "$lib/server/auth";
 import { createEvent, deleteEvent, listEvents, respondToEvent, updateEvent } from "$lib/server/db";
 
-export async function GET({ url, cookies }: any) {
-  const sessionToken = getSessionToken(cookies);
+export async function GET({ url, locals }: any) {
+  const sessionToken = locals.sessionToken;
   if (!sessionToken) {
     return json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const serverId = url.searchParams.get("serverId") || undefined;
   
-  const result = await listEvents({ sessionToken, serverId });
+  const result = await listEvents({ sessionToken, userAgentHash: locals.sessionBinding, serverId });
   if (result.ok === false) {
     return json({ error: result.error }, { status: result.code });
   }
@@ -18,8 +17,8 @@ export async function GET({ url, cookies }: any) {
   return json(result.value);
 };
 
-export async function POST({ request, cookies }: any) {
-  const sessionToken = getSessionToken(cookies);
+export async function POST({ request, locals }: any) {
+  const sessionToken = locals.sessionToken;
   if (!sessionToken) {
     return json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -38,7 +37,12 @@ export async function POST({ request, cookies }: any) {
       return json({ error: "Missing eventId or status" }, { status: 400 });
     }
 
-    const result = await respondToEvent({ sessionToken, eventId, status });
+    const result = await respondToEvent({
+      sessionToken,
+      userAgentHash: locals.sessionBinding,
+      eventId,
+      status
+    });
     if (result.ok === false) {
       return json({ error: result.error }, { status: result.code });
     }
@@ -50,6 +54,7 @@ export async function POST({ request, cookies }: any) {
 
     const result = await createEvent({
       sessionToken,
+      userAgentHash: locals.sessionBinding,
       serverId,
       channelId,
       title,
@@ -65,8 +70,8 @@ export async function POST({ request, cookies }: any) {
   }
 };
 
-export async function PATCH({ request, cookies }: any) {
-  const sessionToken = getSessionToken(cookies);
+export async function PATCH({ request, locals }: any) {
+  const sessionToken = locals.sessionToken;
   if (!sessionToken) {
     return json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -85,6 +90,7 @@ export async function PATCH({ request, cookies }: any) {
 
   const result = await updateEvent({
     sessionToken,
+    userAgentHash: locals.sessionBinding,
     eventId,
     title,
     description,
@@ -99,8 +105,8 @@ export async function PATCH({ request, cookies }: any) {
   return json(result.value);
 }
 
-export async function DELETE({ request, cookies }: any) {
-  const sessionToken = getSessionToken(cookies);
+export async function DELETE({ request, locals }: any) {
+  const sessionToken = locals.sessionToken;
   if (!sessionToken) {
     return json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -117,7 +123,11 @@ export async function DELETE({ request, cookies }: any) {
     return json({ error: "Missing eventId" }, { status: 400 });
   }
 
-  const result = await deleteEvent({ sessionToken, eventId });
+  const result = await deleteEvent({
+    sessionToken,
+    userAgentHash: locals.sessionBinding,
+    eventId
+  });
   if (result.ok === false) {
     return json({ error: result.error }, { status: result.code });
   }

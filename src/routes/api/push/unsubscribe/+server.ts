@@ -1,5 +1,4 @@
 import { clearPushSubscriptions, removePushSubscription, getUserBySession } from "$lib/server/db";
-import { getSessionToken } from "$lib/server/auth";
 
 const toJson = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -7,17 +6,17 @@ const toJson = (body: unknown, status = 200) =>
     headers: { "content-type": "application/json" }
   });
 
-export const POST = async ({ request, cookies }: any) => {
+export const POST = async ({ request, locals }: any) => {
   try {
     const body = await request.json().catch(() => null);
     const { endpoint } = body || {};
 
-    const sessionToken = getSessionToken(cookies);
+    const sessionToken = locals.sessionToken;
     if (!sessionToken) {
       return toJson({ error: "Unauthorized" }, 401);
     }
 
-    const user = await getUserBySession(sessionToken);
+    const user = await getUserBySession(sessionToken, locals.sessionBinding);
     if (!user) {
       return toJson({ error: "Unauthorized" }, 401);
     }

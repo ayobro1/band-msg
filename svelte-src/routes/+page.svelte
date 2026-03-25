@@ -15,6 +15,7 @@
   import { memberStore } from '../lib/stores/members';
   import { themeStore } from '../lib/stores/theme';
   import { pusherStore } from '../lib/stores/pusher';
+  import { getBrowserUserAgentHash } from '../lib/userAgentHash';
   import { apiPost } from '../lib/utils/api';
 
   export let data;
@@ -69,7 +70,10 @@
         if (data.sessionToken) {
           try {
             // Update Convex presence
-            await convex.mutation(api.auth.heartbeat, { sessionToken: data.sessionToken });
+            await convex.mutation(api.auth.heartbeat, {
+              sessionToken: data.sessionToken,
+              userAgentHash: await getBrowserUserAgentHash()
+            });
             // Also update SQL presence so member list shows correct status
             await apiPost('/api/presence', { status: 'online' });
           } catch (error) {

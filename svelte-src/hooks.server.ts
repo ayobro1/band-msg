@@ -1,5 +1,6 @@
 import {
   createCsrfToken,
+  getRequestUserAgentHash,
   getCsrfToken,
   getSessionToken,
   setCsrfCookie
@@ -19,7 +20,7 @@ function isApiMutation(event: any): boolean {
 }
 
 function isCsrfExemptPath(pathname: string): boolean {
-  return pathname === "/api/auth/login" || pathname === "/api/auth/register" || pathname === "/api/reports";
+  return pathname === "/api/auth/login" || pathname === "/api/auth/register";
 }
 
 function getBearerSessionToken(request: Request): string | null {
@@ -46,9 +47,11 @@ export const handle = async ({ event, resolve }: any) => {
     try {
       const { api } = await import('../convex/_generated/api');
       const convex = await getConvexHttpClient();
+      const userAgentHash = getRequestUserAgentHash(event.request);
       
       const user = await convex.query(api.auth.getUser, { 
-        sessionToken: event.locals.sessionToken 
+        sessionToken: event.locals.sessionToken,
+        userAgentHash
       });
       
       if (user) {

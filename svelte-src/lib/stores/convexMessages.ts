@@ -1,5 +1,6 @@
 import { writable } from 'svelte/store';
 import { convex } from '../convex';
+import { apiPost } from '../utils/api';
 import { api } from '../../../convex/_generated/api';
 import type { Id } from '../../../convex/_generated/dataModel';
 
@@ -152,12 +153,7 @@ function createConvexMessageStore() {
         throw new Error('Not authenticated - session token is null');
       }
 
-      // Use fetch to call the report API directly
-      const response = await fetch('/api/reports', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message, sessionToken: currentSessionToken }),
-      });
+      const response = await apiPost('/api/reports', { message });
       console.log('[createReport] Response:', response.status);
 
       if (!response.ok) {

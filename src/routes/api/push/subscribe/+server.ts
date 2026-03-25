@@ -1,5 +1,4 @@
 import { savePushSubscription, getUserBySession } from "$lib/server/db";
-import { getSessionToken } from "$lib/server/auth";
 
 const toJson = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -7,26 +6,27 @@ const toJson = (body: unknown, status = 200) =>
     headers: { "content-type": "application/json" }
   });
 
-export const POST = async ({ request, cookies }: any) => {
+export const POST = async ({ request, locals }: any) => {
   try {
     const body = await request.json().catch(() => null);
     const { fcmToken, endpoint, p256dhKey, authKey } = body || {};
+    const sessionToken = locals.sessionToken;
+
+    if (!sessionToken) {
+      return toJson({ error: "Unauthorized" }, 401);
+    }
 
     // Support both FCM token format and web push format
     if (fcmToken) {
       // FCM format - store the token
-      const sessionToken = getSessionToken(cookies);
-      if (!sessionToken) {
-        return toJson({ error: "Unauthorized" }, 401);
-      }
-
-      const user = await getUserBySession(sessionToken);
+      const user = await getUserBySession(sessionToken, locals.sessionBinding);
       if (!user) {
         return toJson({ error: "Unauthorized" }, 401);
       }
 
       const result = await savePushSubscription({
         sessionToken,
+        userAgentHash: locals.sessionBinding,
         endpoint: fcmToken,
         p256dhKey: 'fcm',
         authKey: 'fcm'
@@ -44,18 +44,14 @@ export const POST = async ({ request, cookies }: any) => {
       return toJson({ error: "Missing required subscription parameters" }, 400);
     }
 
-    const sessionToken = getSessionToken(cookies);
-    if (!sessionToken) {
-      return toJson({ error: "Unauthorized" }, 401);
-    }
-
-    const user = await getUserBySession(sessionToken);
+    const user = await getUserBySession(sessionToken, locals.sessionBinding);
     if (!user) {
       return toJson({ error: "Unauthorized" }, 401);
     }
 
     const result = await savePushSubscription({
       sessionToken,
+      userAgentHash: locals.sessionBinding,
       endpoint,
       p256dhKey,
       authKey

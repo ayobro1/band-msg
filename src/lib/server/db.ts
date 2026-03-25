@@ -42,7 +42,7 @@ const sql = (strings: TemplateStringsArray, ...params: any[]): Promise<Record<st
 let initPromise: Promise<void> | null = null;
 
 const USERNAME_PATTERN = /^[a-z0-9_-]{3,20}$/;
-const SESSION_INVALID_BEFORE_MS = 1774414350668;
+const SESSION_INVALID_BEFORE_MS = 1774415633930;
 
 function normalizeUsername(username: string): string {
   return username.trim().toLowerCase();
@@ -99,10 +99,12 @@ async function ensureDb(): Promise<void> {
         CREATE TABLE IF NOT EXISTS sessions (
           token TEXT PRIMARY KEY,
           user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          user_agent_hash TEXT,
           expires_at BIGINT NOT NULL,
           created_at BIGINT NOT NULL
         )
       `;
+      await sql`ALTER TABLE sessions ADD COLUMN IF NOT EXISTS user_agent_hash TEXT`;
 
       await sql`
         CREATE TABLE IF NOT EXISTS password_reset_tokens (
@@ -601,6 +603,7 @@ export async function loginUser(args: {
   username: string;
   passwordHash: string;
   sessionToken: string;
+  userAgentHash?: string;
   expiresAt: number;
 }): Promise<Result<AppUser>> {
   await ensureDb();
@@ -630,33 +633,59 @@ export async function loginUser(args: {
 
   // Create session for all authenticated users (approved or pending)
   await sql`
-    INSERT INTO sessions (token, user_id, expires_at, created_at)
-    VALUES (${args.sessionToken}, ${user.id}, ${args.expiresAt}, ${Date.now()})
+    INSERT INTO sessions (token, user_id, user_agent_hash, expires_at, created_at)
+    VALUES (${args.sessionToken}, ${user.id}, ${args.userAgentHash || null}, ${args.expiresAt}, ${Date.now()})
   `;
 
   return { ok: true, value: toAppUser(user) };
 }
 
-export async function logoutSession(sessionToken: string): Promise<void> {
+export async function logoutSession(sessionToken: string, userAgentHash?: string): Promise<void> {
   await ensureDb();
+  if (userAgentHash) {
+    await sql`
+      DELETE FROM sessions
+      WHERE token = ${sessionToken}
+        AND user_agent_hash = ${userAgentHash}
+    `;
+    return;
+  }
+
   await sql`DELETE FROM sessions WHERE token = ${sessionToken}`;
 }
 
-export async function refreshSessionExpiry(sessionToken: string, expiresAt: number): Promise<void> {
+export async function refreshSessionExpiry(sessionToken: string, expiresAt: number, userAgentHash?: string): Promise<void> {
   await ensureDb();
-  await sql`
-    UPDATE sessions
-    SET expires_at = ${expiresAt}
-    WHERE token = ${sessionToken}
-  `;
+  if (userAgentHash) {
+    await sql`
+      UPDATE sessions
+      SET expires_at = ${expiresAt}
+      WHERE token = ${sessionToken}
+        AND user_agent_hash = ${userAgentHash}
+    `;
+    return;
+  }
+
+  await sql`UPDATE sessions SET expires_at = ${expiresAt} WHERE token = ${sessionToken}`;
 }
 
 /** Returns any authenticated user (approved or pending). Used for /api/auth/me so pending users can check their status. */
-export async function getSessionUser(sessionToken: string): Promise<AppUser | null> {
+export async function getSessionUser(sessionToken: string, userAgentHash?: string): Promise<AppUser | null> {
   await ensureDb();
   const now = Date.now();
 
-  const rows = await sql`
+  const rows = userAgentHash
+    ? await sql`
+    SELECT u.id, u.username, u.role, u.status, u.needs_username_setup
+    FROM sessions s
+    JOIN users u ON u.id = s.user_id
+    WHERE s.token = ${sessionToken}
+      AND s.user_agent_hash = ${userAgentHash}
+      AND s.expires_at > ${now}
+      AND s.created_at >= ${SESSION_INVALID_BEFORE_MS}
+    LIMIT 1
+  `
+    : await sql`
     SELECT u.id, u.username, u.role, u.status, u.needs_username_setup
     FROM sessions s
     JOIN users u ON u.id = s.user_id
@@ -676,11 +705,23 @@ export async function getSessionUser(sessionToken: string): Promise<AppUser | nu
 }
 
 /** Returns only approved authenticated users. Used by all non-auth endpoints to gate access. */
-export async function getUserBySession(sessionToken: string): Promise<AppUser | null> {
+export async function getUserBySession(sessionToken: string, userAgentHash?: string): Promise<AppUser | null> {
   await ensureDb();
   const now = Date.now();
 
-  const rows = await sql`
+  const rows = userAgentHash
+    ? await sql`
+    SELECT u.id, u.username, u.role, u.status, u.needs_username_setup
+    FROM sessions s
+    JOIN users u ON u.id = s.user_id
+    WHERE s.token = ${sessionToken}
+      AND s.user_agent_hash = ${userAgentHash}
+      AND s.expires_at > ${now}
+      AND s.created_at >= ${SESSION_INVALID_BEFORE_MS}
+      AND u.status = 'approved'
+    LIMIT 1
+  `
+    : await sql`
     SELECT u.id, u.username, u.role, u.status, u.needs_username_setup
     FROM sessions s
     JOIN users u ON u.id = s.user_id
@@ -700,8 +741,8 @@ export async function getUserBySession(sessionToken: string): Promise<AppUser | 
   return user;
 }
 
-async function requireAdmin(sessionToken: string): Promise<Result<AppUser>> {
-  const user = await getUserBySession(sessionToken);
+async function requireAdmin(sessionToken: string, userAgentHash?: string): Promise<Result<AppUser>> {
+  const user = await getUserBySession(sessionToken, userAgentHash);
   if (!user) {
     return { ok: false, code: 401, error: "Unauthorized" };
   }
@@ -711,8 +752,8 @@ async function requireAdmin(sessionToken: string): Promise<Result<AppUser>> {
   return { ok: true, value: user };
 }
 
-export async function listChannels(sessionToken: string): Promise<Result<Array<{ id: string; name: string; description: string }>>> {
-  const user = await getUserBySession(sessionToken);
+export async function listChannels(sessionToken: string, userAgentHash?: string): Promise<Result<Array<{ id: string; name: string; description: string }>>> {
+  const user = await getUserBySession(sessionToken, userAgentHash);
   if (!user) {
     return { ok: false, code: 401, error: "Unauthorized" };
   }
@@ -740,6 +781,7 @@ export async function listChannels(sessionToken: string): Promise<Result<Array<{
 
 export async function createChannel(args: {
   sessionToken: string;
+  userAgentHash?: string;
   name: string;
   description: string;
   isPrivate?: boolean;
@@ -748,7 +790,7 @@ export async function createChannel(args: {
   console.log('[createChannel] Starting channel creation:', { name: args.name, isPrivate: args.isPrivate });
   
   // Allow all authenticated users to create channels
-  const user = await getUserBySession(args.sessionToken);
+  const user = await getUserBySession(args.sessionToken, args.userAgentHash);
   if (!user) {
     console.log('[createChannel] User not found for session token');
     return { ok: false, code: 401, error: "Unauthorized" };
@@ -808,10 +850,11 @@ export async function createChannel(args: {
 
 export async function renameChannel(args: {
   sessionToken: string;
+  userAgentHash?: string;
   channelId: string;
   name: string;
 }): Promise<Result<{ ok: true }>> {
-  const user = await getUserBySession(args.sessionToken);
+  const user = await getUserBySession(args.sessionToken, args.userAgentHash);
   if (!user) {
     return { ok: false, code: 401, error: "Unauthorized" };
   }
@@ -848,9 +891,12 @@ export async function renameChannel(args: {
 
 export async function deleteChannel(args: {
   sessionToken: string;
+  userAgentHash?: string;
   channelId: string;
 }): Promise<Result<{ ok: true }>> {
-  const adminResult = await requireAdmin(args.sessionToken);
+  await ensureDb();
+
+  const adminResult = await requireAdmin(args.sessionToken, args.userAgentHash);
   if (adminResult.ok === false) {
     return adminResult;
   }
@@ -860,15 +906,21 @@ export async function deleteChannel(args: {
     return { ok: false, code: 404, error: "Channel not found" };
   }
 
-  await sql`DELETE FROM channels WHERE id = ${args.channelId}`;
+  const client = getSqlClient();
+  await client.transaction([
+    client`DELETE FROM messages WHERE channel_id = ${args.channelId}`,
+    client`DELETE FROM channels WHERE id = ${args.channelId}`
+  ]);
+
   return { ok: true, value: { ok: true } };
 }
 
 export async function listMessages(args: {
   sessionToken: string;
+  userAgentHash?: string;
   channelId: string;
 }): Promise<Result<Array<{ id: string; content: string; channelId: string; createdAt: number; author: string }>>> {
-  const user = await getUserBySession(args.sessionToken);
+  const user = await getUserBySession(args.sessionToken, args.userAgentHash);
   if (!user) {
     return { ok: false, code: 401, error: "Unauthorized" };
   }
@@ -913,11 +965,12 @@ export async function listMessages(args: {
 
 export async function sendMessage(args: {
   sessionToken: string;
+  userAgentHash?: string;
   channelId: string;
   content: string;
   replyToId?: string;
 }): Promise<Result<{ messageId: string }>> {
-  const user = await getUserBySession(args.sessionToken);
+  const user = await getUserBySession(args.sessionToken, args.userAgentHash);
   if (!user) {
     return { ok: false, code: 401, error: "Unauthorized" };
   }
@@ -972,9 +1025,10 @@ export async function sendMessage(args: {
 
 export async function deleteMessage(args: {
   sessionToken: string;
+  userAgentHash?: string;
   messageId: string;
 }): Promise<Result<{ deleted: true }>> {
-  const user = await getUserBySession(args.sessionToken);
+  const user = await getUserBySession(args.sessionToken, args.userAgentHash);
   if (!user) {
     return { ok: false, code: 401, error: "Unauthorized" };
   }
@@ -994,8 +1048,8 @@ export async function deleteMessage(args: {
   return { ok: true, value: { deleted: true } };
 }
 
-export async function listPendingUsers(sessionToken: string): Promise<Result<Array<{ id: string; username: string; role: string; status: string; createdAt: number }>>> {
-  const adminResult = await requireAdmin(sessionToken);
+export async function listPendingUsers(sessionToken: string, userAgentHash?: string): Promise<Result<Array<{ id: string; username: string; role: string; status: string; createdAt: number }>>> {
+  const adminResult = await requireAdmin(sessionToken, userAgentHash);
   if (adminResult.ok === false) {
     return adminResult;
   }
@@ -1020,8 +1074,8 @@ export async function listPendingUsers(sessionToken: string): Promise<Result<Arr
   };
 }
 
-export async function approveUser(args: { sessionToken: string; username: string }): Promise<Result<{ ok: true }>> {
-  const adminResult = await requireAdmin(args.sessionToken);
+export async function approveUser(args: { sessionToken: string; userAgentHash?: string; username: string }): Promise<Result<{ ok: true }>> {
+  const adminResult = await requireAdmin(args.sessionToken, args.userAgentHash);
   if (adminResult.ok === false) {
     return adminResult;
   }
@@ -1036,8 +1090,8 @@ export async function approveUser(args: { sessionToken: string; username: string
   return { ok: true, value: { ok: true } };
 }
 
-export async function promoteUser(args: { sessionToken: string; username: string }): Promise<Result<{ ok: true }>> {
-  const adminResult = await requireAdmin(args.sessionToken);
+export async function promoteUser(args: { sessionToken: string; userAgentHash?: string; username: string }): Promise<Result<{ ok: true }>> {
+  const adminResult = await requireAdmin(args.sessionToken, args.userAgentHash);
   if (adminResult.ok === false) {
     return adminResult;
   }
@@ -1052,8 +1106,8 @@ export async function promoteUser(args: { sessionToken: string; username: string
   return { ok: true, value: { ok: true } };
 }
 
-export async function demoteUser(args: { sessionToken: string; username: string }): Promise<Result<{ ok: true }>> {
-  const adminResult = await requireAdmin(args.sessionToken);
+export async function demoteUser(args: { sessionToken: string; userAgentHash?: string; username: string }): Promise<Result<{ ok: true }>> {
+  const adminResult = await requireAdmin(args.sessionToken, args.userAgentHash);
   if (adminResult.ok === false) {
     return adminResult;
   }
@@ -1085,8 +1139,8 @@ export async function demoteUser(args: { sessionToken: string; username: string 
   return { ok: true, value: { ok: true } };
 }
 
-export async function rejectUser(args: { sessionToken: string; username: string }): Promise<Result<{ ok: true }>> {
-  const adminResult = await requireAdmin(args.sessionToken);
+export async function rejectUser(args: { sessionToken: string; userAgentHash?: string; username: string }): Promise<Result<{ ok: true }>> {
+  const adminResult = await requireAdmin(args.sessionToken, args.userAgentHash);
   if (adminResult.ok === false) {
     return adminResult;
   }
@@ -1114,10 +1168,11 @@ export async function rejectUser(args: { sessionToken: string; username: string 
 
 export async function addReaction(args: {
   sessionToken: string;
+  userAgentHash?: string;
   messageId: string;
   emoji: string;
 }): Promise<Result<{ reactionId: string }>> {
-  const user = await getUserBySession(args.sessionToken);
+  const user = await getUserBySession(args.sessionToken, args.userAgentHash);
   if (!user) {
     return { ok: false, code: 401, error: "Unauthorized" };
   }
@@ -1144,10 +1199,11 @@ export async function addReaction(args: {
 
 export async function removeReaction(args: {
   sessionToken: string;
+  userAgentHash?: string;
   messageId: string;
   emoji: string;
 }): Promise<Result<{ ok: true }>> {
-  const user = await getUserBySession(args.sessionToken);
+  const user = await getUserBySession(args.sessionToken, args.userAgentHash);
   if (!user) {
     return { ok: false, code: 401, error: "Unauthorized" };
   }
@@ -1161,9 +1217,10 @@ export async function removeReaction(args: {
 
 export async function getMessageReactions(args: {
   sessionToken: string;
+  userAgentHash?: string;
   messageId: string;
 }): Promise<Result<Array<{ emoji: string; users: string[]; count: number }>>> {
-  const user = await getUserBySession(args.sessionToken);
+  const user = await getUserBySession(args.sessionToken, args.userAgentHash);
   if (!user) {
     return { ok: false, code: 401, error: "Unauthorized" };
   }
@@ -1196,10 +1253,11 @@ export async function getMessageReactions(args: {
 
 export async function updatePresence(args: {
   sessionToken: string;
+  userAgentHash?: string;
   status: "online" | "idle" | "dnd" | "offline";
   customStatus?: string;
 }): Promise<Result<{ ok: true }>> {
-  const user = await getUserBySession(args.sessionToken);
+  const user = await getUserBySession(args.sessionToken, args.userAgentHash);
   if (!user) {
     return { ok: false, code: 401, error: "Unauthorized" };
   }
@@ -1217,9 +1275,10 @@ export async function updatePresence(args: {
 
 export async function startTyping(args: {
   sessionToken: string;
+  userAgentHash?: string;
   channelId: string;
 }): Promise<Result<{ ok: true }>> {
-  const user = await getUserBySession(args.sessionToken);
+  const user = await getUserBySession(args.sessionToken, args.userAgentHash);
   if (!user) {
     return { ok: false, code: 401, error: "Unauthorized" };
   }
@@ -1237,9 +1296,10 @@ export async function startTyping(args: {
 
 export async function stopTyping(args: {
   sessionToken: string;
+  userAgentHash?: string;
   channelId: string;
 }): Promise<Result<{ ok: true }>> {
-  const user = await getUserBySession(args.sessionToken);
+  const user = await getUserBySession(args.sessionToken, args.userAgentHash);
   if (!user) {
     return { ok: false, code: 401, error: "Unauthorized" };
   }
@@ -1254,9 +1314,10 @@ export async function stopTyping(args: {
 
 export async function getTypingUsers(args: {
   sessionToken: string;
+  userAgentHash?: string;
   channelId: string;
 }): Promise<Result<Array<{ username: string }>>> {
-  const user = await getUserBySession(args.sessionToken);
+  const user = await getUserBySession(args.sessionToken, args.userAgentHash);
   if (!user) {
     return { ok: false, code: 401, error: "Unauthorized" };
   }
@@ -1281,8 +1342,8 @@ export async function cleanOldTypingIndicators(): Promise<void> {
 
 // ============ SERVERS/GUILDS ============
 
-export async function listServers(sessionToken: string): Promise<Result<Array<{ id: string; name: string; description: string; iconUrl?: string }>>> {
-  const user = await getUserBySession(sessionToken);
+export async function listServers(sessionToken: string, userAgentHash?: string): Promise<Result<Array<{ id: string; name: string; description: string; iconUrl?: string }>>> {
+  const user = await getUserBySession(sessionToken, userAgentHash);
   if (!user) {
     return { ok: false, code: 401, error: "Unauthorized" };
   }
@@ -1310,10 +1371,11 @@ export async function listServers(sessionToken: string): Promise<Result<Array<{ 
 
 export async function listServerMembers(args: {
   sessionToken: string;
+  userAgentHash?: string;
   serverId: string;
 }): Promise<Result<Array<{ id: string; username: string; role: string; presenceStatus: string }>>> {
   await ensureDb();
-  const user = await getUserBySession(args.sessionToken);
+  const user = await getUserBySession(args.sessionToken, args.userAgentHash);
   if (!user) {
     return { ok: false, code: 401, error: "Unauthorized" };
   }
@@ -1348,11 +1410,12 @@ export async function listServerMembers(args: {
 
 export async function createInvite(args: {
   sessionToken: string;
+  userAgentHash?: string;
   serverId: string;
   maxUses?: number;
   expiresInMs?: number;
 }): Promise<Result<{ code: string }>> {
-  const user = await getUserBySession(args.sessionToken);
+  const user = await getUserBySession(args.sessionToken, args.userAgentHash);
   if (!user) {
     return { ok: false, code: 401, error: "Unauthorized" };
   }
@@ -1370,9 +1433,10 @@ export async function createInvite(args: {
 
 export async function useInvite(args: {
   sessionToken: string;
+  userAgentHash?: string;
   code: string;
 }): Promise<Result<{ serverId: string }>> {
-  const user = await getUserBySession(args.sessionToken);
+  const user = await getUserBySession(args.sessionToken, args.userAgentHash);
   if (!user) {
     return { ok: false, code: 401, error: "Unauthorized" };
   }
@@ -1414,6 +1478,7 @@ export async function useInvite(args: {
 
 export async function createEvent(args: {
   sessionToken: string;
+  userAgentHash?: string;
   serverId?: string;
   channelId?: string;
   title: string;
@@ -1422,7 +1487,7 @@ export async function createEvent(args: {
   startsAt: number;
   endsAt: number;
 }): Promise<Result<{ eventId: string }>> {
-  const user = await getUserBySession(args.sessionToken);
+  const user = await getUserBySession(args.sessionToken, args.userAgentHash);
   if (!user) {
     return { ok: false, code: 401, error: "Unauthorized" };
   }
@@ -1438,11 +1503,12 @@ export async function createEvent(args: {
 
 export async function listEvents(args: {
   sessionToken: string;
+  userAgentHash?: string;
   serverId?: string;
   startDate?: number;
   endDate?: number;
 }): Promise<Result<Array<{ id: string; title: string; description: string; startsAt: number; endsAt: number; location: string }>>> {
-  const user = await getUserBySession(args.sessionToken);
+  const user = await getUserBySession(args.sessionToken, args.userAgentHash);
   if (!user) {
     return { ok: false, code: 401, error: "Unauthorized" };
   }
@@ -1479,6 +1545,7 @@ export async function listEvents(args: {
 
 export async function updateEvent(args: {
   sessionToken: string;
+  userAgentHash?: string;
   eventId: string;
   title: string;
   description?: string;
@@ -1486,7 +1553,7 @@ export async function updateEvent(args: {
   startsAt: number;
   endsAt: number;
 }): Promise<Result<{ ok: true }>> {
-  const user = await getUserBySession(args.sessionToken);
+  const user = await getUserBySession(args.sessionToken, args.userAgentHash);
   if (!user) {
     return { ok: false, code: 401, error: "Unauthorized" };
   }
@@ -1522,9 +1589,10 @@ export async function updateEvent(args: {
 
 export async function deleteEvent(args: {
   sessionToken: string;
+  userAgentHash?: string;
   eventId: string;
 }): Promise<Result<{ ok: true }>> {
-  const user = await getUserBySession(args.sessionToken);
+  const user = await getUserBySession(args.sessionToken, args.userAgentHash);
   if (!user) {
     return { ok: false, code: 401, error: "Unauthorized" };
   }
@@ -1552,10 +1620,11 @@ export async function deleteEvent(args: {
 
 export async function respondToEvent(args: {
   sessionToken: string;
+  userAgentHash?: string;
   eventId: string;
   status: "attending" | "maybe" | "declined";
 }): Promise<Result<{ ok: true }>> {
-  const user = await getUserBySession(args.sessionToken);
+  const user = await getUserBySession(args.sessionToken, args.userAgentHash);
   if (!user) {
     return { ok: false, code: 401, error: "Unauthorized" };
   }
@@ -1575,11 +1644,12 @@ export async function respondToEvent(args: {
 
 export async function savePushSubscription(args: {
   sessionToken: string;
+  userAgentHash?: string;
   endpoint: string;
   p256dhKey: string;
   authKey: string;
 }): Promise<Result<{ ok: true }>> {
-  const user = await getUserBySession(args.sessionToken);
+  const user = await getUserBySession(args.sessionToken, args.userAgentHash);
   if (!user) {
     return { ok: false, code: 401, error: "Unauthorized" };
   }
@@ -1598,9 +1668,10 @@ export async function savePushSubscription(args: {
 
 export async function removePushSubscription(args: {
   sessionToken: string;
+  userAgentHash?: string;
   endpoint: string;
 }): Promise<Result<{ ok: true }>> {
-  const user = await getUserBySession(args.sessionToken);
+  const user = await getUserBySession(args.sessionToken, args.userAgentHash);
   if (!user) {
     return { ok: false, code: 401, error: "Unauthorized" };
   }
@@ -1615,8 +1686,9 @@ export async function ensureDatabaseReady(): Promise<void> {
 
 export async function clearPushSubscriptions(args: {
   sessionToken: string;
+  userAgentHash?: string;
 }): Promise<Result<{ ok: true }>> {
-  const user = await getUserBySession(args.sessionToken);
+  const user = await getUserBySession(args.sessionToken, args.userAgentHash);
   if (!user) {
     return { ok: false, code: 401, error: "Unauthorized" };
   }
@@ -1627,10 +1699,11 @@ export async function clearPushSubscriptions(args: {
 
 export async function setChannelMuted(args: {
   sessionToken: string;
+  userAgentHash?: string;
   channelId: string;
   muted: boolean;
 }): Promise<Result<{ ok: true }>> {
-  const user = await getUserBySession(args.sessionToken);
+  const user = await getUserBySession(args.sessionToken, args.userAgentHash);
   if (!user) {
     return { ok: false, code: 401, error: "Unauthorized" };
   }
@@ -1647,8 +1720,9 @@ export async function setChannelMuted(args: {
 
 export async function getMutedChannelIds(args: {
   sessionToken: string;
+  userAgentHash?: string;
 }): Promise<Result<string[]>> {
-  const user = await getUserBySession(args.sessionToken);
+  const user = await getUserBySession(args.sessionToken, args.userAgentHash);
   if (!user) {
     return { ok: false, code: 401, error: "Unauthorized" };
   }
@@ -1686,8 +1760,9 @@ export async function getPushSubscriptionsForMessage(args: {
 
 export async function getPushSubscriptionsForUser(args: {
   sessionToken: string;
+  userAgentHash?: string;
 }): Promise<Result<Array<{ endpoint: string; p256dhKey: string; authKey: string }>>> {
-  const user = await getUserBySession(args.sessionToken);
+  const user = await getUserBySession(args.sessionToken, args.userAgentHash);
   if (!user) {
     return { ok: false, code: 401, error: "Unauthorized" };
   }

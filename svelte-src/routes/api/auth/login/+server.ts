@@ -1,4 +1,11 @@
-import { createSessionToken, expiresAtMs, hashPassword, setSessionCookie } from "$lib/server/auth";
+import {
+  createSessionToken,
+  expiresAtMs,
+  getRequestUserAgentHash,
+  hashPassword,
+  setSessionCookie
+} from "$lib/server/auth";
+import { clearRateLimit, consumeRateLimit } from "$lib/server/db";
 import { delayMs, getClientIp } from "$lib/server/request";
 import { api } from "../../../../../convex/_generated/api";
 import { getConvexHttpClient } from "$lib/server/convex";
@@ -7,30 +14,6 @@ const LOGIN_IP_MAX_ATTEMPTS = 30;
 const LOGIN_ACCOUNT_MAX_ATTEMPTS = 10;
 const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
 const LOGIN_FAILURE_DELAY_MS = 450;
-
-// Simple in-memory rate limiting for login
-const rateLimits = new Map<string, { count: number; resetAt: number }>();
-
-function consumeRateLimit(key: string, maxAttempts: number): { allowed: boolean } {
-  const now = Date.now();
-  const limit = rateLimits.get(key);
-
-  if (!limit || limit.resetAt < now) {
-    rateLimits.set(key, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
-    return { allowed: true };
-  }
-
-  if (limit.count >= maxAttempts) {
-    return { allowed: false };
-  }
-
-  limit.count++;
-  return { allowed: true };
-}
-
-function clearRateLimit(key: string) {
-  rateLimits.delete(key);
-}
 
 const toJson = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -52,13 +35,18 @@ export const POST = async ({ request, cookies }: any) => {
     const ip = getClientIp(request);
     const ipKey = `login-ip:${ip}`;
     const userKey = `login-user:${username.trim().toLowerCase()}`;
+    const userAgentHash = getRequestUserAgentHash(request);
 
-    const ipLimit = consumeRateLimit(ipKey, LOGIN_IP_MAX_ATTEMPTS);
+    const ipLimit = await consumeRateLimit(ipKey, LOGIN_IP_MAX_ATTEMPTS, RATE_LIMIT_WINDOW_MS);
     if (!ipLimit.allowed) {
       return toJson({ error: "Too many login attempts, try again later" }, 429);
     }
 
-    const userLimit = consumeRateLimit(userKey, LOGIN_ACCOUNT_MAX_ATTEMPTS);
+    const userLimit = await consumeRateLimit(
+      userKey,
+      LOGIN_ACCOUNT_MAX_ATTEMPTS,
+      RATE_LIMIT_WINDOW_MS
+    );
     if (!userLimit.allowed) {
       return toJson({ error: "Too many login attempts, try again later" }, 429);
     }
@@ -78,6 +66,7 @@ export const POST = async ({ request, cookies }: any) => {
         username,
         passwordHash: hashed.hash,
         sessionToken,
+        userAgentHash,
         expiresAt: expiresAtMs()
       });
 
@@ -87,8 +76,8 @@ export const POST = async ({ request, cookies }: any) => {
         return toJson({ error: "Your account is pending admin approval. You will be able to log in once approved." }, 401);
       }
 
-      clearRateLimit(ipKey);
-      clearRateLimit(userKey);
+      await clearRateLimit(ipKey);
+      await clearRateLimit(userKey);
 
       setSessionCookie(cookies, sessionToken);
       

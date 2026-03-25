@@ -75,3 +75,24 @@ export async function hashPassword(password: string, salt?: string): Promise<{ s
   const derived = crypto.pbkdf2Sync(password, chosenSalt, 210000, 64, "sha512").toString("hex");
   return { salt: chosenSalt, hash: derived };
 }
+
+export function getRequestUserAgentHash(request: Request): string {
+  const userAgent = request.headers.get("user-agent")?.trim() || "unknown";
+  return crypto.createHash("sha256").update(userAgent).digest("base64url");
+}
+
+export function getAuthBridgeSecret(): string {
+  ensureServerEnv();
+  const secret = process.env.AUTH_BRIDGE_SECRET?.trim();
+
+  if (!secret) {
+    throw new Error("Missing AUTH_BRIDGE_SECRET environment variable");
+  }
+
+  return secret;
+}
+
+export function isRegistrationEnabled(): boolean {
+  ensureServerEnv();
+  return (process.env.AUTH_REGISTRATION_ENABLED ?? "true").toLowerCase() !== "false";
+}

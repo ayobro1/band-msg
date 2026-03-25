@@ -25,6 +25,7 @@ export default defineSchema({
   sessions: defineTable({
     userId: v.id("users"),
     token: v.string(),
+    userAgentHash: v.optional(v.string()),
     expiresAt: v.number(),
     createdAt: v.optional(v.number()),
   }).index("by_token", ["token"]),
@@ -38,6 +39,14 @@ export default defineSchema({
   })
     .index("by_token_hash", ["tokenHash"])
     .index("by_user", ["userId"]),
+
+  authRateLimits: defineTable({
+    key: v.string(),
+    count: v.number(),
+    resetAt: v.number(),
+  })
+    .index("by_key", ["key"])
+    .index("by_reset_at", ["resetAt"]),
 
   channels: defineTable({
     name: v.string(),

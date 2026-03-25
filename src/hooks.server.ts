@@ -1,11 +1,15 @@
-import { createCsrfToken, getCsrfToken, getSessionToken, setCsrfCookie } from "./lib/server/auth";
+import { clearSessionCookie, createCsrfToken, getCsrfToken, getSessionToken, setCsrfCookie } from "./lib/server/auth";
+import { getSessionUser } from "./lib/server/db";
+import { getSessionBinding } from "./lib/server/request";
 
 function isSafeMethod(method: string): boolean {
   return method === "GET" || method === "HEAD" || method === "OPTIONS";
 }
 
 export const handle = async ({ event, resolve }: any) => {
-  event.locals.sessionToken = getSessionToken(event.cookies);
+  const rawSessionToken = getSessionToken(event.cookies);
+  event.locals.sessionBinding = getSessionBinding(event.request);
+  event.locals.sessionToken = null;
   event.locals.sessionFromHeader = false;
   let csrfToken = getCsrfToken(event.cookies);
 
@@ -15,6 +19,16 @@ export const handle = async ({ event, resolve }: any) => {
   }
 
   event.locals.csrfToken = csrfToken;
+
+  if (rawSessionToken) {
+    const user = await getSessionUser(rawSessionToken, event.locals.sessionBinding);
+    if (user) {
+      event.locals.sessionToken = rawSessionToken;
+      event.locals.user = user;
+    } else {
+      clearSessionCookie(event.cookies);
+    }
+  }
 
   if (!isSafeMethod(event.request.method) && event.url.pathname.startsWith("/api/")) {
     const origin = event.request.headers.get("origin");

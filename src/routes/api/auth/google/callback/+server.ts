@@ -1,30 +1,44 @@
 import { redirect } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getSqlClient } from '$lib/server/db';
-import { createSessionToken, setSessionCookie, expiresAtMs } from '$lib/server/auth';
+import {
+  clearGoogleOAuthStateCookie,
+  createSessionToken,
+  setSessionCookie,
+  expiresAtMs,
+  getAuthBridgeSecret,
+  getGoogleOAuthState
+} from '$lib/server/auth';
+import { getSessionBinding } from '$lib/server/request';
 import { api } from "../../../../../../convex/_generated/api";
 import crypto from 'node:crypto';
 import { getConvexHttpClient } from "$lib/server/convex";
 import { env } from '$env/dynamic/private';
 
-const AUTH_BRIDGE_SECRET =
-  process.env.AUTH_BRIDGE_SECRET ||
-  "rotate-this-auth-bridge-secret-2026-03-24-a7f48c2c14f34d2ab0c7b5b31d2f6e8c";
-
-export const GET: RequestHandler = async ({ url, cookies }) => {
+export const GET: RequestHandler = async ({ url, cookies, request }) => {
   const GOOGLE_CLIENT_ID = env.GOOGLE_CLIENT_ID || '';
   const GOOGLE_CLIENT_SECRET = env.GOOGLE_CLIENT_SECRET || '';
   const GOOGLE_REDIRECT_URI = env.GOOGLE_REDIRECT_URI || `${url.origin}/api/auth/google/callback`;
   
   const code = url.searchParams.get('code');
   const error = url.searchParams.get('error');
+  const state = url.searchParams.get('state');
+  const expectedState = getGoogleOAuthState(cookies);
 
   if (error || !code) {
+    clearGoogleOAuthStateCookie(cookies);
     console.error('OAuth error or no code:', error);
     throw redirect(302, '/?error=google_auth_failed');
   }
 
+  if (!state || !expectedState || state !== expectedState) {
+    clearGoogleOAuthStateCookie(cookies);
+    console.error('OAuth state mismatch');
+    throw redirect(302, '/?error=google_auth_failed');
+  }
+
   if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
+    clearGoogleOAuthStateCookie(cookies);
     console.error('Missing Google OAuth credentials');
     throw redirect(302, '/?error=google_not_configured');
   }
@@ -32,6 +46,7 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
   try {
     const convex = await getConvexHttpClient();
     const sql = getSqlClient();
+    const sessionBinding = getSessionBinding(request);
 
     // Exchange code for tokens
     const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
@@ -64,11 +79,14 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
     }
 
     const googleUser = await userInfoResponse.json();
+    if (googleUser.verified_email !== true) {
+      throw new Error('Google account email is not verified');
+    }
 
     // Check SQL for existing user
     const existingUsers = (await sql`
       SELECT * FROM users 
-      WHERE google_id = ${googleUser.id} OR username = ${googleUser.email}
+      WHERE google_id = ${googleUser.id} OR LOWER(username) = LOWER(${googleUser.email})
       LIMIT 1
     `) as any[];
 
@@ -110,11 +128,7 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
     // Create session
     const sessionToken = createSessionToken();
     const expiresAt = expiresAtMs();
-    
-    await sql`
-      INSERT INTO sessions (token, user_id, expires_at, created_at)
-      VALUES (${sessionToken}, ${user.id}, ${expiresAt}, ${Date.now()})
-    `;
+    const bridgeSecret = getAuthBridgeSecret();
     
     if (user.needs_username_setup) {
       try {
@@ -125,11 +139,13 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
           status: user.status,
           needsUsernameSetup: true,
           sessionToken,
+          userAgentHash: sessionBinding,
           expiresAt,
-          serverSecret: AUTH_BRIDGE_SECRET
+          serverSecret: bridgeSecret
         });
       } catch (syncError) {
         console.error('Convex sync failed:', syncError);
+        throw new Error('Failed to synchronize authenticated session');
       }
     } else {
       try {
@@ -137,19 +153,28 @@ export const GET: RequestHandler = async ({ url, cookies }) => {
           username: user.username,
           externalId: user.google_id || '',
           sessionToken,
+          userAgentHash: sessionBinding,
           expiresAt,
-          serverSecret: AUTH_BRIDGE_SECRET
+          serverSecret: bridgeSecret
         });
       } catch (syncError) {
         console.error('Convex session sync failed:', syncError);
+        throw new Error('Failed to synchronize authenticated session');
       }
     }
+
+    await sql`
+      INSERT INTO sessions (token, user_id, user_agent_hash, expires_at, created_at)
+      VALUES (${sessionToken}, ${user.id}, ${sessionBinding}, ${expiresAt}, ${Date.now()})
+    `;
     
+    clearGoogleOAuthStateCookie(cookies);
     setSessionCookie(cookies, sessionToken);
     
     // Redirect to home - the page will show PendingSetup if user is pending
     throw redirect(302, '/');
   } catch (error) {
+    clearGoogleOAuthStateCookie(cookies);
     console.error('Google OAuth Error:', error);
     throw redirect(302, '/?error=google_auth_error');
   }

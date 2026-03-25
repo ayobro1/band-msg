@@ -1,23 +1,23 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
+import { getAuthBridgeSecret } from '$lib/server/auth';
 import { getSqlClient, getUserBySession } from '$lib/server/db';
+import { getSessionBinding } from '$lib/server/request';
 import { getConvexHttpClient } from "$lib/server/convex";
 import { api } from "../../../../../convex/_generated/api";
 
 const USERNAME_PATTERN = /^[a-zA-Z0-9_-]{3,20}$/;
-const AUTH_BRIDGE_SECRET =
-  process.env.AUTH_BRIDGE_SECRET ||
-  "rotate-this-auth-bridge-secret-2026-03-24-a7f48c2c14f34d2ab0c7b5b31d2f6e8c";
 
 export const POST: RequestHandler = async ({ request, locals }) => {
   const sql = getSqlClient();
   const convex = await getConvexHttpClient();
+  const sessionBinding = getSessionBinding(request);
   const sessionToken = (locals as any).sessionToken;
   if (!sessionToken) {
     return json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const user = await getUserBySession(sessionToken);
+  const user = await getUserBySession(sessionToken, sessionBinding);
   if (!user) {
     return json({ error: 'Unauthorized' }, { status: 401 });
   }
@@ -48,28 +48,30 @@ export const POST: RequestHandler = async ({ request, locals }) => {
       return json({ error: 'Username is already taken' }, { status: 400 });
     }
 
-    // Update user in SQL
+    const userRows = await sql`
+      SELECT google_id
+      FROM users
+      WHERE id = ${user.id}
+      LIMIT 1
+    ` as any[];
+
+    await convex.mutation(api.auth.syncExternalUser, {
+      username: trimmedUsername,
+      externalId: typeof userRows[0]?.google_id === 'string' ? userRows[0].google_id : '',
+      role: user.role,
+      status: user.status,
+      needsUsernameSetup: false,
+      sessionToken,
+      userAgentHash: sessionBinding,
+      expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000,
+      serverSecret: getAuthBridgeSecret()
+    });
+
     await sql`
       UPDATE users 
       SET username = ${trimmedUsername}, display_name = ${displayName?.trim()?.substring(0, 50) || null}, needs_username_setup = false
       WHERE id = ${user.id}
     `;
-
-    // Sync to Convex
-    try {
-      await convex.mutation(api.auth.syncExternalUser, {
-        username: trimmedUsername,
-        externalId: '',
-        role: user.role,
-        status: user.status,
-        needsUsernameSetup: false,
-        sessionToken,
-        expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000,
-        serverSecret: AUTH_BRIDGE_SECRET
-      });
-    } catch (syncError) {
-      console.error('Convex sync failed:', syncError);
-    }
 
     return json({ success: true, username: trimmedUsername });
   } catch (error) {
