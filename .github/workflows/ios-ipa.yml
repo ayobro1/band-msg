@@ -1,0 +1,179 @@
+name: Build iOS IPA
+
+on:
+  workflow_dispatch:
+    inputs:
+      export_method:
+        description: "How the IPA should be signed/exported"
+        required: true
+        default: ad-hoc
+        type: choice
+        options:
+          - development
+          - ad-hoc
+          - app-store
+      configuration:
+        description: "Xcode build configuration"
+        required: true
+        default: Release
+        type: choice
+        options:
+          - Release
+
+jobs:
+  build-ios:
+    runs-on: macos-15
+    env:
+      WORKSPACE: BandChat.xcworkspace
+      SCHEME: BandChat
+      BUNDLE_IDENTIFIER: app.vercel.band-msg
+      ARCHIVE_PATH: ${{ github.workspace }}/build/BandChat.xcarchive
+      EXPORT_PATH: ${{ github.workspace }}/build/export
+      KEYCHAIN_PATH: ${{ runner.temp }}/bandchat-signing.keychain-db
+      PROFILE_PATH: ${{ runner.temp }}/BandChat.mobileprovision
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Install CocoaPods dependencies
+        run: pod install --repo-update
+
+      - name: Install signing certificate and provisioning profile
+        env:
+          BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
+          BUILD_CERTIFICATE_PASSWORD: ${{ secrets.BUILD_CERTIFICATE_PASSWORD }}
+          BUILD_PROVISION_PROFILE_BASE64: ${{ secrets.BUILD_PROVISION_PROFILE_BASE64 }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          set -euo pipefail
+
+          if [[ -z "${BUILD_CERTIFICATE_BASE64}" || -z "${BUILD_CERTIFICATE_PASSWORD}" || -z "${BUILD_PROVISION_PROFILE_BASE64}" || -z "${KEYCHAIN_PASSWORD}" ]]; then
+            echo "Missing one or more required secrets:"
+            echo "BUILD_CERTIFICATE_BASE64"
+            echo "BUILD_CERTIFICATE_PASSWORD"
+            echo "BUILD_PROVISION_PROFILE_BASE64"
+            echo "KEYCHAIN_PASSWORD"
+            exit 1
+          fi
+
+          export CERTIFICATE_PATH="$RUNNER_TEMP/build_certificate.p12"
+          python3 - <<'PY'
+          import base64
+          import os
+          from pathlib import Path
+
+          Path(os.environ["CERTIFICATE_PATH"]).write_bytes(
+              base64.b64decode(os.environ["BUILD_CERTIFICATE_BASE64"])
+          )
+          Path(os.environ["PROFILE_PATH"]).write_bytes(
+              base64.b64decode(os.environ["BUILD_PROVISION_PROFILE_BASE64"])
+          )
+          PY
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security import "$CERTIFICATE_PATH" \
+            -P "$BUILD_CERTIFICATE_PASSWORD" \
+            -A \
+            -t cert \
+            -f pkcs12 \
+            -k "$KEYCHAIN_PATH"
+          security list-keychains -d user -s "$KEYCHAIN_PATH" $(security list-keychains -d user | tr -d '"')
+          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+          security cms -D -i "$PROFILE_PATH" > "$RUNNER_TEMP/profile.plist"
+          PROFILE_NAME=$(/usr/libexec/PlistBuddy -c 'Print :Name' "$RUNNER_TEMP/profile.plist")
+          PROFILE_UUID=$(/usr/libexec/PlistBuddy -c 'Print :UUID' "$RUNNER_TEMP/profile.plist")
+          TEAM_ID=$(/usr/libexec/PlistBuddy -c 'Print :TeamIdentifier:0' "$RUNNER_TEMP/profile.plist")
+
+          mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
+          cp "$PROFILE_PATH" "$HOME/Library/MobileDevice/Provisioning Profiles/$PROFILE_UUID.mobileprovision"
+
+          echo "PROFILE_NAME=$PROFILE_NAME" >> "$GITHUB_ENV"
+          echo "PROFILE_UUID=$PROFILE_UUID" >> "$GITHUB_ENV"
+          echo "TEAM_ID=$TEAM_ID" >> "$GITHUB_ENV"
+
+      - name: Create export options plist
+        run: |
+          set -euo pipefail
+          cat > "$RUNNER_TEMP/ExportOptions.plist" <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key>
+            <string>${{ inputs.export_method }}</string>
+            <key>signingStyle</key>
+            <string>manual</string>
+            <key>teamID</key>
+            <string>${TEAM_ID}</string>
+            <key>provisioningProfiles</key>
+            <dict>
+              <key>${BUNDLE_IDENTIFIER}</key>
+              <string>${PROFILE_NAME}</string>
+            </dict>
+            <key>stripSwiftSymbols</key>
+            <true/>
+          </dict>
+          </plist>
+          EOF
+
+      - name: Archive app
+        env:
+          CONFIGURATION: ${{ inputs.configuration }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$EXPORT_PATH"
+
+          xcodebuild \
+            -workspace "$WORKSPACE" \
+            -scheme "$SCHEME" \
+            -configuration "$CONFIGURATION" \
+            -destination "generic/platform=iOS" \
+            -archivePath "$ARCHIVE_PATH" \
+            clean archive \
+            CODE_SIGN_STYLE=Manual \
+            DEVELOPMENT_TEAM="$TEAM_ID" \
+            PROVISIONING_PROFILE_SPECIFIER="$PROFILE_NAME" \
+            OTHER_CODE_SIGN_FLAGS="--keychain $KEYCHAIN_PATH"
+
+      - name: Export IPA
+        run: |
+          set -euo pipefail
+
+          xcodebuild \
+            -exportArchive \
+            -archivePath "$ARCHIVE_PATH" \
+            -exportPath "$EXPORT_PATH" \
+            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" \
+            OTHER_CODE_SIGN_FLAGS="--keychain $KEYCHAIN_PATH"
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: BandChat-${{ inputs.export_method }}-ipa
+          path: |
+            build/export/*.ipa
+            build/export/*.plist
+          if-no-files-found: error
+
+      - name: Upload archive for debugging
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: BandChat-xcarchive
+          path: build/BandChat.xcarchive
+          if-no-files-found: ignore
+
+      - name: Clean up signing assets
+        if: always()
+        run: |
+          security delete-keychain "$KEYCHAIN_PATH" || true
+          rm -f "$HOME/Library/MobileDevice/Provisioning Profiles/$PROFILE_UUID.mobileprovision" || true
