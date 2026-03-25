@@ -26,10 +26,10 @@
 # misc
 .DS_Store
 *.pem
-.vscode
-.idea
+.vscode/
+.idea/
 .convex
-.kiro
+.kiro/
 
 # debug
 npm-debug.log*

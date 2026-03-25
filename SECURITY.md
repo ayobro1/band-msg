@@ -42,7 +42,21 @@ Reference: [Firebase Security Documentation](https://firebase.google.com/docs/pr
 
 ## Reporting Security Issues
 
-If you discover a security vulnerability, please email: [your-email]
+Please do not open a public issue for suspected vulnerabilities.
+
+Preferred path:
+
+1. Use GitHub's private vulnerability reporting or repository security advisory flow if it is enabled.
+2. If private reporting is not available, contact the maintainer through the repository owner's GitHub profile or other documented private channel.
+
+Include:
+
+- A short description of the issue
+- Reproduction steps or proof of concept
+- Affected routes, files, or deployment surface
+- The impact you believe it has
+
+The goal is coordinated disclosure and a private fix first.
 
 ## Environment Variables
 
