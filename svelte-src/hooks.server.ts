@@ -33,25 +33,47 @@ export const handle = async ({ event, resolve }: any) => {
   event.locals.sessionToken = cookieSessionToken ?? headerSessionToken;
   event.locals.sessionFromHeader = usingHeaderSession;
 
-  const csrfToken = getCsrfToken(event.cookies) ?? createCsrfToken();
-  event.locals.csrfToken = csrfToken;
-  if (!getCsrfToken(event.cookies)) {
+  // Always ensure CSRF token exists
+  let csrfToken = getCsrfToken(event.cookies);
+  if (!csrfToken) {
+    csrfToken = createCsrfToken();
     setCsrfCookie(event.cookies, csrfToken);
   }
+  event.locals.csrfToken = csrfToken;
 
   if (isApiMutation(event)) {
     const origin = event.request.headers.get("origin");
     if (origin && origin !== event.url.origin) {
+      console.error('CSRF: Invalid origin', { origin, expected: event.url.origin });
       return new Response(JSON.stringify({ error: "Invalid origin" }), {
         status: 403,
         headers: { "content-type": "application/json" }
       });
     }
 
+    // Only validate CSRF for cookie-based sessions (not header-based)
     if (event.locals.sessionToken && !usingHeaderSession && !isCsrfExemptPath(event.url.pathname)) {
       const tokenHeader = event.request.headers.get("x-csrf-token");
       const cookieToken = getCsrfToken(event.cookies);
-      if (!tokenHeader || !cookieToken || tokenHeader !== cookieToken) {
+      
+      if (!tokenHeader) {
+        console.error('CSRF: No token in header');
+        return new Response(JSON.stringify({ error: "CSRF token missing" }), {
+          status: 403,
+          headers: { "content-type": "application/json" }
+        });
+      }
+      
+      if (!cookieToken) {
+        console.error('CSRF: No token in cookie');
+        return new Response(JSON.stringify({ error: "CSRF cookie missing" }), {
+          status: 403,
+          headers: { "content-type": "application/json" }
+        });
+      }
+      
+      if (tokenHeader !== cookieToken) {
+        console.error('CSRF: Token mismatch', { header: tokenHeader.substring(0, 10), cookie: cookieToken.substring(0, 10) });
         return new Response(JSON.stringify({ error: "CSRF validation failed" }), {
           status: 403,
           headers: { "content-type": "application/json" }
@@ -68,19 +90,20 @@ export const handle = async ({ event, resolve }: any) => {
   response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
   response.headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
   
-  // Content Security Policy - allows inline scripts/styles for Svelte
+  // Content Security Policy - allows Firebase and external resources
   const csp = [
     "default-src 'self'",
-    "script-src 'self' 'unsafe-inline'", // Svelte needs inline scripts
-    "style-src 'self' 'unsafe-inline'", // Svelte needs inline styles
-    "img-src 'self' data: https:",
+    "script-src 'self' 'unsafe-inline' https://www.gstatic.com https://va.vercel-scripts.com", // Allow Firebase and Vercel scripts
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: https: blob:", // Allow images from any HTTPS source
     "font-src 'self'",
-    "connect-src 'self'",
+    "connect-src 'self' https://firebaseinstallations.googleapis.com https://fcmregistrations.googleapis.com https://fcm.googleapis.com https://va.vercel-scripts.com", // Allow Firebase API calls
     "media-src 'self'",
     "object-src 'none'",
     "frame-ancestors 'none'",
     "base-uri 'self'",
-    "form-action 'self'"
+    "form-action 'self'",
+    "worker-src 'self' blob:" // Allow service workers
   ].join("; ");
   response.headers.set("Content-Security-Policy", csp);
   

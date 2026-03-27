@@ -15,7 +15,7 @@ export function parseMarkdown(text: string): string {
   result = result.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_match: string, alt: string, url: string) => {
     const safeUrl = url.replace(/"/g, '&quot;');
     const safeAlt = alt.replace(/"/g, '&quot;');
-    return `<img src="${safeUrl}" alt="${safeAlt}" class="rounded-xl max-w-full max-h-[300px] object-contain my-2 bg-black/20" loading="lazy" />`;
+    return `<img src="${safeUrl}" alt="${safeAlt}" class="rounded-xl max-w-full max-h-[300px] object-contain my-2 bg-black/20 select-none" style="touch-action: none; user-select: none; -webkit-user-select: none; pointer-events: auto;" loading="lazy" draggable="false" />`;
   });
   
   // Inline code (`...`)

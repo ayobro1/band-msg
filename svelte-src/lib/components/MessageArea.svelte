@@ -5,6 +5,7 @@
   import { channelStore } from '../stores/channels';
   import { messageStore } from '../stores/messages';
   import { memberStore } from '../stores/members';
+  import { themeStore } from '../stores/theme';
   import MessageBubble from './MessageBubble.svelte';
   import AdminPanel from './AdminPanel.svelte';
   import Calendar from './Calendar.svelte';
@@ -24,6 +25,12 @@
   let showNotificationSettings = false;
   let showGiphy = false;
   let showCreateChannel = false;
+  let shouldAutoScroll = true;
+  let previousMessageCount = 0;
+  
+  onMount(() => {
+    themeStore.init();
+  });
 
   $: selectedChannel = $channelStore.channels.find(
     c => c.id === $channelStore.selectedChannelId
@@ -34,7 +41,16 @@
     messageStore.loadMessages($channelStore.selectedChannelId);
   }
 
+  // Check if user is near bottom to enable auto-scroll
+  function handleScroll() {
+    if (!messageContainer) return;
+    const { scrollTop, scrollHeight, clientHeight } = messageContainer;
+    const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
+    shouldAutoScroll = distanceFromBottom < 100;
+  }
+
   function scrollToBottom() {
+    if (!shouldAutoScroll) return;
     setTimeout(() => {
       if (messageContainer) {
         messageContainer.scrollTop = messageContainer.scrollHeight;
@@ -42,8 +58,14 @@
     }, 50);
   }
 
-  afterUpdate(() => {
+  // Only auto-scroll when new messages arrive
+  $: if ($messageStore.messages.length > previousMessageCount) {
+    previousMessageCount = $messageStore.messages.length;
     scrollToBottom();
+  }
+
+  afterUpdate(() => {
+    // Don't force scroll on every update
   });
 
   async function handleSend() {
@@ -141,9 +163,9 @@
   };
 </script>
 
-<div class="flex-1 flex flex-col min-w-0 bg-black" style="padding-top: env(safe-area-inset-top);">
+<div class="flex-1 flex flex-col min-w-0 message-area-container" style="padding-top: env(safe-area-inset-top);">
   <!-- Header -->
-  <div class="h-14 flex items-center justify-between px-4 border-b border-white/10 shrink-0 relative" style="z-index: 100;">
+  <div class="h-14 flex items-center justify-between px-4 border-b border-white/10 shrink-0 relative message-area-header" style="z-index: 100;">
     <div class="flex items-center gap-3">
       <!-- Mobile channels button -->
       <button
@@ -177,8 +199,47 @@
     <div class="flex items-center gap-1 relative">
       <button
         type="button"
+        on:click={() => showMobileMembers = true}
+        class="md:hidden p-2 rounded-lg transition-colors text-white/40 hover:text-white hover:bg-white/5 touch-manipulation cursor-pointer relative"
+        style="z-index: 101; pointer-events: auto;"
+        title="Show Members"
+      >
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+          <circle cx="9" cy="7" r="4" />
+          <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+          <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+        </svg>
+      </button>
+      <button
+        type="button"
+        on:click={() => themeStore.toggle()}
+        class="p-2 rounded-lg transition-all duration-200 text-white/40 hover:text-white hover:bg-white/5 hover:scale-110 active:scale-95 touch-manipulation cursor-pointer relative"
+        style="z-index: 101; pointer-events: auto;"
+        title="Toggle Theme"
+      >
+        {#if $themeStore === 'dark'}
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="5"/>
+            <line x1="12" y1="1" x2="12" y2="3"/>
+            <line x1="12" y1="21" x2="12" y2="23"/>
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+            <line x1="1" y1="12" x2="3" y2="12"/>
+            <line x1="21" y1="12" x2="23" y2="12"/>
+            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+          </svg>
+        {:else}
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+          </svg>
+        {/if}
+      </button>
+      <button
+        type="button"
         on:click|stopPropagation={() => { showNotificationSettings = true; }}
-        class="p-2 rounded-lg transition-colors text-white/40 hover:text-white hover:bg-white/5 touch-manipulation cursor-pointer relative"
+        class="p-2 rounded-lg transition-all duration-200 text-white/40 hover:text-white hover:bg-white/5 hover:scale-110 active:scale-95 touch-manipulation cursor-pointer relative"
         style="z-index: 101; pointer-events: auto;"
         title="Notifications"
       >
@@ -190,7 +251,7 @@
       <button
         type="button"
         on:click|stopPropagation={() => { showCalendar = true; }}
-        class="p-2 rounded-lg transition-colors text-white/40 hover:text-white hover:bg-white/5 touch-manipulation cursor-pointer relative"
+        class="p-2 rounded-lg transition-all duration-200 text-white/40 hover:text-white hover:bg-white/5 hover:scale-110 active:scale-95 touch-manipulation cursor-pointer relative"
         style="z-index: 101; pointer-events: auto;"
         title="Calendar"
       >
@@ -205,7 +266,7 @@
         <button
           type="button"
           on:click|stopPropagation={() => { showAdminPanel = true; }}
-          class="p-2 rounded-lg transition-colors text-white/40 hover:text-white hover:bg-white/5 touch-manipulation cursor-pointer relative"
+          class="p-2 rounded-lg transition-all duration-200 text-white/40 hover:text-white hover:bg-white/5 hover:scale-110 active:scale-95 touch-manipulation cursor-pointer relative"
           style="z-index: 101; pointer-events: auto;"
           title="Admin Panel"
         >
@@ -239,26 +300,7 @@
   </div>
 
   <!-- Messages -->
-  <div bind:this={messageContainer} class="flex-1 overflow-y-auto py-3 scrollbar-hide bg-black">
-    <!-- Welcome message -->
-    <div class="px-4 md:px-5 mb-3 flex items-center gap-3">
-      <div class="w-10 h-10 rounded-xl bg-white/8 flex items-center justify-center shrink-0 text-white">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-        </svg>
-      </div>
-      <div class="min-w-0">
-        <h2 class="text-base font-bold text-white leading-tight">
-          #{selectedChannel?.name || 'general'}
-        </h2>
-        <p class="text-xs text-white/30 truncate">
-          {selectedChannel?.description || 'Talk, plan, and make music together.'}
-        </p>
-      </div>
-    </div>
-
-    <div class="h-px bg-white/6 mx-4 mb-3"></div>
-
+  <div bind:this={messageContainer} on:scroll={handleScroll} class="flex-1 overflow-y-auto overflow-x-hidden py-3 scrollbar-hide message-area-messages" style="min-height: 0;">
     {#each $messageStore.messages as message, i}
       {@const prev = i > 0 ? $messageStore.messages[i - 1] : null}
       {@const showHeader = !prev || prev.author !== message.author || message.createdAt - prev.createdAt > 300000}
@@ -283,7 +325,7 @@
       <button
         type="button"
         on:click={() => showGiphy = true}
-        class="h-11 px-3.5 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors flex items-center justify-center shrink-0 font-bold text-xs text-white/70 hover:text-white"
+        class="h-11 px-3.5 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all duration-200 flex items-center justify-center shrink-0 font-bold text-xs text-white/70 hover:text-white hover:scale-105 active:scale-95"
         title="Add GIF"
       >
         GIF
@@ -304,7 +346,7 @@
         type="button"
         on:click={handleSend}
         disabled={!messageInput.trim()}
-        class="p-3 rounded-xl transition-all shrink-0 {messageInput.trim() ? 'bg-white text-black hover:bg-white/90' : 'bg-white/5 text-white/20 cursor-not-allowed'}"
+        class="p-3 rounded-xl transition-all duration-200 shrink-0 hover:scale-105 active:scale-95 {messageInput.trim() ? 'bg-white text-black hover:bg-white/90' : 'bg-white/5 text-white/20 cursor-not-allowed'}"
         aria-label="Send message"
       >
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -313,18 +355,6 @@
         </svg>
       </button>
     </div>
-  </div>
-
-  <!-- User panel at bottom -->
-  <div class="flex items-center gap-2.5 px-4 bg-black border-t border-white/8 shrink-0 py-3" style="padding-bottom: max(0.75rem, env(safe-area-inset-bottom)); min-height: calc(3rem + env(safe-area-inset-bottom));">
-    <div class="relative">
-      <Avatar alt={$authStore.user?.username || ''} size="sm" status={null} />
-      <div class="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-green-400 border-2 border-black"></div>
-    </div>
-    <div class="flex-1 min-w-0">
-      <p class="text-[13px] font-medium text-white truncate">{$authStore.user?.username}</p>
-    </div>
-    <span class="text-[10px] text-white/25 uppercase tracking-wider font-medium">{$authStore.user?.role}</span>
   </div>
 </div>
 

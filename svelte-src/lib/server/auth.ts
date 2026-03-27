@@ -36,12 +36,17 @@ export function getCsrfToken(cookies: any): string | null {
 
 export function setCsrfCookie(cookies: any, token: string): void {
   cookies.set(CSRF_COOKIE, token, {
-    httpOnly: false,
+    httpOnly: false, // Must be false so JavaScript can read it
     secure: resolveSecureCookie(),
     sameSite: resolveSameSiteCookie(),
     path: "/",
     maxAge: SESSION_TTL_MS / 1000
   });
+  
+  // Debug log in development
+  if (process.env.NODE_ENV !== 'production') {
+    console.log('CSRF cookie set:', token.substring(0, 10) + '...');
+  }
 }
 
 export function expiresAtMs(): number {

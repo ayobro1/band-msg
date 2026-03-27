@@ -33,25 +33,96 @@
 
   let showReactionPicker = false;
   let touchTimer: ReturnType<typeof setTimeout> | null = null;
-  const QUICK_REACTIONS = ['👍', '❤️', '😂', '🔥', '👀', '💯'];
+  let tapCount = 0;
+  let tapTimer: ReturnType<typeof setTimeout> | null = null;
+  
+  const QUICK_REACTIONS = [
+    { emoji: '👍', name: 'thumbs-up' },
+    { emoji: '❤️', name: 'heart' },
+    { emoji: '😂', name: 'laugh' },
+    { emoji: '🔥', name: 'fire' },
+    { emoji: '👀', name: 'eyes' },
+    { emoji: '💯', name: 'hundred' }
+  ];
+  
+  // Map various emoji formats to SVG names
+  const emojiToSvgMap: Record<string, string> = {
+    '👍': 'thumbs-up',
+    'thumbsup': 'thumbs-up',
+    '❤️': 'heart',
+    '❤': 'heart',
+    'heart': 'heart',
+    '😂': 'laugh',
+    'laugh': 'laugh',
+    '🔥': 'fire',
+    'fire': 'fire',
+    '👀': 'eyes',
+    'eyes': 'eyes',
+    '💯': 'hundred',
+    'hundred': 'hundred',
+    '✅': 'check',
+    'check': 'check',
+    '👎': 'thumbs-down',
+    'thumbdown': 'thumbs-down'
+  };
+  
+  function getReactionSvg(name: string): string {
+    const svgs: Record<string, string> = {
+      'thumbs-up': '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 11H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h3"/></svg>',
+      'thumbs-down': '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zM17 13h3a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2h-3"/></svg>',
+      'heart': '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>',
+      'laugh': '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>',
+      'fire': '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>',
+      'eyes': '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>',
+      'hundred': '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"/><text x="12" y="16" text-anchor="middle" font-size="12" font-weight="bold" fill="white">💯</text></svg>',
+      'check': '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>'
+    };
+    return svgs[name] || '';
+  }
+  
+  function getSvgNameForEmoji(emoji: string): string | null {
+    return emojiToSvgMap[emoji] || null;
+  }
 
   function handleTouchStart(e: TouchEvent) {
+    // Prevent default on images to avoid download
+    const target = e.target as HTMLElement;
+    if (target.tagName === 'IMG') {
+      e.preventDefault();
+    }
+    
     if (touchTimer) clearTimeout(touchTimer);
     touchTimer = setTimeout(() => {
       showReactionPicker = true;
-      if (navigator.vibrate) navigator.vibrate(50); // Haptic feedback if supported
-    }, 400); // 400ms long press
+      if (navigator.vibrate) navigator.vibrate(50);
+    }, 400);
   }
 
-  function handleTouchEnd() {
+  function handleTouchEnd(e: TouchEvent) {
     if (touchTimer) clearTimeout(touchTimer);
+    
+    // Handle double-tap on images
+    const target = e.target as HTMLElement;
+    if (target.tagName === 'IMG') {
+      tapCount++;
+      if (tapCount === 1) {
+        tapTimer = setTimeout(() => {
+          tapCount = 0;
+        }, 300);
+      } else if (tapCount === 2) {
+        if (tapTimer) clearTimeout(tapTimer);
+        tapCount = 0;
+        // Double tap detected - add heart reaction
+        handleReactionClick('❤️', 'heart');
+      }
+    }
   }
 
   function handleTouchMove() {
     if (touchTimer) clearTimeout(touchTimer);
   }
 
-  async function handleReactionClick(emoji: string) {
+  async function handleReactionClick(emoji: string, name?: string) {
     showReactionPicker = false;
     if (!$channelStore.selectedChannelId) return;
     
@@ -87,14 +158,14 @@
   on:contextmenu|preventDefault={(e) => showReactionPicker = true}
 >
   {#if showReactionPicker}
-    <div class="absolute z-50 -top-10 left-12 flex items-center gap-1 bg-[#222] border border-white/10 rounded-full px-2 py-1.5 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
-      {#each QUICK_REACTIONS as emoji}
+    <div class="absolute z-50 -top-10 left-12 flex items-center gap-1 bg-[#222] border border-white/10 rounded-full px-2 py-1.5 shadow-2xl animate-scale-in">
+      {#each QUICK_REACTIONS as reaction}
         <button
           type="button"
-          on:click|stopPropagation={() => handleReactionClick(emoji)}
-          class="w-9 h-9 rounded-full flex items-center justify-center text-xl hover:bg-white/10 transition-transform transform active:scale-90 touch-manipulation origin-center"
+          on:click|stopPropagation={() => handleReactionClick(reaction.emoji, reaction.name)}
+          class="w-9 h-9 rounded-full flex items-center justify-center hover:bg-white/10 transition-all duration-200 transform hover:scale-110 active:scale-95 touch-manipulation origin-center text-white"
         >
-          {emoji}
+          {@html getReactionSvg(reaction.name)}
         </button>
       {/each}
     </div>
@@ -131,11 +202,16 @@
         <div class="flex flex-wrap gap-1 mt-1.5">
           {#each message.reactions as reaction}
             {@const hasReacted = reaction.users.includes($authStore.user?.username)}
+            {@const svgName = getSvgNameForEmoji(reaction.emoji) || reaction.emoji}
             <button
-              on:click={() => handleReactionClick(reaction.emoji)}
-              class="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs transition-all border {hasReacted ? 'bg-white/20 border-white/40 text-white' : 'bg-white/5 border-white/10 text-white/50 hover:bg-white/10'}"
+              on:click={() => handleReactionClick(reaction.emoji, svgName)}
+              class="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs transition-all duration-200 border transform hover:scale-105 active:scale-95 {hasReacted ? 'bg-white/20 border-white/40 text-white' : 'bg-white/5 border-white/10 text-white/50 hover:bg-white/10'}"
             >
-              <span>{reaction.emoji}</span>
+              {#if getReactionSvg(svgName)}
+                <span class="inline-flex">{@html getReactionSvg(svgName)}</span>
+              {:else}
+                <span>{reaction.emoji}</span>
+              {/if}
               <span class="font-medium">{reaction.count}</span>
             </button>
           {/each}

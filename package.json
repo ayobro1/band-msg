@@ -5,6 +5,7 @@
   "private": true,
   "scripts": {
     "dev": "vite dev",
+    "prebuild": "node scripts/generate-firebase-sw.js",
     "build": "vite build",
     "preview": "vite preview",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
@@ -19,6 +20,7 @@
     "@untitledui/icons": "^0.0.21",
     "@vercel/analytics": "^2.0.1",
     "@vercel/speed-insights": "^2.0.0",
+    "firebase": "^12.10.0",
     "react-aria-components": "^1.16.0",
     "svelte": "^5.39.6",
     "tailwind-merge": "^3.5.0",
@@ -31,6 +33,7 @@
     "@tailwindcss/postcss": "^4.2.1",
     "@tailwindcss/vite": "^4.2.1",
     "@types/node": "^22.15.21",
+    "dotenv": "^17.3.1",
     "postcss": "^8.5.8",
     "svelte-check": "^4.1.1",
     "tailwindcss": "^4.2.1",

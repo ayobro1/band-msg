@@ -50,7 +50,17 @@ function createMessageStore() {
             }
           }
           
-          update(state => ({ ...state, messages, isLoading: false }));
+          // Only update if messages actually changed
+          update(state => {
+            const currentIds = state.messages.map(m => m.id).join(',');
+            const newIds = messages.map((m: Message) => m.id).join(',');
+            const reactionsChanged = JSON.stringify(state.messages.map(m => m.reactions)) !== JSON.stringify(messages.map((m: Message) => m.reactions));
+            
+            if (currentIds !== newIds || reactionsChanged) {
+              return { ...state, messages, isLoading: false };
+            }
+            return { ...state, isLoading: false };
+          });
         }
       } catch (error) {
         update(state => ({ ...state, isLoading: false }));

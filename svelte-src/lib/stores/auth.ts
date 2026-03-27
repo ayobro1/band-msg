@@ -6,6 +6,7 @@ type User = {
   username: string;
   role: 'admin' | 'member';
   status: 'approved' | 'pending';
+  needsUsernameSetup?: boolean;
 };
 
 type AuthState = {

@@ -1,5 +1,6 @@
 import { writable } from 'svelte/store';
 import { apiGet } from '../utils/api';
+import { browser } from '$app/environment';
 
 type Member = {
   id: string;
@@ -12,6 +13,8 @@ type MemberState = {
   members: Member[];
   showUserList: boolean;
 };
+
+let pollInterval: ReturnType<typeof setInterval> | null = null;
 
 function createMemberStore() {
   const { subscribe, set, update } = writable<MemberState>({
@@ -35,6 +38,22 @@ function createMemberStore() {
       } catch (error) {
         console.error('Failed to load members:', error);
         update(state => ({ ...state, members: [] }));
+      }
+    },
+
+    startPolling() {
+      if (!browser || pollInterval) return;
+      
+      // Poll every 10 seconds
+      pollInterval = setInterval(() => {
+        this.loadMembers();
+      }, 10000);
+    },
+
+    stopPolling() {
+      if (pollInterval) {
+        clearInterval(pollInterval);
+        pollInterval = null;
       }
     },
 

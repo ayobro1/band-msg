@@ -49,3 +49,4 @@ convex/_generated/
 
 # discord-server-build-request (reference UI)
 /discord-server-build-request
+.env*.local

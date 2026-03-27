@@ -29,16 +29,23 @@ export const POST = async ({ locals, request }: any) => {
   const name = typeof body?.name === "string" ? body.name : "";
   const description = typeof body?.description === "string" ? body.description : "";
   const isPrivate = typeof body?.isPrivate === "boolean" ? body.isPrivate : false;
+  const memberIds = Array.isArray(body?.memberIds) ? body.memberIds : [];
 
   if (!name) {
     return toJson({ error: "name is required" }, 400);
+  }
+
+  // Only admins can create private channels
+  if (isPrivate && locals.user?.role !== 'admin') {
+    return toJson({ error: "Only admins can create private channels" }, 403);
   }
 
   const result = await createChannel({
     sessionToken: locals.sessionToken,
     name,
     description,
-    isPrivate
+    isPrivate,
+    memberIds
   });
 
   if (result.ok === false) {

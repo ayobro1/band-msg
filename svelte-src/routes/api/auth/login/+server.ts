@@ -62,6 +62,8 @@ export const POST = async ({ request, cookies }: any) => {
     await clearRateLimit(userKey);
 
     setSessionCookie(cookies, sessionToken);
+    
+    // Return user data with session token
     return toJson({
       ...result.value,
       sessionToken

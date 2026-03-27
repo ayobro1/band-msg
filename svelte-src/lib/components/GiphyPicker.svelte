@@ -39,14 +39,14 @@
 <!-- svelte-ignore a11y_click_events_have_key_events -->
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
-  class="fixed inset-0 bg-black/80 z-[200] flex items-end md:items-center md:justify-center"
+  class="fixed inset-0 bg-black/80 z-[200] flex items-end md:items-center md:justify-center animate-fade-in"
   style="padding-top: env(safe-area-inset-top);"
   on:click={onClose}
 >
   <!-- svelte-ignore a11y_click_events_have_key_events -->
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div
-    class="bg-black border-t border-white/10 md:border md:rounded-2xl w-full md:max-w-md flex flex-col rounded-t-2xl h-[70vh] md:h-[600px] max-h-[92vh]"
+    class="bg-black border-t border-white/10 md:border md:rounded-2xl w-full md:max-w-md flex flex-col rounded-t-2xl h-[70vh] md:h-[600px] max-h-[92vh] animate-slide-up md:animate-scale-in"
     on:click|stopPropagation
   >
     <!-- Header/Search -->
@@ -67,7 +67,7 @@
       <button
         type="button"
         on:click={onClose}
-        class="p-2 -mr-2 text-white/40 hover:text-white transition-colors"
+        class="p-2 -mr-2 text-white/40 hover:text-white transition-all duration-200 hover:scale-110 active:scale-95"
         aria-label="Close"
       >
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -80,16 +80,16 @@
     <!-- GIF Grid -->
     <div class="flex-1 overflow-y-auto p-4 scrollbar-hide" style="padding-bottom: max(1rem, env(safe-area-inset-bottom));">
       {#if isLoading && gifs.length === 0}
-        <div class="text-center py-12 text-white/30 text-sm">Searching...</div>
+        <div class="text-center py-12 text-white/30 text-sm animate-pulse-subtle">Searching...</div>
       {:else if gifs.length === 0}
-        <div class="text-center py-12 text-white/30 text-sm">No GIFs found</div>
+        <div class="text-center py-12 text-white/30 text-sm animate-fade-in">No GIFs found</div>
       {:else}
-        <div class="grid grid-cols-2 gap-2">
+        <div class="grid grid-cols-2 gap-2 stagger-fade-in">
           {#each gifs as gif}
             <button
               type="button"
               on:click={() => onSelect(gif.url)}
-              class="relative rounded-lg overflow-hidden bg-white/5 aspect-square hover:opacity-80 transition-opacity touch-manipulation focus:outline-none focus:ring-2 focus:ring-white/50"
+              class="relative rounded-lg overflow-hidden bg-white/5 aspect-square hover:opacity-80 transition-all duration-200 touch-manipulation focus:outline-none focus:ring-2 focus:ring-white/50 hover:scale-105 active:scale-95"
             >
               <img
                 src={gif.preview}

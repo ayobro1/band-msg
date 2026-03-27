@@ -19,8 +19,13 @@ let sqlClient: ReturnType<typeof neon> | null = null;
 
 function getSqlClient() {
   if (!sqlClient) {
-    const databaseUrl = process.env.DATABASE_URL;
+    // Try multiple sources for DATABASE_URL
+    const databaseUrl = process.env.DATABASE_URL || 
+                       process.env.POSTGRES_URL ||
+                       process.env.POSTGRES_PRISMA_URL;
+    
     if (!databaseUrl) {
+      console.error('Available env vars:', Object.keys(process.env).filter(k => k.includes('DATABASE') || k.includes('POSTGRES')));
       throw new Error("Missing DATABASE_URL environment variable");
     }
     sqlClient = neon(databaseUrl);
@@ -61,17 +66,29 @@ async function ensureDb(): Promise<void> {
           CREATE TABLE IF NOT EXISTS users (
             id TEXT PRIMARY KEY,
             username TEXT NOT NULL UNIQUE,
-          password_hash TEXT NOT NULL,
-          password_salt TEXT NOT NULL,
-          role TEXT NOT NULL CHECK (role IN ('admin', 'member')),
-          status TEXT NOT NULL CHECK (status IN ('approved', 'pending')),
-          avatar_url TEXT,
-          presence_status TEXT DEFAULT 'offline' CHECK (presence_status IN ('online', 'idle', 'dnd', 'offline')),
-          custom_status TEXT,
-          last_seen_at BIGINT,
-          created_at BIGINT NOT NULL
-        )
-      `;
+            password_hash TEXT,
+            password_salt TEXT,
+            role TEXT NOT NULL CHECK (role IN ('admin', 'member')),
+            status TEXT NOT NULL CHECK (status IN ('approved', 'pending')),
+            avatar_url TEXT,
+            presence_status TEXT DEFAULT 'offline' CHECK (presence_status IN ('online', 'idle', 'dnd', 'offline')),
+            custom_status TEXT,
+            google_id TEXT UNIQUE,
+            last_seen_at BIGINT,
+            created_at BIGINT NOT NULL
+          )
+        `;
+        
+        // Add google_id column if it doesn't exist (migration)
+        try {
+          await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS google_id TEXT UNIQUE`;
+          await sql`ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL`;
+          await sql`ALTER TABLE users ALTER COLUMN password_salt DROP NOT NULL`;
+          await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS needs_username_setup BOOLEAN DEFAULT FALSE`;
+        } catch (e) {
+          // Column might already exist, ignore error
+          console.log('Migration note:', e);
+        }
 
       // Sessions table
       await sql`
@@ -615,7 +632,7 @@ export async function getUserBySession(sessionToken: string): Promise<AppUser | 
   const now = Date.now();
 
   const rows = await sql`
-    SELECT u.id, u.username, u.role, u.status
+    SELECT u.id, u.username, u.role, u.status, u.needs_username_setup
     FROM sessions s
     JOIN users u ON u.id = s.user_id
     WHERE s.token = ${sessionToken}
@@ -624,7 +641,13 @@ export async function getUserBySession(sessionToken: string): Promise<AppUser | 
     LIMIT 1
   `;
 
-  return rows[0] ? toAppUser(rows[0]) : null;
+  if (!rows[0]) return null;
+  
+  const user = toAppUser(rows[0]);
+  if (rows[0].needs_username_setup) {
+    (user as any).needsUsernameSetup = true;
+  }
+  return user;
 }
 
 async function requireAdmin(sessionToken: string): Promise<Result<AppUser>> {

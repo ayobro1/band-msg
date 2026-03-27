@@ -71,14 +71,14 @@
 <!-- svelte-ignore a11y_click_events_have_key_events -->
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
-  class="fixed inset-0 bg-black/80 z-[200] flex items-end md:items-center md:justify-center"
+  class="fixed inset-0 bg-black/80 z-[200] flex items-end md:items-center md:justify-center animate-fade-in"
   style="padding-top: env(safe-area-inset-top);"
   on:click={onClose}
 >
   <!-- svelte-ignore a11y_click_events_have_key_events -->
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div
-    class="bg-black border-t border-white/10 md:border md:rounded-2xl w-full md:max-w-lg md:max-h-[85vh] flex flex-col rounded-t-2xl max-h-[92vh]"
+    class="bg-black border-t border-white/10 md:border md:rounded-2xl w-full md:max-w-lg md:max-h-[85vh] flex flex-col rounded-t-2xl max-h-[92vh] animate-slide-up md:animate-scale-in"
     on:click|stopPropagation
   >
     <!-- Header -->
@@ -88,7 +88,7 @@
         <button
           type="button"
           on:click={() => showCreateForm = !showCreateForm}
-          class="px-3 py-1.5 bg-white text-black rounded-lg hover:bg-white/90 transition-colors text-sm font-medium"
+          class="px-3 py-1.5 bg-white text-black rounded-lg hover:bg-white/90 transition-all duration-200 text-sm font-medium hover:scale-105 active:scale-95"
         >
           {showCreateForm ? 'Cancel' : '+ New'}
         </button>
@@ -109,7 +109,7 @@
     <!-- Content -->
     <div class="flex-1 overflow-y-auto p-4 scrollbar-hide" style="padding-bottom: max(1rem, env(safe-area-inset-bottom));">
       {#if showCreateForm}
-        <div class="bg-white/5 border border-white/8 rounded-xl p-4 mb-4">
+        <div class="bg-white/5 border border-white/8 rounded-xl p-4 mb-4 animate-slide-down">
           <h3 class="text-sm font-semibold text-white/70 uppercase tracking-wide mb-3">Create Event</h3>
           <div class="space-y-3">
             <div>
@@ -157,7 +157,7 @@
             <button
               type="button"
               on:click={createEvent}
-              class="w-full px-4 py-2.5 bg-white text-black rounded-xl hover:bg-white/90 transition-colors font-semibold text-sm mt-1"
+              class="w-full px-4 py-2.5 bg-white text-black rounded-xl hover:bg-white/90 transition-all duration-200 font-semibold text-sm mt-1 hover:scale-[1.02] active:scale-98"
             >
               Create Event
             </button>
@@ -181,9 +181,9 @@
           <p class="text-xs text-white/20 mt-1">Tap + New to create one</p>
         </div>
       {:else}
-        <div class="space-y-2">
+        <div class="space-y-2 stagger-fade-in">
           {#each events as event}
-            <div class="bg-white/5 border border-white/8 rounded-xl p-3.5">
+            <div class="bg-white/5 border border-white/8 rounded-xl p-3.5 hover:bg-white/8 transition-all duration-200 hover-lift">
               <h3 class="font-semibold text-white text-sm mb-1">{event.title}</h3>
               {#if event.description}
                 <p class="text-xs text-white/50 mb-2 leading-relaxed">{event.description}</p>

@@ -2,6 +2,7 @@
   import { channelStore } from '../stores/channels';
   import { messageStore } from '../stores/messages';
   import { authStore } from '../stores/auth';
+  import { apiPost } from '../utils/api';
   import CreateChannel from './CreateChannel.svelte';
   import ChannelSettings from './ChannelSettings.svelte';
 
@@ -28,11 +29,7 @@
     e.stopPropagation();
     try {
       const isMuted = mutedChannelIds.has(channelId);
-      const res = await fetch(`/api/channels/${channelId}/mute`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ muted: !isMuted })
-      });
+      const res = await apiPost(`/api/channels/${channelId}/mute`, { muted: !isMuted });
       if (res.ok) {
         if (isMuted) {
           mutedChannelIds.delete(channelId);
@@ -93,7 +90,7 @@
           Text Channels
         </h3>
         {#if $authStore.user?.role === 'admin'}
-          <button type="button" on:click|stopPropagation={() => showCreateChannel = true} class="p-1 -mr-1 text-white/30 hover:text-white transition-colors touch-manipulation" aria-label="Create Channel">
+          <button type="button" on:click|stopPropagation={() => showCreateChannel = true} class="p-1 -mr-1 text-white/30 hover:text-white transition-all duration-200 hover:scale-110 active:scale-95 touch-manipulation" aria-label="Create Channel">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <line x1="12" y1="5" x2="12" y2="19" />
               <line x1="5" y1="12" x2="19" y2="12" />
@@ -108,7 +105,7 @@
             tabindex="0"
             on:click={() => selectChannel(channel.id)}
             on:keydown={(e) => e.key === 'Enter' && selectChannel(channel.id)}
-            class="group flex items-center justify-between w-full px-2 py-1.5 rounded-lg transition-colors overflow-hidden {$channelStore.selectedChannelId === channel.id ? 'bg-white/10 text-white' : 'text-white/50 hover:bg-white/5 hover:text-white/70'}"
+            class="group flex items-center justify-between w-full px-2 py-1.5 rounded-lg transition-all duration-200 overflow-hidden hover:scale-[1.02] active:scale-98 {$channelStore.selectedChannelId === channel.id ? 'bg-white/10 text-white' : 'text-white/50 hover:bg-white/5 hover:text-white/70'}"
           >
             <div class="flex items-center gap-2 truncate">
               {#if channel['isPrivate']}
@@ -124,11 +121,11 @@
               <span class="text-[14px] font-medium truncate">{channel.name}</span>
             </div>
 
-            <div class="flex items-center opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+            <div class="flex items-center opacity-0 group-hover:opacity-100 transition-all duration-200 shrink-0">
               {#if $authStore.user?.role === 'admin' && channel['isPrivate']}
                 <button 
                   on:click={(e) => openSettings(e, channel)}
-                  class="p-1 text-white/40 hover:text-white rounded mix-blend-screen"
+                  class="p-1 text-white/40 hover:text-white rounded mix-blend-screen transition-all duration-200 hover:scale-110 active:scale-95"
                   aria-label="Channel Settings"
                   title="Channel Settings"
                 >
@@ -140,7 +137,7 @@
               {/if}
               <button 
                 on:click={(e) => toggleMute(e, channel.id)}
-                class="p-1 text-white/40 hover:text-white rounded mix-blend-screen {mutedChannelIds.has(channel.id) ? 'text-white opacity-100' : ''}"
+                class="p-1 text-white/40 hover:text-white rounded mix-blend-screen transition-all duration-200 hover:scale-110 active:scale-95 {mutedChannelIds.has(channel.id) ? 'text-white opacity-100' : ''}"
                 aria-label={mutedChannelIds.has(channel.id) ? "Unmute Channel" : "Mute Channel"}
                 title={mutedChannelIds.has(channel.id) ? "Unmute Channel" : "Mute Channel"}
               >
