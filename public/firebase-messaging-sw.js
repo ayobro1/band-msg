@@ -1,9 +1,14 @@
 // Firebase Cloud Messaging Service Worker
-// Auto-generated from environment variables - DO NOT EDIT MANUALLY
+// This file is auto-generated - do not edit manually
+// Keys are public client keys (not secrets) but restricted by domain
+
 importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js');
 
-// Initialize Firebase in the service worker
+// Firebase config - these are public client keys, secured by:
+// 1. API key restrictions (domain whitelist)
+// 2. Firebase Security Rules
+// 3. Not secrets - designed to be in client code
 firebase.initializeApp({
   apiKey: "AIzaSyAHNjaVYDIbSk3QCPRsOUZGAzkl1ThmwLw",
   authDomain: "band-project-30472.firebaseapp.com",
