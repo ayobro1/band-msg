@@ -15,7 +15,7 @@
     "@neondatabase/serverless": "^1.0.1",
     "@react-stately/utils": "^3.11.0",
     "@sveltejs/adapter-vercel": "^6.3.3",
-    "@sveltejs/kit": "2.53.4",
+    "@sveltejs/kit": "2.57.1",
     "@tailwindcss/typography": "^0.5.19",
     "@types/ws": "^8.18.1",
     "@untitledui/icons": "^0.0.21",
